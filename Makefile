@@ -1,4 +1,4 @@
-.PHONY: run build dev deps sqlc migrate-up migrate-down migrate-create docker-up docker-down
+.PHONY: run build dev deps sqlc migrate\:up migrate\:down migrate\:create docker\:up docker\:down
 
 # Run the server
 run:
@@ -23,18 +23,18 @@ sqlc:
 	@sqlc generate
 
 # Database migrations
-migrate-up:
-	@goose -dir migrations postgres "$(DATABASE_URL)" up
+migrate\:up:
+	@goose -dir internal/migrations postgres "$(DATABASE_URL)" up
 
-migrate-down:
-	@goose -dir migrations postgres "$(DATABASE_URL)" down
+migrate\:down:
+	@goose -dir internal/migrations postgres "$(DATABASE_URL)" down
 
-migrate-create:
-	@goose -dir migrations create $(name) sql
+migrate\:create:
+	@goose -dir internal/migrations create $(name) sql
 
 # Docker
-docker-up:
+docker\:up:
 	@docker compose up -d
 
-docker-down:
+docker\:down:
 	@docker compose down
