@@ -315,15 +315,17 @@ CREATE TABLE password_reset_tokens (
 ### P0-005: Email Service Integration
 **Dependency:** P0-004
 
-Integrate Postmark for transactional emails.
+Integrate email service for transactional emails (SMTP for Mailhog in dev, Postmark SMTP in prod).
 
 **Tasks:**
-- [ ] Create `/workspaces/lukaut/internal/email/email.go` with EmailService interface
-- [ ] Create `/workspaces/lukaut/internal/email/postmark.go` implementation
-- [ ] Create `/workspaces/lukaut/internal/email/mock.go` for development
-- [ ] Add email templates for verification and password reset
-- [ ] Add configuration for Postmark API token
-- [ ] Create email template files in `/workspaces/lukaut/web/templates/email/`
+- [x] Create `/home/dukerupert/Repos/lukaut/internal/email/email.go` with EmailService interface
+- [x] Create `/home/dukerupert/Repos/lukaut/internal/email/smtp.go` SMTP implementation
+- [x] Add SMTP configuration to config.go (defaults to Mailhog for dev)
+- [x] Add email templates for verification, password reset, and report ready
+- [x] Create email template files in `/home/dukerupert/Repos/lukaut/web/templates/email/`
+- [x] Wire up email service in main.go
+- [x] Update auth handler to send verification emails on registration
+- [x] Update auth handler to send verification emails on resend request
 
 **Interface Definition:**
 ```go
@@ -335,9 +337,13 @@ type EmailService interface {
 ```
 
 **Acceptance Criteria:**
-- Emails send successfully via Postmark
-- Development mode uses mock that logs emails
-- Email templates use brand styling
+- [x] Emails send successfully via SMTP (Mailhog in dev)
+- [x] Development mode uses Mailhog (localhost:1025)
+- [x] Email templates use brand styling (forest, gold, cream, clay colors)
+- [x] Verification emails sent on registration
+- [x] Verification emails sent on resend request
+
+**Status: COMPLETE**
 
 ---
 

@@ -13,6 +13,17 @@ type Config struct {
 	Port        int
 	LogLevel    string
 	DatabaseUrl string
+
+	// SMTP Configuration
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUsername string
+	SMTPPassword string
+	SMTPFrom     string
+	SMTPFromName string
+
+	// Application base URL (for email links)
+	BaseURL string
 }
 
 func NewConfig() (*Config, error) {
@@ -23,6 +34,17 @@ func NewConfig() (*Config, error) {
 		Env:      getEnv("ENV", "development"),
 		Port:     getEnvInt("PORT", 8080),
 		LogLevel: getEnv("LOG_LEVEL", "debug"),
+
+		// SMTP defaults for Mailhog (development)
+		SMTPHost:     getEnv("SMTP_HOST", "localhost"),
+		SMTPPort:     getEnvInt("SMTP_PORT", 1025),
+		SMTPUsername: getEnv("SMTP_USERNAME", ""),
+		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:     getEnv("SMTP_FROM", "noreply@lukaut.com"),
+		SMTPFromName: getEnv("SMTP_FROM_NAME", "Lukaut"),
+
+		// Base URL defaults to localhost for development
+		BaseURL: getEnv("BASE_URL", "http://localhost:8080"),
 	}
 
 	// Required

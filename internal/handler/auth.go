@@ -5,13 +5,17 @@
 package handler
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/DukeRupert/lukaut/internal/domain"
+	"github.com/DukeRupert/lukaut/internal/email"
 	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/google/uuid"
 )
 
 // =============================================================================
@@ -52,6 +56,7 @@ type TemplateRenderer interface {
 //
 // Dependencies:
 // - userService: Business logic for user operations (registration, login, logout)
+// - emailService: Service for sending transactional emails
 // - renderer: Template rendering for HTML responses
 // - logger: Structured logging for request handling
 // - isSecure: Whether to set Secure flag on cookies (true in production)
@@ -63,34 +68,38 @@ type TemplateRenderer interface {
 // - POST /login    -> Login
 // - POST /logout   -> Logout
 type AuthHandler struct {
-	userService service.UserService
-	renderer    TemplateRenderer
-	logger      *slog.Logger
-	isSecure    bool
+	userService  service.UserService
+	emailService email.EmailService
+	renderer     TemplateRenderer
+	logger       *slog.Logger
+	isSecure     bool
 }
 
 // NewAuthHandler creates a new AuthHandler with the required dependencies.
 //
 // Parameters:
 // - userService: Service for user-related operations
+// - emailService: Service for sending transactional emails
 // - renderer: Template renderer for HTML pages
 // - logger: Structured logger for request logging
 // - isSecure: Set to true in production (enables Secure cookie flag)
 //
 // Example usage in main.go:
 //
-//	authHandler := handler.NewAuthHandler(userService, renderer, logger, cfg.Env != "development")
+//	authHandler := handler.NewAuthHandler(userService, emailService, renderer, logger, cfg.Env != "development")
 func NewAuthHandler(
 	userService service.UserService,
+	emailService email.EmailService,
 	renderer TemplateRenderer,
 	logger *slog.Logger,
 	isSecure bool,
 ) *AuthHandler {
 	return &AuthHandler{
-		userService: userService,
-		renderer:    renderer,
-		logger:      logger,
-		isSecure:    isSecure,
+		userService:  userService,
+		emailService: emailService,
+		renderer:     renderer,
+		logger:       logger,
+		isSecure:     isSecure,
 	}
 }
 
@@ -297,7 +306,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call UserService.Register
-	_, err := h.userService.Register(r.Context(), domain.RegisterParams{
+	user, err := h.userService.Register(r.Context(), domain.RegisterParams{
 		Email:    email,
 		Password: password,
 		Name:     name,
@@ -326,6 +335,9 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	// Create verification token and send email
+	go h.sendVerificationEmail(r.Context(), user.ID, user.Email, user.Name)
 
 	// Registration successful - log the user in automatically
 	loginResult, err := h.userService.Login(r.Context(), email, password)
@@ -637,6 +649,53 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // =============================================================================
+// Email Helpers
+// =============================================================================
+
+// sendVerificationEmail creates a verification token and sends the verification email.
+//
+// This is run asynchronously (via goroutine) to not block the HTTP response.
+// The context passed should be from the original request; we create a new
+// background context with timeout for the async operation.
+//
+// Parameters:
+// - ctx: Original request context (used only to capture any relevant values)
+// - userID: ID of the user to send verification to
+// - email: User's email address
+// - name: User's name for personalization
+func (h *AuthHandler) sendVerificationEmail(ctx context.Context, userID uuid.UUID, emailAddr, name string) {
+	// Create a new context with timeout for the async operation
+	asyncCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Create verification token
+	result, err := h.userService.CreateEmailVerificationToken(asyncCtx, userID)
+	if err != nil {
+		h.logger.Error("failed to create verification token",
+			"error", err,
+			"user_id", userID,
+			"email", emailAddr,
+		)
+		return
+	}
+
+	// Send the verification email
+	if err := h.emailService.SendVerificationEmail(asyncCtx, emailAddr, name, result.Token); err != nil {
+		h.logger.Error("failed to send verification email",
+			"error", err,
+			"user_id", userID,
+			"email", emailAddr,
+		)
+		return
+	}
+
+	h.logger.Info("verification email sent",
+		"user_id", userID,
+		"email", emailAddr,
+	)
+}
+
+// =============================================================================
 // Session Cookie Helpers
 // =============================================================================
 
@@ -888,7 +947,8 @@ func (h *AuthHandler) renderVerifyEmailError(w http.ResponseWriter, r *http.Requ
 // Flow:
 // 1. Parse and validate email
 // 2. Call userService.ResendVerificationEmail(email)
-// 3. Always show success message (don't reveal if email exists)
+// 3. Send email if token created successfully
+// 4. Always show success message (don't reveal if email exists)
 //
 // Security Notes:
 // - Always show success message regardless of whether email exists
@@ -902,22 +962,35 @@ func (h *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Request)
 	}
 
 	// 2. Get email
-	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
-	if email == "" {
+	emailAddr := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+	if emailAddr == "" {
 		h.renderResendVerificationError(w, r, "Email is required")
 		return
 	}
 
 	// 3. Call UserService.ResendVerificationEmail
-	_, err := h.userService.ResendVerificationEmail(r.Context(), email)
+	result, err := h.userService.ResendVerificationEmail(r.Context(), emailAddr)
 	if err != nil {
 		// Log error but show generic success (prevents enumeration)
-		h.logger.Debug("resend verification failed", "error", err, "email", email)
+		h.logger.Debug("resend verification failed", "error", err, "email", emailAddr)
 	} else {
-		// TODO: Actually send the email via EmailService
-		// This will be implemented in P0-005 (Email Service Integration)
-		// emailService.SendVerificationEmail(ctx, email, user.Name, result.Token)
-		h.logger.Info("verification email requested", "email", email)
+		// Get user name for the email (we need to look it up)
+		user, err := h.userService.GetByID(r.Context(), result.UserID)
+		if err != nil {
+			h.logger.Error("failed to get user for resend verification", "error", err, "user_id", result.UserID)
+		} else {
+			// Send the email asynchronously
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+
+				if err := h.emailService.SendVerificationEmail(ctx, emailAddr, user.Name, result.Token); err != nil {
+					h.logger.Error("failed to send verification email", "error", err, "email", emailAddr)
+				} else {
+					h.logger.Info("verification email sent", "email", emailAddr)
+				}
+			}()
+		}
 	}
 
 	// 4. Always show success (don't reveal if email exists)

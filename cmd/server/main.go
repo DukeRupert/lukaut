@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/DukeRupert/lukaut/internal"
+	"github.com/DukeRupert/lukaut/internal/email"
 	"github.com/DukeRupert/lukaut/internal/handler"
 	"github.com/DukeRupert/lukaut/internal/middleware"
 	"github.com/DukeRupert/lukaut/internal/repository"
@@ -65,12 +66,31 @@ func run() error {
 	// Initialize services
 	userService := service.NewUserService(repo, logger)
 
+	// Initialize email service
+	emailService, err := email.NewSMTPEmailService(
+		email.SMTPConfig{
+			Host:     cfg.SMTPHost,
+			Port:     cfg.SMTPPort,
+			Username: cfg.SMTPUsername,
+			Password: cfg.SMTPPassword,
+			From:     cfg.SMTPFrom,
+			FromName: cfg.SMTPFromName,
+		},
+		cfg.BaseURL,
+		"web/templates/email",
+		logger,
+	)
+	if err != nil {
+		return fmt.Errorf("email service initialization failed: %w", err)
+	}
+	logger.Info("Email service initialized", "host", cfg.SMTPHost, "port", cfg.SMTPPort)
+
 	// Initialize middleware
 	isSecure := cfg.Env != "development"
 	authMw := middleware.NewAuthMiddleware(userService, logger, isSecure)
 
 	// Initialize handlers
-	authHandler := handler.NewAuthHandler(userService, renderer, logger, isSecure)
+	authHandler := handler.NewAuthHandler(userService, emailService, renderer, logger, isSecure)
 
 	// ==========================================================================
 	// Create router and register routes

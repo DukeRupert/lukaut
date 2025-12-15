@@ -171,6 +171,38 @@ func (m *mockRenderer) RenderHTTP(w http.ResponseWriter, templateName string, da
 }
 
 // =============================================================================
+// Mock Email Service Implementation
+// =============================================================================
+
+// mockEmailService implements the email.EmailService interface for testing.
+type mockEmailService struct {
+	SendVerificationEmailFunc  func(ctx context.Context, to, name, token string) error
+	SendPasswordResetEmailFunc func(ctx context.Context, to, name, token string) error
+	SendReportReadyEmailFunc   func(ctx context.Context, to, name, reportURL string) error
+}
+
+func (m *mockEmailService) SendVerificationEmail(ctx context.Context, to, name, token string) error {
+	if m.SendVerificationEmailFunc != nil {
+		return m.SendVerificationEmailFunc(ctx, to, name, token)
+	}
+	return nil // Default: no-op for tests
+}
+
+func (m *mockEmailService) SendPasswordResetEmail(ctx context.Context, to, name, token string) error {
+	if m.SendPasswordResetEmailFunc != nil {
+		return m.SendPasswordResetEmailFunc(ctx, to, name, token)
+	}
+	return nil
+}
+
+func (m *mockEmailService) SendReportReadyEmail(ctx context.Context, to, name, reportURL string) error {
+	if m.SendReportReadyEmailFunc != nil {
+		return m.SendReportReadyEmailFunc(ctx, to, name, reportURL)
+	}
+	return nil
+}
+
+// =============================================================================
 // Test Helpers
 // =============================================================================
 
@@ -183,7 +215,7 @@ func newTestLogger() *slog.Logger {
 
 // newTestAuthHandler creates an AuthHandler with mock dependencies for testing.
 func newTestAuthHandler(mock *mockUserService, renderer *mockRenderer) *AuthHandler {
-	return NewAuthHandler(mock, renderer, newTestLogger(), false)
+	return NewAuthHandler(mock, &mockEmailService{}, renderer, newTestLogger(), false)
 }
 
 // =============================================================================
