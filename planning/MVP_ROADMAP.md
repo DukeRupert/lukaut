@@ -156,14 +156,14 @@ An inspector can:
 Create the HTML template infrastructure with base layouts, partials, and Tailwind CSS integration.
 
 **Tasks:**
-- [ ] Create `/workspaces/lukaut/web/templates/layouts/base.html` with HTML5 boilerplate
-- [ ] Create `/workspaces/lukaut/web/templates/layouts/app.html` (authenticated layout)
-- [ ] Create `/workspaces/lukaut/web/templates/layouts/auth.html` (login/register layout)
-- [ ] Set up Tailwind CSS with brand colors from BRAND.md
-- [ ] Create `/workspaces/lukaut/tailwind.config.js` with forest, gold, clay, cream colors
-- [ ] Create `/workspaces/lukaut/web/static/css/input.css` with Tailwind directives
-- [ ] Add template parsing to server startup
-- [ ] Create template helper functions (csrf, formatDate, etc.)
+- [x] Create `/workspaces/lukaut/web/templates/layouts/base.html` with HTML5 boilerplate
+- [x] Create `/workspaces/lukaut/web/templates/layouts/app.html` (authenticated layout)
+- [x] Create `/workspaces/lukaut/web/templates/layouts/auth.html` (login/register layout)
+- [x] Set up Tailwind CSS with brand colors from BRAND.md
+- [x] Create `/workspaces/lukaut/tailwind.config.js` with forest, gold, clay, cream colors
+- [x] Create `/workspaces/lukaut/web/static/css/input.css` with Tailwind directives
+- [x] Add template parsing to server startup
+- [x] Create template helper functions (csrf, formatDate, etc.)
 
 **Files to create:**
 ```
@@ -187,9 +187,11 @@ web/
 ```
 
 **Acceptance Criteria:**
-- Server renders a styled home page at `/`
-- Tailwind build produces output.css
-- Brand colors are available as Tailwind classes
+- [x] Server renders a styled home page at `/`
+- [x] Tailwind build produces output.css
+- [x] Brand colors are available as Tailwind classes
+
+**Status: COMPLETE**
 
 ---
 
@@ -199,14 +201,14 @@ web/
 Implement the user service with password hashing, session management, and middleware.
 
 **Tasks:**
-- [ ] Create `/workspaces/lukaut/internal/service/user.go` with UserService interface
-- [ ] Implement password hashing with bcrypt
-- [ ] Implement session token generation (32 bytes, crypto/rand)
-- [ ] Implement session token hashing (SHA-256)
-- [ ] Create `/workspaces/lukaut/internal/middleware/auth.go`
-- [ ] Implement `WithUser` middleware (loads user from session cookie)
-- [ ] Implement `RequireUser` middleware (blocks unauthenticated requests)
-- [ ] Add cookie configuration (HttpOnly, Secure, SameSite=Lax)
+- [x] Create `/workspaces/lukaut/internal/service/user.go` with UserService interface
+- [x] Implement password hashing with bcrypt
+- [x] Implement session token generation (32 bytes, crypto/rand)
+- [x] Implement session token hashing (SHA-256)
+- [x] Create `/workspaces/lukaut/internal/middleware/auth.go`
+- [x] Implement `WithUser` middleware (loads user from session cookie)
+- [x] Implement `RequireUser` middleware (blocks unauthenticated requests)
+- [x] Add cookie configuration (HttpOnly, Secure, SameSite=Lax)
 
 **Interface Definition:**
 ```go
@@ -220,9 +222,11 @@ type UserService interface {
 ```
 
 **Acceptance Criteria:**
-- Passwords are hashed with bcrypt cost 12
-- Session tokens are cryptographically secure
-- Cookies are properly configured for security
+- [x] Passwords are hashed with bcrypt cost 12
+- [x] Session tokens are cryptographically secure
+- [x] Cookies are properly configured for security
+
+**Status: COMPLETE**
 
 ---
 
@@ -236,11 +240,11 @@ Create the HTTP handlers and templates for registration, login, and logout.
 - [ ] Implement GET/POST `/register` handler
 - [ ] Implement GET/POST `/login` handler
 - [ ] Implement POST `/logout` handler
-- [ ] Create `/workspaces/lukaut/web/templates/pages/auth/register.html`
-- [ ] Create `/workspaces/lukaut/web/templates/pages/auth/login.html`
+- [x] Create `/workspaces/lukaut/web/templates/pages/auth/register.html`
+- [x] Create `/workspaces/lukaut/web/templates/pages/auth/login.html`
 - [ ] Add form validation with error display
 - [ ] Add CSRF protection
-- [ ] Add flash messages for success/error states
+- [x] Add flash messages for success/error states
 
 **Routes:**
 ```
@@ -404,11 +408,11 @@ Create the main dashboard that users see after login.
 
 **Tasks:**
 - [ ] Create `/workspaces/lukaut/internal/handler/dashboard.go`
-- [ ] Create `/workspaces/lukaut/web/templates/pages/dashboard.html`
+- [x] Create `/workspaces/lukaut/web/templates/pages/dashboard.html`
 - [ ] Show recent inspections (last 10)
 - [ ] Show quick stats (total inspections, reports generated)
-- [ ] Add "New Inspection" CTA button
-- [ ] Implement empty state for new users
+- [x] Add "New Inspection" CTA button
+- [x] Implement empty state for new users
 
 **Route:**
 ```
