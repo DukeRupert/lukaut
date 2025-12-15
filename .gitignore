@@ -39,3 +39,7 @@ node_modules/
 
 # Local storage (dev)
 uploads/
+
+# Air hot reload
+.air.toml
+tmp/

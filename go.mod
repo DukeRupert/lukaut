@@ -3,8 +3,11 @@ module github.com/DukeRupert/lukaut
 go 1.25.4
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
+	github.com/joho/godotenv v1.5.1
 	github.com/pressly/goose/v3 v3.26.0
+	github.com/sqlc-dev/pqtype v0.3.0
 )
 
 require (

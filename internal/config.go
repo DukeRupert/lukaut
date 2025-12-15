@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -14,6 +16,9 @@ type Config struct {
 }
 
 func NewConfig() (*Config, error) {
+	// Load .env file if it exists (ignored in production)
+	_ = godotenv.Load()
+
 	cfg := &Config{
 		Env:      getEnv("ENV", "development"),
 		Port:     getEnvInt("PORT", 8080),
