@@ -758,11 +758,13 @@ func isSafeRedirectURL(rawURL string) bool {
 // RegisterRoutes registers all auth routes on the provided ServeMux.
 //
 // Routes registered:
-// - GET  /register -> ShowRegister
-// - POST /register -> Register
-// - GET  /login    -> ShowLogin
-// - POST /login    -> Login
-// - POST /logout   -> Logout
+// - GET  /register            -> ShowRegister
+// - POST /register            -> Register
+// - GET  /login               -> ShowLogin
+// - POST /login               -> Login
+// - POST /logout              -> Logout
+// - GET  /verify-email        -> ShowVerifyEmail (email verification link handler)
+// - POST /resend-verification -> ResendVerification (request new verification email)
 //
 // Usage in main.go:
 //
@@ -776,12 +778,170 @@ func isSafeRedirectURL(rawURL string) bool {
 //	mux.HandleFunc("GET /login", authHandler.ShowLogin)
 //	mux.HandleFunc("POST /login", authHandler.Login)
 //	mux.HandleFunc("POST /logout", authHandler.Logout)
+//	mux.HandleFunc("GET /verify-email", authHandler.ShowVerifyEmail)
+//	mux.HandleFunc("POST /resend-verification", authHandler.ResendVerification)
 func (h *AuthHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /register", h.ShowRegister)
 	mux.HandleFunc("POST /register", h.Register)
 	mux.HandleFunc("GET /login", h.ShowLogin)
 	mux.HandleFunc("POST /login", h.Login)
 	mux.HandleFunc("POST /logout", h.Logout)
+
+	// Email verification routes (P0-004, P0-005)
+	mux.HandleFunc("GET /verify-email", h.ShowVerifyEmail)
+	mux.HandleFunc("POST /resend-verification", h.ResendVerification)
+}
+
+// =============================================================================
+// GET /verify-email - Verify Email Token
+// =============================================================================
+
+// ShowVerifyEmail handles the email verification link click.
+//
+// Query Parameters:
+// - token (required): The raw verification token from the email link
+//
+// Template: auth/verify_email (shows success or error message)
+//
+// Flow:
+// 1. Extract token from query string
+// 2. Call userService.VerifyEmail(token)
+// 3. On success: Show success message with link to login
+// 4. On error: Show error message with option to resend
+//
+// Error Scenarios:
+// - Missing token -> "Invalid verification link"
+// - Invalid/expired token -> "Verification link expired"
+// - Already verified -> "Email already verified"
+//
+// Implementation Notes:
+// - This is a GET handler because email links should be clickable
+// - The token is validated server-side, so GET is safe
+// - Consider rate limiting to prevent token enumeration
+func (h *AuthHandler) ShowVerifyEmail(w http.ResponseWriter, r *http.Request) {
+	// 1. Get token from query string
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		h.renderVerifyEmailError(w, r, "Invalid verification link. Please check your email for the correct link.")
+		return
+	}
+
+	// 2. Call UserService.VerifyEmail
+	err := h.userService.VerifyEmail(r.Context(), token)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		switch code {
+		case domain.ENOTFOUND:
+			h.renderVerifyEmailError(w, r, "This verification link has expired or is invalid. Please request a new verification email.")
+		case domain.ECONFLICT:
+			h.renderVerifyEmailSuccess(w, r, "Your email is already verified. You can sign in to your account.")
+		default:
+			h.logger.Error("email verification failed", "error", err)
+			h.renderVerifyEmailError(w, r, "Verification failed. Please try again later.")
+		}
+		return
+	}
+
+	// 3. Success
+	h.renderVerifyEmailSuccess(w, r, "Your email has been verified! You can now sign in to your account.")
+}
+
+// VerifyEmailPageData contains data for the verify email template.
+type VerifyEmailPageData struct {
+	CurrentPath string
+	Success     bool   // true = verification succeeded, false = error
+	Message     string // Success or error message
+	CanResend   bool   // Show resend verification option
+}
+
+// renderVerifyEmailSuccess renders the verify email page with a success message.
+func (h *AuthHandler) renderVerifyEmailSuccess(w http.ResponseWriter, r *http.Request, message string) {
+	data := VerifyEmailPageData{
+		CurrentPath: r.URL.Path,
+		Success:     true,
+		Message:     message,
+		CanResend:   false,
+	}
+	h.renderer.RenderHTTP(w, "auth/verify_email", data)
+}
+
+// renderVerifyEmailError renders the verify email page with an error message.
+func (h *AuthHandler) renderVerifyEmailError(w http.ResponseWriter, r *http.Request, message string) {
+	data := VerifyEmailPageData{
+		CurrentPath: r.URL.Path,
+		Success:     false,
+		Message:     message,
+		CanResend:   true, // Allow user to request new verification email
+	}
+	h.renderer.RenderHTTP(w, "auth/verify_email", data)
+}
+
+// =============================================================================
+// POST /resend-verification - Request New Verification Email
+// =============================================================================
+
+// ResendVerification handles requests to resend the verification email.
+//
+// Form Fields:
+// - email (required): The email address to send verification to
+//
+// Flow:
+// 1. Parse and validate email
+// 2. Call userService.ResendVerificationEmail(email)
+// 3. Always show success message (don't reveal if email exists)
+//
+// Security Notes:
+// - Always show success message regardless of whether email exists
+// - This prevents email enumeration attacks
+// - Consider rate limiting to prevent abuse
+func (h *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Request) {
+	// 1. Parse form
+	if err := r.ParseForm(); err != nil {
+		h.renderResendVerificationError(w, r, "Invalid form submission")
+		return
+	}
+
+	// 2. Get email
+	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+	if email == "" {
+		h.renderResendVerificationError(w, r, "Email is required")
+		return
+	}
+
+	// 3. Call UserService.ResendVerificationEmail
+	_, err := h.userService.ResendVerificationEmail(r.Context(), email)
+	if err != nil {
+		// Log error but show generic success (prevents enumeration)
+		h.logger.Debug("resend verification failed", "error", err, "email", email)
+	} else {
+		// TODO: Actually send the email via EmailService
+		// This will be implemented in P0-005 (Email Service Integration)
+		// emailService.SendVerificationEmail(ctx, email, user.Name, result.Token)
+		h.logger.Info("verification email requested", "email", email)
+	}
+
+	// 4. Always show success (don't reveal if email exists)
+	h.renderResendVerificationSuccess(w, r)
+}
+
+// renderResendVerificationSuccess renders success message (always shown to prevent enumeration).
+func (h *AuthHandler) renderResendVerificationSuccess(w http.ResponseWriter, r *http.Request) {
+	data := map[string]interface{}{
+		"CurrentPath": r.URL.Path,
+		"Success":     true,
+		"Message":     "If an account exists with that email, a verification link has been sent.",
+	}
+	h.renderer.RenderHTTP(w, "auth/resend_verification", data)
+}
+
+// renderResendVerificationError renders error message for resend failures.
+func (h *AuthHandler) renderResendVerificationError(w http.ResponseWriter, r *http.Request, message string) {
+	data := map[string]interface{}{
+		"CurrentPath": r.URL.Path,
+		"Success":     false,
+		"Message":     message,
+	}
+	h.renderer.RenderHTTP(w, "auth/resend_verification", data)
 }
 
 // =============================================================================

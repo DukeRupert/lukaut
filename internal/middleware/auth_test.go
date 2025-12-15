@@ -62,6 +62,38 @@ func (m *mockUserService) DeleteExpiredSessions(ctx context.Context) error {
 	return errors.New("not implemented")
 }
 
+func (m *mockUserService) CreateEmailVerificationToken(ctx context.Context, userID uuid.UUID) (*domain.EmailVerificationResult, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockUserService) VerifyEmail(ctx context.Context, token string) error {
+	return errors.New("not implemented")
+}
+
+func (m *mockUserService) ResendVerificationEmail(ctx context.Context, email string) (*domain.EmailVerificationResult, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockUserService) DeleteExpiredEmailVerificationTokens(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockUserService) CreatePasswordResetToken(ctx context.Context, email string) (*domain.PasswordResetResult, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockUserService) ValidatePasswordResetToken(ctx context.Context, token string) (uuid.UUID, error) {
+	return uuid.Nil, errors.New("not implemented")
+}
+
+func (m *mockUserService) ResetPassword(ctx context.Context, params domain.ResetPasswordParams) error {
+	return errors.New("not implemented")
+}
+
+func (m *mockUserService) DeleteExpiredPasswordResetTokens(ctx context.Context) error {
+	return nil
+}
+
 // =============================================================================
 // Test Helpers
 // =============================================================================

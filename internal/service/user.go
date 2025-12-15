@@ -104,6 +104,58 @@ type UserService interface {
 	// DeleteExpiredSessions removes all expired sessions from the database.
 	// This should be called periodically (e.g., daily) to clean up.
 	DeleteExpiredSessions(ctx context.Context) error
+
+	// =========================================================================
+	// Email Verification Methods
+	// =========================================================================
+
+	// CreateEmailVerificationToken creates a new email verification token for a user.
+	// Returns the raw token (to send in email) and expiration time.
+	// Deletes any existing tokens for the user before creating a new one.
+	// This should be called after user registration or when user requests resend.
+	CreateEmailVerificationToken(ctx context.Context, userID uuid.UUID) (*domain.EmailVerificationResult, error)
+
+	// VerifyEmail validates an email verification token and marks the user as verified.
+	// Returns domain.ENOTFOUND if token is invalid or expired.
+	// Returns domain.ECONFLICT if user is already verified.
+	// On success: marks user email_verified=true, deletes the token.
+	VerifyEmail(ctx context.Context, token string) error
+
+	// ResendVerificationEmail creates a new verification token for an unverified user.
+	// Returns domain.ENOTFOUND if user does not exist.
+	// Returns domain.ECONFLICT if user is already verified.
+	// This is a convenience method that combines user lookup + token creation.
+	ResendVerificationEmail(ctx context.Context, email string) (*domain.EmailVerificationResult, error)
+
+	// DeleteExpiredEmailVerificationTokens removes all expired email verification tokens.
+	// This should be called periodically (e.g., daily) as a cleanup task.
+	DeleteExpiredEmailVerificationTokens(ctx context.Context) error
+
+	// =========================================================================
+	// Password Reset Methods
+	// =========================================================================
+
+	// CreatePasswordResetToken creates a new password reset token for a user.
+	// Returns the raw token (to send in email) and expiration time.
+	// Returns domain.ENOTFOUND if email does not exist (for security, caller
+	// should NOT expose this to end user - always show "if email exists..." message).
+	// Deletes any existing tokens for the user before creating a new one.
+	CreatePasswordResetToken(ctx context.Context, email string) (*domain.PasswordResetResult, error)
+
+	// ValidatePasswordResetToken checks if a password reset token is valid.
+	// Returns the associated user ID if valid.
+	// Returns domain.ENOTFOUND if token is invalid, expired, or already used.
+	// This is used to validate before showing the password reset form.
+	ValidatePasswordResetToken(ctx context.Context, token string) (uuid.UUID, error)
+
+	// ResetPassword validates the token and updates the user's password.
+	// Returns domain.ENOTFOUND if token is invalid, expired, or already used.
+	// On success: updates password, marks token as used, invalidates all sessions.
+	ResetPassword(ctx context.Context, params domain.ResetPasswordParams) error
+
+	// DeleteExpiredPasswordResetTokens removes all expired password reset tokens.
+	// This should be called periodically (e.g., daily) as a cleanup task.
+	DeleteExpiredPasswordResetTokens(ctx context.Context) error
 }
 
 // =============================================================================
@@ -726,6 +778,386 @@ func contains(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// =============================================================================
+// Email Verification Token Implementation
+// =============================================================================
+
+// CreateEmailVerificationToken creates a new email verification token for a user.
+//
+// Flow:
+// 1. Delete any existing verification tokens for user (one token per user)
+// 2. Generate cryptographically secure random token
+// 3. Hash token with SHA-256 for storage
+// 4. Store hashed token with expiration
+// 5. Return raw token (for email) and expiration
+//
+// Security Considerations:
+// - Raw token is returned only once (not stored anywhere in plaintext)
+// - Token is hashed before storage using same pattern as session tokens
+// - Caller is responsible for sending the raw token via email
+func (s *userService) CreateEmailVerificationToken(ctx context.Context, userID uuid.UUID) (*domain.EmailVerificationResult, error) {
+	const op = "UserService.CreateEmailVerificationToken"
+
+	// 1. Verify user exists
+	_, err := s.queries.GetUserByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.NotFound(op, "user", userID.String())
+		}
+		return nil, domain.Internal(err, op, "Failed to retrieve user")
+	}
+
+	// 2. Delete existing tokens for user (enforce one-token-per-user)
+	err = s.queries.DeleteUserEmailVerificationTokens(ctx, userID)
+	if err != nil {
+		return nil, domain.Internal(err, op, "Failed to delete existing tokens")
+	}
+
+	// 3. Generate random token (reuse generateSessionToken helper)
+	rawToken, err := generateSessionToken()
+	if err != nil {
+		return nil, domain.Internal(err, op, "Failed to generate token")
+	}
+
+	// 4. Hash the token
+	tokenHash := hashSessionToken(rawToken)
+
+	// 5. Calculate expiration
+	expiresAt := time.Now().Add(domain.EmailVerificationTokenDuration)
+
+	// 6. Store in database
+	_, err = s.queries.CreateEmailVerificationToken(ctx, repository.CreateEmailVerificationTokenParams{
+		UserID:    userID,
+		TokenHash: tokenHash,
+		ExpiresAt: expiresAt,
+	})
+	if err != nil {
+		return nil, domain.Internal(err, op, "Failed to create verification token")
+	}
+
+	// Log token creation
+	s.logger.Info("email verification token created", "user_id", userID)
+
+	// 7. Return result with raw token
+	return &domain.EmailVerificationResult{
+		Token:     rawToken,
+		ExpiresAt: expiresAt,
+		UserID:    userID,
+	}, nil
+}
+
+// VerifyEmail validates an email verification token and marks the user as verified.
+//
+// Flow:
+// 1. Hash the provided raw token
+// 2. Look up token by hash (query filters expired tokens)
+// 3. Verify user is not already verified (prevent double-verification)
+// 4. Mark user as email verified with timestamp
+// 5. Delete the used token
+//
+// Security Considerations:
+// - Token lookup is by hash, not raw token
+// - Expired tokens are filtered at query level
+// - Token is deleted after use (one-time use)
+func (s *userService) VerifyEmail(ctx context.Context, token string) error {
+	const op = "UserService.VerifyEmail"
+
+	// 1. Validate token format (should be 64 hex chars)
+	if len(token) != 64 {
+		return domain.Invalid(op, "Invalid verification token")
+	}
+
+	// 2. Hash the token
+	tokenHash := hashSessionToken(token)
+
+	// 3. Look up token (query filters expired)
+	verificationToken, err := s.queries.GetEmailVerificationTokenByHash(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.NotFound(op, "verification token", "")
+		}
+		return domain.Internal(err, op, "Failed to retrieve verification token")
+	}
+
+	// 4. Get the user
+	user, err := s.queries.GetUserByID(ctx, verificationToken.UserID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.NotFound(op, "user", verificationToken.UserID.String())
+		}
+		return domain.Internal(err, op, "Failed to retrieve user")
+	}
+
+	// 5. Check if already verified
+	if user.EmailVerified.Valid && user.EmailVerified.Bool {
+		return domain.Conflict(op, "Email is already verified")
+	}
+
+	// 6. Mark user as verified
+	err = s.queries.UpdateUserEmailVerification(ctx, repository.UpdateUserEmailVerificationParams{
+		ID:              user.ID,
+		EmailVerified:   sql.NullBool{Bool: true, Valid: true},
+		EmailVerifiedAt: sql.NullTime{Time: time.Now(), Valid: true},
+	})
+	if err != nil {
+		return domain.Internal(err, op, "Failed to mark email as verified")
+	}
+
+	// 7. Delete the used token
+	err = s.queries.DeleteEmailVerificationToken(ctx, tokenHash)
+	if err != nil {
+		// Log but don't fail - verification already succeeded
+		s.logger.Warn("failed to delete verification token after use", "error", err, "user_id", user.ID)
+	}
+
+	// 8. Log success
+	s.logger.Info("email verified", "user_id", user.ID, "email", user.Email)
+
+	return nil
+}
+
+// ResendVerificationEmail creates a new verification token for an unverified user.
+//
+// Flow:
+// 1. Look up user by email
+// 2. Check if already verified
+// 3. Create new verification token
+//
+// Security Considerations:
+// - Returns error if user not found (caller should use generic message to user)
+// - Returns error if already verified (no need to spam verified users)
+func (s *userService) ResendVerificationEmail(ctx context.Context, email string) (*domain.EmailVerificationResult, error) {
+	const op = "UserService.ResendVerificationEmail"
+
+	// 1. Normalize email
+	email = strings.ToLower(strings.TrimSpace(email))
+
+	// 2. Look up user
+	user, err := s.queries.GetUserByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.NotFound(op, "user", email)
+		}
+		return nil, domain.Internal(err, op, "Failed to retrieve user")
+	}
+
+	// 3. Check if already verified
+	if user.EmailVerified.Valid && user.EmailVerified.Bool {
+		return nil, domain.Conflict(op, "Email is already verified")
+	}
+
+	// 4. Create new token (delegates to CreateEmailVerificationToken)
+	return s.CreateEmailVerificationToken(ctx, user.ID)
+}
+
+// DeleteExpiredEmailVerificationTokens removes all expired email verification tokens.
+func (s *userService) DeleteExpiredEmailVerificationTokens(ctx context.Context) error {
+	const op = "UserService.DeleteExpiredEmailVerificationTokens"
+
+	err := s.queries.DeleteExpiredEmailVerificationTokens(ctx)
+	if err != nil {
+		return domain.Internal(err, op, "Failed to delete expired tokens")
+	}
+
+	s.logger.Info("expired email verification tokens cleaned up")
+	return nil
+}
+
+// =============================================================================
+// Password Reset Token Implementation
+// =============================================================================
+
+// CreatePasswordResetToken creates a new password reset token for a user.
+//
+// Flow:
+// 1. Look up user by email
+// 2. Delete any existing reset tokens for user
+// 3. Generate and hash new token
+// 4. Store token with short expiration (1 hour)
+// 5. Return raw token for email
+//
+// Security Considerations:
+// - Returns NotFound if email doesn't exist, but caller should NOT expose this
+//   to end user (always show "if account exists, we sent an email" message)
+// - Shorter expiration than email verification (1 hour vs 24 hours)
+// - Old tokens are deleted before creating new one
+func (s *userService) CreatePasswordResetToken(ctx context.Context, email string) (*domain.PasswordResetResult, error) {
+	const op = "UserService.CreatePasswordResetToken"
+
+	// 1. Normalize email
+	email = strings.ToLower(strings.TrimSpace(email))
+
+	// 2. Look up user
+	user, err := s.queries.GetUserByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.NotFound(op, "user", email)
+		}
+		return nil, domain.Internal(err, op, "Failed to retrieve user")
+	}
+
+	// 3. Delete existing tokens
+	err = s.queries.DeleteUserPasswordResetTokens(ctx, user.ID)
+	if err != nil {
+		return nil, domain.Internal(err, op, "Failed to delete existing tokens")
+	}
+
+	// 4. Generate random token
+	rawToken, err := generateSessionToken()
+	if err != nil {
+		return nil, domain.Internal(err, op, "Failed to generate token")
+	}
+
+	// 5. Hash the token
+	tokenHash := hashSessionToken(rawToken)
+
+	// 6. Calculate expiration (shorter than email verification)
+	expiresAt := time.Now().Add(domain.PasswordResetTokenDuration)
+
+	// 7. Store in database
+	_, err = s.queries.CreatePasswordResetToken(ctx, repository.CreatePasswordResetTokenParams{
+		UserID:    user.ID,
+		TokenHash: tokenHash,
+		ExpiresAt: expiresAt,
+	})
+	if err != nil {
+		return nil, domain.Internal(err, op, "Failed to create password reset token")
+	}
+
+	// Log token creation
+	s.logger.Info("password reset token created", "user_id", user.ID, "email", user.Email)
+
+	// 8. Return result
+	return &domain.PasswordResetResult{
+		Token:     rawToken,
+		ExpiresAt: expiresAt,
+		UserID:    user.ID,
+	}, nil
+}
+
+// ValidatePasswordResetToken checks if a password reset token is valid.
+//
+// Flow:
+// 1. Hash the provided token
+// 2. Look up by hash (query filters expired and used tokens)
+// 3. Return user ID if valid
+//
+// Security Considerations:
+// - Query filters both expired AND used tokens
+// - Does not mark token as used (that happens in ResetPassword)
+// - Used to validate before showing the password form
+func (s *userService) ValidatePasswordResetToken(ctx context.Context, token string) (uuid.UUID, error) {
+	const op = "UserService.ValidatePasswordResetToken"
+
+	// 1. Validate token format
+	if len(token) != 64 {
+		return uuid.Nil, domain.Invalid(op, "Invalid reset token")
+	}
+
+	// 2. Hash the token
+	tokenHash := hashSessionToken(token)
+
+	// 3. Look up token (query filters expired and used)
+	resetToken, err := s.queries.GetPasswordResetTokenByHash(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return uuid.Nil, domain.NotFound(op, "reset token", "")
+		}
+		return uuid.Nil, domain.Internal(err, op, "Failed to retrieve reset token")
+	}
+
+	// 4. Return user ID
+	return resetToken.UserID, nil
+}
+
+// ResetPassword validates the token and updates the user's password.
+//
+// Flow:
+// 1. Validate token (same as ValidatePasswordResetToken)
+// 2. Validate new password meets requirements
+// 3. Hash new password with bcrypt
+// 4. Update user's password
+// 5. Mark token as used (not deleted, for audit trail)
+// 6. Invalidate all user sessions
+//
+// Security Considerations:
+// - Token is validated again (race condition protection)
+// - Token is marked used, not deleted (audit trail)
+// - All sessions are invalidated (force re-authentication)
+// - New password is validated for strength
+func (s *userService) ResetPassword(ctx context.Context, params domain.ResetPasswordParams) error {
+	const op = "UserService.ResetPassword"
+
+	// 1. Validate token format
+	if len(params.Token) != 64 {
+		return domain.Invalid(op, "Invalid reset token")
+	}
+
+	// 2. Validate new password
+	if err := validatePassword(params.NewPassword); err != nil {
+		return domain.Wrap(err, domain.EINVALID, op, "Invalid new password")
+	}
+
+	// 3. Hash the token
+	tokenHash := hashSessionToken(params.Token)
+
+	// 4. Look up token
+	resetToken, err := s.queries.GetPasswordResetTokenByHash(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.NotFound(op, "reset token", "")
+		}
+		return domain.Internal(err, op, "Failed to retrieve reset token")
+	}
+
+	// 5. Hash new password
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(params.NewPassword), BcryptCost)
+	if err != nil {
+		return domain.Internal(err, op, "Failed to hash new password")
+	}
+
+	// 6. Update password
+	err = s.queries.UpdateUserPassword(ctx, repository.UpdateUserPasswordParams{
+		ID:           resetToken.UserID,
+		PasswordHash: string(passwordHash),
+	})
+	if err != nil {
+		return domain.Internal(err, op, "Failed to update password")
+	}
+
+	// 7. Mark token as used
+	err = s.queries.MarkPasswordResetTokenUsed(ctx, tokenHash)
+	if err != nil {
+		// Log but don't fail - password was already changed
+		s.logger.Warn("failed to mark reset token as used", "error", err, "user_id", resetToken.UserID)
+	}
+
+	// 8. Invalidate all sessions
+	err = s.queries.DeleteUserSessions(ctx, resetToken.UserID)
+	if err != nil {
+		// Log but don't fail - password was changed successfully
+		s.logger.Warn("failed to delete user sessions after password reset", "error", err, "user_id", resetToken.UserID)
+	}
+
+	// 9. Log success
+	s.logger.Info("password reset completed", "user_id", resetToken.UserID)
+
+	return nil
+}
+
+// DeleteExpiredPasswordResetTokens removes all expired password reset tokens.
+func (s *userService) DeleteExpiredPasswordResetTokens(ctx context.Context) error {
+	const op = "UserService.DeleteExpiredPasswordResetTokens"
+
+	err := s.queries.DeleteExpiredPasswordResetTokens(ctx)
+	if err != nil {
+		return domain.Internal(err, op, "Failed to delete expired tokens")
+	}
+
+	s.logger.Info("expired password reset tokens cleaned up")
+	return nil
 }
 
 // =============================================================================

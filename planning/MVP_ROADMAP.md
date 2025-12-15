@@ -274,12 +274,14 @@ POST /logout      -> Clear session, redirect to login
 Add database table and logic for email verification tokens.
 
 **Tasks:**
-- [ ] Create migration `/workspaces/lukaut/internal/migrations/00002_email_tokens.sql`
-- [ ] Add `email_verification_tokens` table
-- [ ] Add `password_reset_tokens` table
-- [ ] Create sqlc queries for token CRUD
-- [ ] Implement token generation and validation in UserService
-- [ ] Add verification status check in login flow
+- [x] Create migration `/workspaces/lukaut/internal/migrations/00002_email_tokens.sql`
+- [x] Add `email_verification_tokens` table
+- [x] Add `password_reset_tokens` table
+- [x] Create sqlc queries for token CRUD
+- [x] Implement token generation and validation in UserService
+- [x] Add handlers for /verify-email and /resend-verification
+- [x] Create verification templates (verify_email.html, resend_verification.html)
+- [ ] Add verification status check in login flow (deferred to P0-005)
 
 **Schema Addition:**
 ```sql
@@ -302,9 +304,11 @@ CREATE TABLE password_reset_tokens (
 ```
 
 **Acceptance Criteria:**
-- Tokens are stored as SHA-256 hashes
-- Tokens expire after configurable duration
-- Only one active token per user per type
+- [x] Tokens are stored as SHA-256 hashes
+- [x] Tokens expire after configurable duration (24h verification, 1h reset)
+- [x] Only one active token per user per type
+
+**Status: COMPLETE** (Email sending deferred to P0-005)
 
 ---
 

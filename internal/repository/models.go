@@ -25,6 +25,14 @@ type AiUsage struct {
 	CreatedAt    sql.NullTime  `json:"created_at"`
 }
 
+type EmailVerificationToken struct {
+	ID        uuid.UUID    `json:"id"`
+	UserID    uuid.UUID    `json:"user_id"`
+	TokenHash string       `json:"token_hash"`
+	ExpiresAt time.Time    `json:"expires_at"`
+	CreatedAt sql.NullTime `json:"created_at"`
+}
+
 type Image struct {
 	ID                  uuid.UUID      `json:"id"`
 	InspectionID        uuid.UUID      `json:"inspection_id"`
@@ -67,6 +75,15 @@ type Job struct {
 	CompletedAt  sql.NullTime    `json:"completed_at"`
 	ErrorMessage sql.NullString  `json:"error_message"`
 	CreatedAt    sql.NullTime    `json:"created_at"`
+}
+
+type PasswordResetToken struct {
+	ID        uuid.UUID    `json:"id"`
+	UserID    uuid.UUID    `json:"user_id"`
+	TokenHash string       `json:"token_hash"`
+	ExpiresAt time.Time    `json:"expires_at"`
+	UsedAt    sql.NullTime `json:"used_at"`
+	CreatedAt sql.NullTime `json:"created_at"`
 }
 
 type Regulation struct {

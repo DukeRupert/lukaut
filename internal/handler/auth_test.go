@@ -21,14 +21,22 @@ import (
 
 // mockUserService implements the service.UserService interface for testing.
 type mockUserService struct {
-	RegisterFunc              func(ctx context.Context, params domain.RegisterParams) (*domain.User, error)
-	LoginFunc                 func(ctx context.Context, email, password string) (*domain.LoginResult, error)
-	LogoutFunc                func(ctx context.Context, token string) error
-	GetByIDFunc               func(ctx context.Context, id uuid.UUID) (*domain.User, error)
-	GetBySessionTokenFunc     func(ctx context.Context, token string) (*domain.User, error)
-	UpdateProfileFunc         func(ctx context.Context, params domain.ProfileUpdateParams) error
-	ChangePasswordFunc        func(ctx context.Context, params domain.PasswordChangeParams) error
-	DeleteExpiredSessionsFunc func(ctx context.Context) error
+	RegisterFunc                           func(ctx context.Context, params domain.RegisterParams) (*domain.User, error)
+	LoginFunc                              func(ctx context.Context, email, password string) (*domain.LoginResult, error)
+	LogoutFunc                             func(ctx context.Context, token string) error
+	GetByIDFunc                            func(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	GetBySessionTokenFunc                  func(ctx context.Context, token string) (*domain.User, error)
+	UpdateProfileFunc                      func(ctx context.Context, params domain.ProfileUpdateParams) error
+	ChangePasswordFunc                     func(ctx context.Context, params domain.PasswordChangeParams) error
+	DeleteExpiredSessionsFunc              func(ctx context.Context) error
+	CreateEmailVerificationTokenFunc       func(ctx context.Context, userID uuid.UUID) (*domain.EmailVerificationResult, error)
+	VerifyEmailFunc                        func(ctx context.Context, token string) error
+	ResendVerificationEmailFunc            func(ctx context.Context, email string) (*domain.EmailVerificationResult, error)
+	DeleteExpiredEmailVerificationTokensFunc func(ctx context.Context) error
+	CreatePasswordResetTokenFunc           func(ctx context.Context, email string) (*domain.PasswordResetResult, error)
+	ValidatePasswordResetTokenFunc         func(ctx context.Context, token string) (uuid.UUID, error)
+	ResetPasswordFunc                      func(ctx context.Context, params domain.ResetPasswordParams) error
+	DeleteExpiredPasswordResetTokensFunc   func(ctx context.Context) error
 }
 
 func (m *mockUserService) Register(ctx context.Context, params domain.RegisterParams) (*domain.User, error) {
@@ -85,6 +93,62 @@ func (m *mockUserService) DeleteExpiredSessions(ctx context.Context) error {
 		return m.DeleteExpiredSessionsFunc(ctx)
 	}
 	return errors.New("DeleteExpiredSessionsFunc not implemented")
+}
+
+func (m *mockUserService) CreateEmailVerificationToken(ctx context.Context, userID uuid.UUID) (*domain.EmailVerificationResult, error) {
+	if m.CreateEmailVerificationTokenFunc != nil {
+		return m.CreateEmailVerificationTokenFunc(ctx, userID)
+	}
+	return nil, errors.New("CreateEmailVerificationTokenFunc not implemented")
+}
+
+func (m *mockUserService) VerifyEmail(ctx context.Context, token string) error {
+	if m.VerifyEmailFunc != nil {
+		return m.VerifyEmailFunc(ctx, token)
+	}
+	return errors.New("VerifyEmailFunc not implemented")
+}
+
+func (m *mockUserService) ResendVerificationEmail(ctx context.Context, email string) (*domain.EmailVerificationResult, error) {
+	if m.ResendVerificationEmailFunc != nil {
+		return m.ResendVerificationEmailFunc(ctx, email)
+	}
+	return nil, errors.New("ResendVerificationEmailFunc not implemented")
+}
+
+func (m *mockUserService) DeleteExpiredEmailVerificationTokens(ctx context.Context) error {
+	if m.DeleteExpiredEmailVerificationTokensFunc != nil {
+		return m.DeleteExpiredEmailVerificationTokensFunc(ctx)
+	}
+	return nil
+}
+
+func (m *mockUserService) CreatePasswordResetToken(ctx context.Context, email string) (*domain.PasswordResetResult, error) {
+	if m.CreatePasswordResetTokenFunc != nil {
+		return m.CreatePasswordResetTokenFunc(ctx, email)
+	}
+	return nil, errors.New("CreatePasswordResetTokenFunc not implemented")
+}
+
+func (m *mockUserService) ValidatePasswordResetToken(ctx context.Context, token string) (uuid.UUID, error) {
+	if m.ValidatePasswordResetTokenFunc != nil {
+		return m.ValidatePasswordResetTokenFunc(ctx, token)
+	}
+	return uuid.Nil, errors.New("ValidatePasswordResetTokenFunc not implemented")
+}
+
+func (m *mockUserService) ResetPassword(ctx context.Context, params domain.ResetPasswordParams) error {
+	if m.ResetPasswordFunc != nil {
+		return m.ResetPasswordFunc(ctx, params)
+	}
+	return errors.New("ResetPasswordFunc not implemented")
+}
+
+func (m *mockUserService) DeleteExpiredPasswordResetTokens(ctx context.Context) error {
+	if m.DeleteExpiredPasswordResetTokensFunc != nil {
+		return m.DeleteExpiredPasswordResetTokensFunc(ctx)
+	}
+	return nil
 }
 
 // =============================================================================
