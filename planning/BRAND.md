@@ -157,6 +157,7 @@ A simple geometric symbol suggesting oversight, vision, or protection—paired w
 - No thin lines that disappear at small sizes
 - No clip art or stock icon aesthetics
 - No "tech startup" clichés (swooshes, orbits, abstract nodes)
+- Avoid anything that feels like a "tech startup logo generator"
 
 ---
 

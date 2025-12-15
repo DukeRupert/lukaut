@@ -1,0 +1,84 @@
+{{define "title"}}Create an account{{end}}
+
+{{define "heading"}}Create your account{{end}}
+
+{{define "subheading"}}
+<p class="mt-2 text-center text-sm text-gray-600">
+    Start your 14-day free trial. No credit card required.
+</p>
+{{end}}
+
+{{define "content"}}
+<form class="space-y-6" action="/register" method="POST">
+    {{if .CSRFToken}}{{csrfField .CSRFToken}}{{end}}
+
+    <div>
+        <label for="name" class="block text-sm font-medium leading-6 text-gray-900">Full name</label>
+        <div class="mt-2">
+            <input id="name" name="name" type="text" autocomplete="name" required
+                   value="{{.Form.Name}}"
+                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 px-3">
+        </div>
+        {{if .Errors.name}}
+        <p class="mt-2 text-sm text-red-600">{{.Errors.name}}</p>
+        {{end}}
+    </div>
+
+    <div>
+        <label for="email" class="block text-sm font-medium leading-6 text-gray-900">Email address</label>
+        <div class="mt-2">
+            <input id="email" name="email" type="email" autocomplete="email" required
+                   value="{{.Form.Email}}"
+                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 px-3">
+        </div>
+        {{if .Errors.email}}
+        <p class="mt-2 text-sm text-red-600">{{.Errors.email}}</p>
+        {{end}}
+    </div>
+
+    <div>
+        <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Password</label>
+        <div class="mt-2">
+            <input id="password" name="password" type="password" autocomplete="new-password" required
+                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 px-3">
+        </div>
+        <p class="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
+        {{if .Errors.password}}
+        <p class="mt-2 text-sm text-red-600">{{.Errors.password}}</p>
+        {{end}}
+    </div>
+
+    <div>
+        <label for="password_confirmation" class="block text-sm font-medium leading-6 text-gray-900">Confirm password</label>
+        <div class="mt-2">
+            <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" required
+                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 px-3">
+        </div>
+        {{if .Errors.password_confirmation}}
+        <p class="mt-2 text-sm text-red-600">{{.Errors.password_confirmation}}</p>
+        {{end}}
+    </div>
+
+    <div class="flex items-start">
+        <input id="terms" name="terms" type="checkbox" required
+               class="h-4 w-4 rounded border-gray-300 text-forest focus:ring-forest mt-0.5">
+        <label for="terms" class="ml-3 block text-sm leading-6 text-gray-600">
+            I agree to the <a href="/terms" class="font-medium text-forest hover:text-forest/80">Terms of Service</a> and <a href="/privacy" class="font-medium text-forest hover:text-forest/80">Privacy Policy</a>
+        </label>
+    </div>
+
+    <div>
+        <button type="submit"
+                class="flex w-full justify-center rounded-md bg-forest px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-forest/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest transition-colors">
+            Create account
+        </button>
+    </div>
+</form>
+{{end}}
+
+{{define "footer"}}
+<p class="mt-10 text-center text-sm text-gray-500">
+    Already have an account?
+    <a href="/login" class="font-semibold leading-6 text-forest hover:text-forest/80">Sign in</a>
+</p>
+{{end}}

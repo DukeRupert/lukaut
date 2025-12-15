@@ -1,0 +1,96 @@
+{{define "public"}}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{block "title" .}}Lukaut{{end}} - AI-Powered Safety Inspections</title>
+    <meta name="description" content="Lukaut uses AI to analyze construction site photos, identify potential OSHA violations, and generate professional inspection reports.">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+
+    <!-- Tailwind CSS -->
+    <link rel="stylesheet" href="/static/css/output.css">
+
+    <!-- htmx -->
+    <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    {{block "head" .}}{{end}}
+</head>
+<body class="h-full bg-cream">
+    <!-- Navigation -->
+    <header class="bg-white shadow-sm" x-data="{ mobileMenuOpen: false }">
+        <nav class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8" aria-label="Top">
+            <div class="flex h-16 items-center justify-between">
+                <!-- Logo -->
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center">
+                        <span class="text-2xl font-bold text-forest">Lukaut</span>
+                    </a>
+                </div>
+
+                <!-- Desktop navigation -->
+                <div class="hidden md:flex md:items-center md:space-x-6">
+                    <a href="/#features" class="text-sm font-medium text-gray-700 hover:text-forest">Features</a>
+                    <a href="/#pricing" class="text-sm font-medium text-gray-700 hover:text-forest">Pricing</a>
+                    <a href="/login" class="text-sm font-medium text-gray-700 hover:text-forest">Sign in</a>
+                    <a href="/register" class="rounded-md bg-gold px-4 py-2 text-sm font-semibold text-forest shadow-sm hover:bg-gold/90 transition-colors">
+                        Get started
+                    </a>
+                </div>
+
+                <!-- Mobile menu button -->
+                <div class="flex md:hidden">
+                    <button type="button" @click="mobileMenuOpen = !mobileMenuOpen" class="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700">
+                        <span class="sr-only">Open main menu</span>
+                        <svg x-show="!mobileMenuOpen" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
+                        <svg x-show="mobileMenuOpen" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mobile menu -->
+            <div x-show="mobileMenuOpen" x-transition class="md:hidden">
+                <div class="space-y-1 pb-3 pt-2">
+                    <a href="/#features" class="block px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-forest">Features</a>
+                    <a href="/#pricing" class="block px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-forest">Pricing</a>
+                    <a href="/login" class="block px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-forest">Sign in</a>
+                    <a href="/register" class="block px-3 py-2 text-base font-medium text-forest hover:bg-gray-50">Get started</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main content -->
+    <main>
+        {{block "content" .}}{{end}}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-forest mt-24">
+        <div class="mx-auto max-w-7xl px-6 py-12 md:flex md:items-center md:justify-between lg:px-8">
+            <div class="flex justify-center space-x-6 md:order-2">
+                <a href="/terms" class="text-forest-200 hover:text-white text-sm">Terms of Service</a>
+                <a href="/privacy" class="text-forest-200 hover:text-white text-sm">Privacy Policy</a>
+                <a href="/contact" class="text-forest-200 hover:text-white text-sm">Contact</a>
+            </div>
+            <div class="mt-8 md:order-1 md:mt-0">
+                <p class="text-center text-xs leading-5 text-forest-200">
+                    &copy; {{year}} Lukaut. All rights reserved.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    {{block "scripts" .}}{{end}}
+</body>
+</html>
+{{end}}
