@@ -1,4 +1,4 @@
-.PHONY: run build dev deps sqlc migrate\:up migrate\:down migrate\:create docker\:up docker\:down
+.PHONY: run build dev deps sqlc migrate\:up migrate\:down migrate\:create docker\:up docker\:down test test\:v test\:cover
 
 # Run the server
 run:
@@ -38,3 +38,15 @@ docker\:up:
 
 docker\:down:
 	@docker compose down
+
+# Testing
+test:
+	@go test ./cmd/... ./internal/...
+
+test\:v:
+	@go test -v ./cmd/... ./internal/...
+
+test\:cover:
+	@go test -coverprofile=coverage.out ./cmd/... ./internal/...
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report: coverage.html"

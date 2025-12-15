@@ -42,6 +42,12 @@ const (
 // Handler Configuration
 // =============================================================================
 
+// TemplateRenderer is the interface for rendering HTML templates.
+// This interface allows for mocking in tests.
+type TemplateRenderer interface {
+	RenderHTTP(w http.ResponseWriter, name string, data interface{})
+}
+
 // AuthHandler handles authentication-related HTTP requests.
 //
 // Dependencies:
@@ -58,7 +64,7 @@ const (
 // - POST /logout   -> Logout
 type AuthHandler struct {
 	userService service.UserService
-	renderer    *Renderer
+	renderer    TemplateRenderer
 	logger      *slog.Logger
 	isSecure    bool
 }
@@ -76,7 +82,7 @@ type AuthHandler struct {
 //	authHandler := handler.NewAuthHandler(userService, renderer, logger, cfg.Env != "development")
 func NewAuthHandler(
 	userService service.UserService,
-	renderer *Renderer,
+	renderer TemplateRenderer,
 	logger *slog.Logger,
 	isSecure bool,
 ) *AuthHandler {
