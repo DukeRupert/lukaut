@@ -4,7 +4,7 @@
 *.dll
 *.so
 *.dylib
-server
+/server
 
 # Test binary
 *.test
@@ -43,3 +43,9 @@ uploads/
 # Air hot reload
 .air.toml
 tmp/
+node_modules
+web/static/css/output.css
+
+# Development assets
+planning/ai
+planning/catalyst-ui-kit

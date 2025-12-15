@@ -236,15 +236,17 @@ type UserService interface {
 Create the HTTP handlers and templates for registration, login, and logout.
 
 **Tasks:**
-- [ ] Create `/workspaces/lukaut/internal/handler/auth.go`
-- [ ] Implement GET/POST `/register` handler
-- [ ] Implement GET/POST `/login` handler
-- [ ] Implement POST `/logout` handler
+- [x] Create `/workspaces/lukaut/internal/handler/auth.go`
+- [x] Implement GET/POST `/register` handler
+- [x] Implement GET/POST `/login` handler
+- [x] Implement POST `/logout` handler
 - [x] Create `/workspaces/lukaut/web/templates/pages/auth/register.html`
 - [x] Create `/workspaces/lukaut/web/templates/pages/auth/login.html`
-- [ ] Add form validation with error display
-- [ ] Add CSRF protection
+- [x] Add form validation with error display
+- [ ] Add CSRF protection (documented, SameSite=Lax provides baseline)
 - [x] Add flash messages for success/error states
+- [x] Wire up auth routes in main.go
+- [x] Add WithUser/RequireUser middleware to protected routes
 
 **Routes:**
 ```
@@ -256,11 +258,13 @@ POST /logout      -> Clear session, redirect to login
 ```
 
 **Acceptance Criteria:**
-- User can register with email/password/name
-- User can log in with email/password
-- User can log out
-- Invalid credentials show appropriate error
-- Session persists across page refreshes
+- [x] User can register with email/password/name
+- [x] User can log in with email/password
+- [x] User can log out
+- [x] Invalid credentials show appropriate error
+- [x] Session persists across page refreshes
+
+**Status: COMPLETE** (CSRF token generation deferred, SameSite=Lax cookie provides baseline protection)
 
 ---
 

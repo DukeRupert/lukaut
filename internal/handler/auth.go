@@ -1,0 +1,934 @@
+// Package handler contains HTTP handlers for the Lukaut application.
+//
+// This file implements authentication handlers for user registration, login,
+// and logout functionality.
+package handler
+
+import (
+	"log/slog"
+	"net/http"
+	"net/url"
+	"strings"
+
+	"github.com/DukeRupert/lukaut/internal/domain"
+	"github.com/DukeRupert/lukaut/internal/service"
+)
+
+// =============================================================================
+// Session Cookie Configuration
+// =============================================================================
+
+// Session cookie constants - these match the values in middleware/auth.go
+// to ensure consistency. If these change, update both locations.
+//
+// NOTE: These are duplicated from middleware/auth.go to avoid import cycle.
+// The middleware package imports handler for error responses, so handler
+// cannot import middleware.
+//
+// ARCHITECTURE NOTE: A future refactor could move these constants to a shared
+// package (e.g., internal/session) that both handler and middleware import.
+const (
+	// sessionCookieName is the name of the cookie that stores the session token.
+	sessionCookieName = "lukaut_session"
+
+	// sessionCookiePath ensures the cookie is sent with all requests.
+	sessionCookiePath = "/"
+
+	// sessionCookieMaxAge sets the cookie expiration (7 days = 604800 seconds).
+	sessionCookieMaxAge = 7 * 24 * 60 * 60
+)
+
+// =============================================================================
+// Handler Configuration
+// =============================================================================
+
+// AuthHandler handles authentication-related HTTP requests.
+//
+// Dependencies:
+// - userService: Business logic for user operations (registration, login, logout)
+// - renderer: Template rendering for HTML responses
+// - logger: Structured logging for request handling
+// - isSecure: Whether to set Secure flag on cookies (true in production)
+//
+// Routes handled:
+// - GET  /register -> ShowRegister
+// - POST /register -> Register
+// - GET  /login    -> ShowLogin
+// - POST /login    -> Login
+// - POST /logout   -> Logout
+type AuthHandler struct {
+	userService service.UserService
+	renderer    *Renderer
+	logger      *slog.Logger
+	isSecure    bool
+}
+
+// NewAuthHandler creates a new AuthHandler with the required dependencies.
+//
+// Parameters:
+// - userService: Service for user-related operations
+// - renderer: Template renderer for HTML pages
+// - logger: Structured logger for request logging
+// - isSecure: Set to true in production (enables Secure cookie flag)
+//
+// Example usage in main.go:
+//
+//	authHandler := handler.NewAuthHandler(userService, renderer, logger, cfg.Env != "development")
+func NewAuthHandler(
+	userService service.UserService,
+	renderer *Renderer,
+	logger *slog.Logger,
+	isSecure bool,
+) *AuthHandler {
+	return &AuthHandler{
+		userService: userService,
+		renderer:    renderer,
+		logger:      logger,
+		isSecure:    isSecure,
+	}
+}
+
+// =============================================================================
+// Template Data Types
+// =============================================================================
+
+// Flash represents a flash message to display to the user.
+// Used for success messages, error notifications, and info alerts.
+//
+// The Type field determines styling in templates:
+// - "success" -> green background
+// - "error"   -> red background
+// - "info"    -> blue background
+type Flash struct {
+	Type    string // "success", "error", or "info"
+	Message string
+}
+
+// AuthPageData contains common data for authentication pages.
+// This struct is passed to login.html and register.html templates.
+type AuthPageData struct {
+	CurrentPath string            // Current URL path for navigation highlighting
+	CSRFToken   string            // CSRF token for form protection
+	Form        map[string]string // Form field values for re-populating on error
+	Errors      map[string]string // Field-level validation errors
+	Flash       *Flash            // Flash message to display
+	ReturnTo    string            // URL to redirect to after successful login
+}
+
+// =============================================================================
+// GET /register - Show Registration Form
+// =============================================================================
+
+// ShowRegister renders the registration form.
+//
+// Template: auth/register
+//
+// Query Parameters:
+// - return_to (optional): URL to redirect to after successful registration and login
+//
+// Template Data:
+// - CurrentPath: "/register"
+// - CSRFToken: Token for form protection
+// - Form: Empty map (no pre-filled values)
+// - Errors: Empty map (no validation errors)
+// - Flash: nil (no flash message)
+// - ReturnTo: Value from query param if present
+//
+// Implementation Notes:
+// - If user is already logged in, redirect to dashboard
+// - Generate CSRF token and store in session/cookie
+// - Pass empty form values for initial render
+func (h *AuthHandler) ShowRegister(w http.ResponseWriter, r *http.Request) {
+	// TODO: Check if user is already authenticated
+	// user := middleware.GetUser(r.Context())
+	// if user != nil {
+	//     http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+	//     return
+	// }
+
+	// TODO: Generate CSRF token
+	// For MVP, we can start without CSRF and add it later, or use the
+	// double-submit cookie pattern where the token is stored in a cookie
+	// and also submitted in the form. The server compares both values.
+	//
+	// Option A: Session-based CSRF (requires session storage)
+	// csrfToken := generateCSRFToken()
+	// storeCSRFInSession(r.Context(), csrfToken)
+	//
+	// Option B: Double-submit cookie pattern (simpler, no session storage needed)
+	// csrfToken := generateCSRFToken()
+	// http.SetCookie(w, &http.Cookie{
+	//     Name:     "csrf_token",
+	//     Value:    csrfToken,
+	//     Path:     "/",
+	//     HttpOnly: false, // Must be readable by JavaScript/form
+	//     Secure:   h.isSecure,
+	//     SameSite: http.SameSiteStrictMode,
+	// })
+
+	// Get return_to from query params for post-registration redirect
+	returnTo := r.URL.Query().Get("return_to")
+
+	data := AuthPageData{
+		CurrentPath: r.URL.Path,
+		CSRFToken:   "", // TODO: Set CSRF token
+		Form:        make(map[string]string),
+		Errors:      make(map[string]string),
+		Flash:       nil,
+		ReturnTo:    returnTo,
+	}
+
+	h.renderer.RenderHTTP(w, "auth/register", data)
+}
+
+// =============================================================================
+// POST /register - Process Registration
+// =============================================================================
+
+// Register processes the registration form submission.
+//
+// Form Fields:
+// - name (required): User's full name
+// - email (required): User's email address
+// - password (required): User's password (min 8 chars)
+// - password_confirmation (required): Must match password
+// - terms (required): Checkbox for terms acceptance
+//
+// Validation:
+// 1. Parse form data
+// 2. Validate CSRF token
+// 3. Validate all required fields are present
+// 4. Validate email format
+// 5. Validate password length (8+ chars)
+// 6. Validate password confirmation matches
+// 7. Validate terms checkbox is checked
+//
+// Success Flow:
+// 1. Call userService.Register() to create user
+// 2. Call userService.Login() to create session
+// 3. Set session cookie
+// 4. Redirect to return_to URL or /dashboard
+//
+// Error Flow:
+// 1. Re-render form with:
+//    - Original form values (except password)
+//    - Validation error messages
+//    - Flash message for service errors (e.g., email already exists)
+//
+// Implementation Notes:
+// - Never log passwords, even on error
+// - Clear password fields on error (don't re-populate)
+// - Normalize email to lowercase
+// - Trim whitespace from all fields
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error("failed to parse form", "error", err)
+		h.renderRegisterError(w, r, nil, nil, &Flash{
+			Type:    "error",
+			Message: "Invalid form submission. Please try again.",
+		})
+		return
+	}
+
+	// Extract and normalize form values
+	name := strings.TrimSpace(r.FormValue("name"))
+	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+	password := r.FormValue("password")
+	passwordConfirmation := r.FormValue("password_confirmation")
+	terms := r.FormValue("terms")
+	returnTo := r.FormValue("return_to")
+
+	// Store form values for re-rendering (except passwords)
+	formValues := map[string]string{
+		"Name":  name,
+		"Email": email,
+	}
+
+	// TODO: Validate CSRF token
+	// csrfToken := r.FormValue("csrf_token")
+	// if !validateCSRFToken(r, csrfToken) {
+	//     h.renderRegisterError(w, r, formValues, nil, &Flash{
+	//         Type:    "error",
+	//         Message: "Invalid security token. Please try again.",
+	//     })
+	//     return
+	// }
+
+	// Validate form fields
+	errors := make(map[string]string)
+
+	if name == "" {
+		errors["name"] = "Name is required"
+	}
+
+	if email == "" {
+		errors["email"] = "Email is required"
+	} else if !isValidEmail(email) {
+		errors["email"] = "Please enter a valid email address"
+	}
+
+	if password == "" {
+		errors["password"] = "Password is required"
+	} else if len(password) < 8 {
+		errors["password"] = "Password must be at least 8 characters"
+	}
+
+	if passwordConfirmation == "" {
+		errors["password_confirmation"] = "Please confirm your password"
+	} else if password != passwordConfirmation {
+		errors["password_confirmation"] = "Passwords do not match"
+	}
+
+	if terms != "on" {
+		errors["terms"] = "You must accept the Terms of Service"
+	}
+
+	// If validation errors, re-render form
+	if len(errors) > 0 {
+		h.renderRegisterError(w, r, formValues, errors, nil)
+		return
+	}
+
+	// Call UserService.Register
+	_, err := h.userService.Register(r.Context(), domain.RegisterParams{
+		Email:    email,
+		Password: password,
+		Name:     name,
+	})
+	if err != nil {
+		// Handle specific error types
+		code := domain.ErrorCode(err)
+		switch code {
+		case domain.ECONFLICT:
+			// Email already exists
+			errors["email"] = "An account with this email already exists"
+			h.renderRegisterError(w, r, formValues, errors, nil)
+		case domain.EINVALID:
+			// Validation error from service
+			h.renderRegisterError(w, r, formValues, nil, &Flash{
+				Type:    "error",
+				Message: domain.ErrorMessage(err),
+			})
+		default:
+			// Internal error - log and show generic message
+			h.logger.Error("registration failed", "error", err, "email", email)
+			h.renderRegisterError(w, r, formValues, nil, &Flash{
+				Type:    "error",
+				Message: "Registration failed. Please try again later.",
+			})
+		}
+		return
+	}
+
+	// Registration successful - log the user in automatically
+	loginResult, err := h.userService.Login(r.Context(), email, password)
+	if err != nil {
+		// Registration succeeded but login failed - redirect to login page
+		h.logger.Error("auto-login after registration failed", "error", err, "email", email)
+		http.Redirect(w, r, "/login?registered=1", http.StatusSeeOther)
+		return
+	}
+
+	// Set session cookie
+	setSessionCookie(w, loginResult.Token, h.isSecure)
+
+	// Log successful registration
+	h.logger.Info("user registered and logged in",
+		"user_id", loginResult.User.ID,
+		"email", loginResult.User.Email,
+	)
+
+	// Redirect to return_to URL or dashboard
+	redirectURL := "/dashboard"
+	if returnTo != "" && isSafeRedirectURL(returnTo) {
+		redirectURL = returnTo
+	}
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
+// renderRegisterError re-renders the registration form with errors.
+func (h *AuthHandler) renderRegisterError(
+	w http.ResponseWriter,
+	r *http.Request,
+	formValues map[string]string,
+	errors map[string]string,
+	flash *Flash,
+) {
+	if formValues == nil {
+		formValues = make(map[string]string)
+	}
+	if errors == nil {
+		errors = make(map[string]string)
+	}
+
+	data := AuthPageData{
+		CurrentPath: "/register",
+		CSRFToken:   "", // TODO: Regenerate CSRF token
+		Form:        formValues,
+		Errors:      errors,
+		Flash:       flash,
+		ReturnTo:    r.FormValue("return_to"),
+	}
+
+	h.renderer.RenderHTTP(w, "auth/register", data)
+}
+
+// =============================================================================
+// GET /login - Show Login Form
+// =============================================================================
+
+// ShowLogin renders the login form.
+//
+// Template: auth/login
+//
+// Query Parameters:
+// - return_to (optional): URL to redirect to after successful login
+// - registered (optional): If "1", show success message for new registration
+// - reset (optional): If "1", show success message for password reset
+//
+// Template Data:
+// - CurrentPath: "/login"
+// - CSRFToken: Token for form protection
+// - Form: Empty map (no pre-filled values)
+// - Errors: Empty map (no validation errors)
+// - Flash: Success message if registered=1 or reset=1
+// - ReturnTo: Value from query param if present
+//
+// Implementation Notes:
+// - If user is already logged in, redirect to dashboard (or return_to)
+// - Generate CSRF token
+// - Check for success query params to show appropriate flash message
+func (h *AuthHandler) ShowLogin(w http.ResponseWriter, r *http.Request) {
+	// TODO: Check if user is already authenticated
+	// user := middleware.GetUser(r.Context())
+	// if user != nil {
+	//     returnTo := r.URL.Query().Get("return_to")
+	//     if returnTo != "" && isSafeRedirectURL(returnTo) {
+	//         http.Redirect(w, r, returnTo, http.StatusSeeOther)
+	//         return
+	//     }
+	//     http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+	//     return
+	// }
+
+	// Check for success query params
+	var flash *Flash
+	if r.URL.Query().Get("registered") == "1" {
+		flash = &Flash{
+			Type:    "success",
+			Message: "Account created successfully! Please sign in.",
+		}
+	} else if r.URL.Query().Get("reset") == "1" {
+		flash = &Flash{
+			Type:    "success",
+			Message: "Password reset successfully! Please sign in with your new password.",
+		}
+	} else if r.URL.Query().Get("logout") == "1" {
+		flash = &Flash{
+			Type:    "success",
+			Message: "You have been signed out.",
+		}
+	}
+
+	// Get return_to from query params
+	returnTo := r.URL.Query().Get("return_to")
+
+	data := AuthPageData{
+		CurrentPath: r.URL.Path,
+		CSRFToken:   "", // TODO: Set CSRF token
+		Form:        make(map[string]string),
+		Errors:      make(map[string]string),
+		Flash:       flash,
+		ReturnTo:    returnTo,
+	}
+
+	h.renderer.RenderHTTP(w, "auth/login", data)
+}
+
+// =============================================================================
+// POST /login - Process Login
+// =============================================================================
+
+// Login processes the login form submission.
+//
+// Form Fields:
+// - email (required): User's email address
+// - password (required): User's password
+// - remember-me (optional): Checkbox for extended session (not implemented yet)
+// - return_to (optional): URL to redirect to after successful login
+//
+// Validation:
+// 1. Parse form data
+// 2. Validate CSRF token
+// 3. Validate email is present
+// 4. Validate password is present
+//
+// Success Flow:
+// 1. Call userService.Login() to authenticate and create session
+// 2. Set session cookie
+// 3. Redirect to return_to URL or /dashboard
+//
+// Error Flow:
+// 1. Re-render form with:
+//    - Email value preserved
+//    - Generic error message (don't reveal if email exists)
+//
+// Security Notes:
+// - Always use generic error message: "Invalid email or password"
+// - Do NOT reveal whether email exists in database
+// - Clear password field on error
+// - Consider rate limiting failed login attempts (future enhancement)
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error("failed to parse form", "error", err)
+		h.renderLoginError(w, r, nil, nil, &Flash{
+			Type:    "error",
+			Message: "Invalid form submission. Please try again.",
+		})
+		return
+	}
+
+	// Extract form values
+	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+	password := r.FormValue("password")
+	returnTo := r.FormValue("return_to")
+
+	// Store form values for re-rendering (except password)
+	formValues := map[string]string{
+		"Email": email,
+	}
+
+	// TODO: Validate CSRF token
+	// csrfToken := r.FormValue("csrf_token")
+	// if !validateCSRFToken(r, csrfToken) {
+	//     h.renderLoginError(w, r, formValues, nil, &Flash{
+	//         Type:    "error",
+	//         Message: "Invalid security token. Please try again.",
+	//     })
+	//     return
+	// }
+
+	// Basic validation
+	errors := make(map[string]string)
+
+	if email == "" {
+		errors["email"] = "Email is required"
+	}
+
+	if password == "" {
+		errors["password"] = "Password is required"
+	}
+
+	if len(errors) > 0 {
+		h.renderLoginError(w, r, formValues, errors, nil)
+		return
+	}
+
+	// Call UserService.Login
+	loginResult, err := h.userService.Login(r.Context(), email, password)
+	if err != nil {
+		// Handle specific error types
+		code := domain.ErrorCode(err)
+		switch code {
+		case domain.EUNAUTHORIZED:
+			// Invalid credentials - use generic message
+			h.renderLoginError(w, r, formValues, nil, &Flash{
+				Type:    "error",
+				Message: "Invalid email or password",
+			})
+		default:
+			// Internal error - log and show generic message
+			h.logger.Error("login failed", "error", err, "email", email)
+			h.renderLoginError(w, r, formValues, nil, &Flash{
+				Type:    "error",
+				Message: "Login failed. Please try again later.",
+			})
+		}
+		return
+	}
+
+	// Set session cookie
+	setSessionCookie(w, loginResult.Token, h.isSecure)
+
+	// Log successful login
+	h.logger.Info("user logged in",
+		"user_id", loginResult.User.ID,
+		"email", loginResult.User.Email,
+	)
+
+	// Redirect to return_to URL or dashboard
+	redirectURL := "/dashboard"
+	if returnTo != "" && isSafeRedirectURL(returnTo) {
+		redirectURL = returnTo
+	}
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
+// renderLoginError re-renders the login form with errors.
+func (h *AuthHandler) renderLoginError(
+	w http.ResponseWriter,
+	r *http.Request,
+	formValues map[string]string,
+	errors map[string]string,
+	flash *Flash,
+) {
+	if formValues == nil {
+		formValues = make(map[string]string)
+	}
+	if errors == nil {
+		errors = make(map[string]string)
+	}
+
+	data := AuthPageData{
+		CurrentPath: "/login",
+		CSRFToken:   "", // TODO: Regenerate CSRF token
+		Form:        formValues,
+		Errors:      errors,
+		Flash:       flash,
+		ReturnTo:    r.FormValue("return_to"),
+	}
+
+	h.renderer.RenderHTTP(w, "auth/login", data)
+}
+
+// =============================================================================
+// POST /logout - Process Logout
+// =============================================================================
+
+// Logout invalidates the user's session and clears the session cookie.
+//
+// Flow:
+// 1. Get session token from cookie
+// 2. Call userService.Logout() to invalidate session in database
+// 3. Clear session cookie
+// 4. Redirect to login page with success message
+//
+// Notes:
+// - This operation is idempotent - calling without a session is fine
+// - Always clear the cookie even if database logout fails
+// - Always redirect to login (don't show error pages)
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	// Get session token from cookie
+	cookie, err := r.Cookie(sessionCookieName)
+	if err == nil && cookie.Value != "" {
+		// Invalidate session in database
+		if err := h.userService.Logout(r.Context(), cookie.Value); err != nil {
+			// Log error but continue - cookie will be cleared anyway
+			h.logger.Warn("failed to invalidate session in database", "error", err)
+		}
+	}
+
+	// Clear session cookie (always, regardless of database result)
+	clearSessionCookie(w, h.isSecure)
+
+	// Log logout
+	h.logger.Debug("user logged out")
+
+	// Redirect to login with success message
+	http.Redirect(w, r, "/login?logout=1", http.StatusSeeOther)
+}
+
+// =============================================================================
+// Session Cookie Helpers
+// =============================================================================
+
+// setSessionCookie sets the session cookie on the response.
+//
+// Cookie Settings:
+// - HttpOnly: true - Prevents JavaScript access (XSS protection)
+// - Secure: configurable - Set true in production (HTTPS only)
+// - SameSite: Lax - Prevents CSRF while allowing normal navigation
+// - Path: / - Cookie sent with all requests
+// - MaxAge: 7 days - Matches session duration
+//
+// Parameters:
+// - w: Response writer to set cookie on
+// - token: Raw session token (64-char hex string)
+// - isSecure: Whether to set Secure flag (true in production)
+func setSessionCookie(w http.ResponseWriter, token string, isSecure bool) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    token,
+		Path:     sessionCookiePath,
+		MaxAge:   sessionCookieMaxAge,
+		HttpOnly: true,
+		Secure:   isSecure,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// clearSessionCookie removes the session cookie from the client.
+//
+// This is done by setting MaxAge to -1, which tells the browser to delete
+// the cookie immediately.
+func clearSessionCookie(w http.ResponseWriter, isSecure bool) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    "",
+		Path:     sessionCookiePath,
+		MaxAge:   -1, // Delete immediately
+		HttpOnly: true,
+		Secure:   isSecure,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+// isValidEmail performs basic email format validation.
+//
+// This is a simple check - the UserService performs more thorough validation.
+// We do this basic check to provide immediate feedback to users.
+func isValidEmail(email string) bool {
+	// Basic check: contains @ and has characters before and after
+	atIndex := strings.Index(email, "@")
+	if atIndex < 1 {
+		return false
+	}
+	if atIndex >= len(email)-1 {
+		return false
+	}
+
+	// Check for a dot in the domain part
+	domainPart := email[atIndex+1:]
+	if !strings.Contains(domainPart, ".") {
+		return false
+	}
+
+	return true
+}
+
+// isSafeRedirectURL checks if a URL is safe to redirect to.
+//
+// This prevents open redirect vulnerabilities by ensuring:
+// - URL is relative (starts with /)
+// - URL is not a protocol-relative URL (not //)
+// - URL does not redirect to external domain
+//
+// Examples:
+// - "/dashboard"              -> true (relative URL)
+// - "/settings?tab=profile"   -> true (relative URL with query)
+// - "//evil.com"              -> false (protocol-relative, could be external)
+// - "https://evil.com"        -> false (absolute URL to external domain)
+// - "javascript:alert(1)"     -> false (javascript URL)
+func isSafeRedirectURL(rawURL string) bool {
+	// Must start with /
+	if !strings.HasPrefix(rawURL, "/") {
+		return false
+	}
+
+	// Must not start with // (protocol-relative URL)
+	if strings.HasPrefix(rawURL, "//") {
+		return false
+	}
+
+	// Parse and validate
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+
+	// Must not have a scheme (http, https, javascript, etc.)
+	if parsed.Scheme != "" {
+		return false
+	}
+
+	// Must not have a host (would indicate external URL)
+	if parsed.Host != "" {
+		return false
+	}
+
+	return true
+}
+
+// =============================================================================
+// Route Registration Helper
+// =============================================================================
+
+// RegisterRoutes registers all auth routes on the provided ServeMux.
+//
+// Routes registered:
+// - GET  /register -> ShowRegister
+// - POST /register -> Register
+// - GET  /login    -> ShowLogin
+// - POST /login    -> Login
+// - POST /logout   -> Logout
+//
+// Usage in main.go:
+//
+//	authHandler := handler.NewAuthHandler(userService, renderer, logger, isSecure)
+//	authHandler.RegisterRoutes(mux)
+//
+// Or manually:
+//
+//	mux.HandleFunc("GET /register", authHandler.ShowRegister)
+//	mux.HandleFunc("POST /register", authHandler.Register)
+//	mux.HandleFunc("GET /login", authHandler.ShowLogin)
+//	mux.HandleFunc("POST /login", authHandler.Login)
+//	mux.HandleFunc("POST /logout", authHandler.Logout)
+func (h *AuthHandler) RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /register", h.ShowRegister)
+	mux.HandleFunc("POST /register", h.Register)
+	mux.HandleFunc("GET /login", h.ShowLogin)
+	mux.HandleFunc("POST /login", h.Login)
+	mux.HandleFunc("POST /logout", h.Logout)
+}
+
+// =============================================================================
+// CSRF Token Generation (To Be Implemented)
+// =============================================================================
+
+/*
+CSRF Protection Approach - Double-Submit Cookie Pattern
+
+The double-submit cookie pattern is recommended for this application because:
+1. It doesn't require server-side session storage for the token
+2. It works well with the existing cookie-based session management
+3. It's simpler to implement than synchronizer token pattern
+
+Implementation:
+
+1. On GET requests (ShowLogin, ShowRegister):
+   - Generate a random 32-byte token
+   - Set it in a cookie (csrf_token) that is NOT HttpOnly (JS needs to read it)
+   - Also pass it to the template to embed in forms
+
+2. On POST requests (Login, Register):
+   - Read the csrf_token from the cookie
+   - Read the csrf_token from the form body
+   - Compare them - they must match
+
+3. Token generation:
+
+   func generateCSRFToken() string {
+       b := make([]byte, 32)
+       if _, err := rand.Read(b); err != nil {
+           panic(err) // crypto/rand failure is catastrophic
+       }
+       return base64.URLEncoding.EncodeToString(b)
+   }
+
+4. Token validation:
+
+   func validateCSRFToken(r *http.Request, formToken string) bool {
+       cookie, err := r.Cookie("csrf_token")
+       if err != nil {
+           return false
+       }
+       return subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(formToken)) == 1
+   }
+
+5. Cookie settings:
+
+   http.SetCookie(w, &http.Cookie{
+       Name:     "csrf_token",
+       Value:    csrfToken,
+       Path:     "/",
+       MaxAge:   3600, // 1 hour
+       HttpOnly: false, // Must be readable for form submission
+       Secure:   isSecure,
+       SameSite: http.SameSiteStrictMode, // Strict for CSRF tokens
+   })
+
+Note: SameSite=Lax on the session cookie already provides significant CSRF
+protection for modern browsers. The explicit CSRF token is defense-in-depth
+and supports older browsers.
+*/
+
+// =============================================================================
+// Integration Notes for main.go
+// =============================================================================
+
+/*
+To integrate this handler into main.go:
+
+1. Initialize the UserService (already done in service layer):
+
+   userService := service.NewUserService(repo, logger)
+
+2. Create the AuthHandler:
+
+   isSecure := cfg.Env != "development"
+   authHandler := handler.NewAuthHandler(userService, renderer, logger, isSecure)
+
+3. Create the AuthMiddleware:
+
+   authMw := middleware.NewAuthMiddleware(userService, logger, isSecure)
+
+4. Register routes - Option A (using RegisterRoutes helper):
+
+   authHandler.RegisterRoutes(mux)
+
+4. Register routes - Option B (manually for more control):
+
+   // Public auth routes (no auth middleware)
+   mux.HandleFunc("GET /register", authHandler.ShowRegister)
+   mux.HandleFunc("POST /register", authHandler.Register)
+   mux.HandleFunc("GET /login", authHandler.ShowLogin)
+   mux.HandleFunc("POST /login", authHandler.Login)
+
+   // Logout requires being logged in (or is idempotent if not)
+   mux.HandleFunc("POST /logout", authHandler.Logout)
+
+5. Update authenticated routes to use middleware:
+
+   // Create middleware stack for authenticated routes
+   authStack := middleware.Stack(authMw.WithUser, authMw.RequireUser)
+
+   // Protected routes
+   mux.Handle("GET /dashboard", authStack(http.HandlerFunc(dashboardHandler)))
+
+6. Update the existing inline handlers in main.go:
+
+   Replace:
+   mux.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
+       renderer.RenderHTTP(w, "auth/login", map[string]interface{}{...})
+   })
+
+   With:
+   mux.HandleFunc("GET /login", authHandler.ShowLogin)
+   mux.HandleFunc("POST /login", authHandler.Login)
+
+Example complete main.go changes:
+
+   // In run() function, after initializing repository...
+
+   // Initialize services
+   userService := service.NewUserService(repo, logger)
+
+   // Initialize middleware
+   isSecure := cfg.Env != "development"
+   authMw := middleware.NewAuthMiddleware(userService, logger, isSecure)
+
+   // Initialize handlers
+   authHandler := handler.NewAuthHandler(userService, renderer, logger, isSecure)
+
+   // Create middleware stacks
+   // withUser := authMw.WithUser  // Loads user if logged in, continues either way
+   // requireUser := middleware.Stack(authMw.WithUser, authMw.RequireUser)
+
+   // Register routes
+   mux := http.NewServeMux()
+
+   // Static files
+   mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
+
+   // Health check
+   mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+       w.WriteHeader(http.StatusOK)
+       w.Write([]byte("OK"))
+   })
+
+   // Public pages
+   mux.HandleFunc("GET /", homeHandler)
+
+   // Auth routes
+   authHandler.RegisterRoutes(mux)
+
+   // Protected routes (uncomment when ready)
+   // mux.Handle("GET /dashboard", requireUser(http.HandlerFunc(dashboardHandler)))
+*/
