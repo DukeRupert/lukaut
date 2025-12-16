@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/DukeRupert/lukaut/internal"
+	"github.com/DukeRupert/lukaut/internal/ai"
+	"github.com/DukeRupert/lukaut/internal/ai/anthropic"
+	"github.com/DukeRupert/lukaut/internal/ai/mock"
 	"github.com/DukeRupert/lukaut/internal/email"
 	"github.com/DukeRupert/lukaut/internal/handler"
 	"github.com/DukeRupert/lukaut/internal/jobs"
@@ -120,6 +123,30 @@ func run() error {
 	}
 	logger.Info("Email service initialized", "host", cfg.SMTPHost, "port", cfg.SMTPPort)
 
+	// Initialize AI provider
+	var aiProvider ai.AIProvider
+	if cfg.AIProvider == "anthropic" {
+		aiProvider, err = anthropic.New(
+			anthropic.Config{
+				APIKey: cfg.AnthropicAPIKey,
+				Model:  cfg.AnthropicModel,
+				ProviderConfig: ai.ProviderConfig{
+					MaxRetries:     cfg.AIMaxRetries,
+					RetryBaseDelay: cfg.AIRetryBaseDelay,
+					RequestTimeout: cfg.AIRequestTimeout,
+				},
+			},
+			repo,
+			logger,
+		)
+		if err != nil {
+			return fmt.Errorf("anthropic provider initialization failed: %w", err)
+		}
+	} else {
+		aiProvider = mock.New(logger)
+	}
+	logger.Info("AI provider initialized", "provider", cfg.AIProvider)
+
 	// Initialize background worker
 	var jobWorker *worker.Worker
 	if cfg.WorkerEnabled {
@@ -137,7 +164,7 @@ func run() error {
 		}
 
 		// Register job handlers
-		jobWorker.Register(jobs.NewAnalyzeInspectionHandler(repo, logger))
+		jobWorker.Register(jobs.NewAnalyzeInspectionHandler(repo, aiProvider, logger))
 		jobWorker.Register(jobs.NewGenerateReportHandler(repo, storageService, logger))
 
 		// Start the worker

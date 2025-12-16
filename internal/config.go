@@ -45,6 +45,14 @@ type Config struct {
 	WorkerConcurrency  int
 	WorkerPollInterval time.Duration
 	WorkerJobTimeout   time.Duration
+
+	// AI Provider Configuration
+	AIProvider         string        // "anthropic" or "mock"
+	AnthropicAPIKey    string
+	AnthropicModel     string
+	AIMaxRetries       int
+	AIRetryBaseDelay   time.Duration
+	AIRequestTimeout   time.Duration
 }
 
 func NewConfig() (*Config, error) {
@@ -84,6 +92,14 @@ func NewConfig() (*Config, error) {
 		WorkerConcurrency:  getEnvInt("WORKER_CONCURRENCY", 2),
 		WorkerPollInterval: getEnvDuration("WORKER_POLL_INTERVAL", 5*time.Second),
 		WorkerJobTimeout:   getEnvDuration("WORKER_JOB_TIMEOUT", 5*time.Minute),
+
+		// AI provider defaults
+		AIProvider:         getEnv("AI_PROVIDER", "mock"),
+		AnthropicAPIKey:    getEnv("ANTHROPIC_API_KEY", ""),
+		AnthropicModel:     getEnv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+		AIMaxRetries:       getEnvInt("AI_MAX_RETRIES", 3),
+		AIRetryBaseDelay:   getEnvDuration("AI_RETRY_BASE_DELAY", 1*time.Second),
+		AIRequestTimeout:   getEnvDuration("AI_REQUEST_TIMEOUT", 60*time.Second),
 	}
 
 	// Required
@@ -108,6 +124,15 @@ func NewConfig() (*Config, error) {
 		}
 	} else if cfg.StorageProvider != "local" {
 		return nil, fmt.Errorf("STORAGE_PROVIDER must be either 'local' or 'r2', got: %s", cfg.StorageProvider)
+	}
+
+	// Validate AI provider configuration
+	if cfg.AIProvider == "anthropic" {
+		if cfg.AnthropicAPIKey == "" {
+			return nil, fmt.Errorf("ANTHROPIC_API_KEY is required when AI_PROVIDER is 'anthropic'")
+		}
+	} else if cfg.AIProvider != "mock" {
+		return nil, fmt.Errorf("AI_PROVIDER must be either 'anthropic' or 'mock', got: %s", cfg.AIProvider)
 	}
 
 	return cfg, nil

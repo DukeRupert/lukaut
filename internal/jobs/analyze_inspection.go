@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/DukeRupert/lukaut/internal/ai"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/worker"
 )
@@ -13,15 +14,17 @@ import (
 // AnalyzeInspectionHandler processes jobs that analyze inspection images for violations.
 // It sends images to the AI service and creates violation records based on the results.
 type AnalyzeInspectionHandler struct {
-	queries *repository.Queries
-	logger  *slog.Logger
+	queries    *repository.Queries
+	aiProvider ai.AIProvider
+	logger     *slog.Logger
 }
 
 // NewAnalyzeInspectionHandler creates a new handler for inspection analysis jobs.
-func NewAnalyzeInspectionHandler(queries *repository.Queries, logger *slog.Logger) *AnalyzeInspectionHandler {
+func NewAnalyzeInspectionHandler(queries *repository.Queries, aiProvider ai.AIProvider, logger *slog.Logger) *AnalyzeInspectionHandler {
 	return &AnalyzeInspectionHandler{
-		queries: queries,
-		logger:  logger,
+		queries:    queries,
+		aiProvider: aiProvider,
+		logger:     logger,
 	}
 }
 
