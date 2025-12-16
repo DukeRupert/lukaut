@@ -12,6 +12,49 @@ import (
 	"github.com/google/uuid"
 )
 
+const addRegulationToViolation = `-- name: AddRegulationToViolation :one
+INSERT INTO violation_regulations (
+    violation_id,
+    regulation_id,
+    relevance_score,
+    ai_explanation,
+    is_primary
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+ON CONFLICT (violation_id, regulation_id) DO NOTHING
+RETURNING id, violation_id, regulation_id, relevance_score, ai_explanation, is_primary, created_at
+`
+
+type AddRegulationToViolationParams struct {
+	ViolationID    uuid.UUID      `json:"violation_id"`
+	RegulationID   uuid.UUID      `json:"regulation_id"`
+	RelevanceScore sql.NullString `json:"relevance_score"`
+	AiExplanation  sql.NullString `json:"ai_explanation"`
+	IsPrimary      sql.NullBool   `json:"is_primary"`
+}
+
+func (q *Queries) AddRegulationToViolation(ctx context.Context, arg AddRegulationToViolationParams) (ViolationRegulation, error) {
+	row := q.db.QueryRowContext(ctx, addRegulationToViolation,
+		arg.ViolationID,
+		arg.RegulationID,
+		arg.RelevanceScore,
+		arg.AiExplanation,
+		arg.IsPrimary,
+	)
+	var i ViolationRegulation
+	err := row.Scan(
+		&i.ID,
+		&i.ViolationID,
+		&i.RegulationID,
+		&i.RelevanceScore,
+		&i.AiExplanation,
+		&i.IsPrimary,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createViolationRegulation = `-- name: CreateViolationRegulation :one
 INSERT INTO violation_regulations (
     violation_id,
@@ -62,6 +105,31 @@ WHERE violation_id = $1
 func (q *Queries) DeleteViolationRegulationsByViolationID(ctx context.Context, violationID uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, deleteViolationRegulationsByViolationID, violationID)
 	return err
+}
+
+const getViolationRegulation = `-- name: GetViolationRegulation :one
+SELECT id, violation_id, regulation_id, relevance_score, ai_explanation, is_primary, created_at FROM violation_regulations
+WHERE violation_id = $1 AND regulation_id = $2
+`
+
+type GetViolationRegulationParams struct {
+	ViolationID  uuid.UUID `json:"violation_id"`
+	RegulationID uuid.UUID `json:"regulation_id"`
+}
+
+func (q *Queries) GetViolationRegulation(ctx context.Context, arg GetViolationRegulationParams) (ViolationRegulation, error) {
+	row := q.db.QueryRowContext(ctx, getViolationRegulation, arg.ViolationID, arg.RegulationID)
+	var i ViolationRegulation
+	err := row.Scan(
+		&i.ID,
+		&i.ViolationID,
+		&i.RegulationID,
+		&i.RelevanceScore,
+		&i.AiExplanation,
+		&i.IsPrimary,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const listRegulationsByViolationID = `-- name: ListRegulationsByViolationID :many
@@ -135,4 +203,19 @@ func (q *Queries) ListRegulationsByViolationID(ctx context.Context, violationID 
 		return nil, err
 	}
 	return items, nil
+}
+
+const removeRegulationFromViolation = `-- name: RemoveRegulationFromViolation :exec
+DELETE FROM violation_regulations
+WHERE violation_id = $1 AND regulation_id = $2
+`
+
+type RemoveRegulationFromViolationParams struct {
+	ViolationID  uuid.UUID `json:"violation_id"`
+	RegulationID uuid.UUID `json:"regulation_id"`
+}
+
+func (q *Queries) RemoveRegulationFromViolation(ctx context.Context, arg RemoveRegulationFromViolationParams) error {
+	_, err := q.db.ExecContext(ctx, removeRegulationFromViolation, arg.ViolationID, arg.RegulationID)
+	return err
 }

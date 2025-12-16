@@ -12,6 +12,30 @@ import (
 	"github.com/google/uuid"
 )
 
+const countRegulations = `-- name: CountRegulations :one
+SELECT COUNT(*) FROM regulations
+WHERE ($1::text IS NULL OR category = $1)
+`
+
+func (q *Queries) CountRegulations(ctx context.Context, category sql.NullString) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRegulations, category)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countSearchResults = `-- name: CountSearchResults :one
+SELECT COUNT(*) FROM regulations
+WHERE search_vector @@ websearch_to_tsquery('english', $1)
+`
+
+func (q *Queries) CountSearchResults(ctx context.Context, websearchToTsquery string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countSearchResults, websearchToTsquery)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createRegulation = `-- name: CreateRegulation :one
 INSERT INTO regulations (
     standard_number,
@@ -130,6 +154,130 @@ func (q *Queries) GetRegulationByStandardNumber(ctx context.Context, standardNum
 	return i, err
 }
 
+const getRegulationDetail = `-- name: GetRegulationDetail :one
+SELECT id, standard_number, title, category, subcategory, full_text, summary,
+       severity_typical, parent_standard, effective_date, last_updated
+FROM regulations
+WHERE id = $1
+`
+
+type GetRegulationDetailRow struct {
+	ID              uuid.UUID      `json:"id"`
+	StandardNumber  string         `json:"standard_number"`
+	Title           string         `json:"title"`
+	Category        string         `json:"category"`
+	Subcategory     sql.NullString `json:"subcategory"`
+	FullText        string         `json:"full_text"`
+	Summary         sql.NullString `json:"summary"`
+	SeverityTypical sql.NullString `json:"severity_typical"`
+	ParentStandard  sql.NullString `json:"parent_standard"`
+	EffectiveDate   sql.NullTime   `json:"effective_date"`
+	LastUpdated     sql.NullTime   `json:"last_updated"`
+}
+
+func (q *Queries) GetRegulationDetail(ctx context.Context, id uuid.UUID) (GetRegulationDetailRow, error) {
+	row := q.db.QueryRowContext(ctx, getRegulationDetail, id)
+	var i GetRegulationDetailRow
+	err := row.Scan(
+		&i.ID,
+		&i.StandardNumber,
+		&i.Title,
+		&i.Category,
+		&i.Subcategory,
+		&i.FullText,
+		&i.Summary,
+		&i.SeverityTypical,
+		&i.ParentStandard,
+		&i.EffectiveDate,
+		&i.LastUpdated,
+	)
+	return i, err
+}
+
+const listAllCategories = `-- name: ListAllCategories :many
+SELECT DISTINCT category
+FROM regulations
+ORDER BY category ASC
+`
+
+func (q *Queries) ListAllCategories(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listAllCategories)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var category string
+		if err := rows.Scan(&category); err != nil {
+			return nil, err
+		}
+		items = append(items, category)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRegulations = `-- name: ListRegulations :many
+SELECT id, standard_number, title, category, subcategory, summary, severity_typical
+FROM regulations
+WHERE ($3::text IS NULL OR category = $3)
+ORDER BY category ASC, standard_number ASC
+LIMIT $1 OFFSET $2
+`
+
+type ListRegulationsParams struct {
+	Limit    int32          `json:"limit"`
+	Offset   int32          `json:"offset"`
+	Category sql.NullString `json:"category"`
+}
+
+type ListRegulationsRow struct {
+	ID              uuid.UUID      `json:"id"`
+	StandardNumber  string         `json:"standard_number"`
+	Title           string         `json:"title"`
+	Category        string         `json:"category"`
+	Subcategory     sql.NullString `json:"subcategory"`
+	Summary         sql.NullString `json:"summary"`
+	SeverityTypical sql.NullString `json:"severity_typical"`
+}
+
+func (q *Queries) ListRegulations(ctx context.Context, arg ListRegulationsParams) ([]ListRegulationsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRegulations, arg.Limit, arg.Offset, arg.Category)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRegulationsRow{}
+	for rows.Next() {
+		var i ListRegulationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.StandardNumber,
+			&i.Title,
+			&i.Category,
+			&i.Subcategory,
+			&i.Summary,
+			&i.SeverityTypical,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRegulationsByCategory = `-- name: ListRegulationsByCategory :many
 SELECT id, standard_number, title, category, subcategory, full_text, summary, severity_typical, parent_standard, effective_date, last_updated, search_vector, created_at, updated_at FROM regulations
 WHERE category = $1
@@ -236,6 +384,64 @@ func (q *Queries) SearchRegulations(ctx context.Context, arg SearchRegulationsPa
 			&i.SearchVector,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Rank,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchRegulationsWithOffset = `-- name: SearchRegulationsWithOffset :many
+SELECT id, standard_number, title, category, subcategory, summary, severity_typical,
+    ts_rank(search_vector, websearch_to_tsquery('english', $1)) as rank
+FROM regulations
+WHERE search_vector @@ websearch_to_tsquery('english', $1)
+ORDER BY rank DESC, standard_number ASC
+LIMIT $2 OFFSET $3
+`
+
+type SearchRegulationsWithOffsetParams struct {
+	WebsearchToTsquery string `json:"websearch_to_tsquery"`
+	Limit              int32  `json:"limit"`
+	Offset             int32  `json:"offset"`
+}
+
+type SearchRegulationsWithOffsetRow struct {
+	ID              uuid.UUID      `json:"id"`
+	StandardNumber  string         `json:"standard_number"`
+	Title           string         `json:"title"`
+	Category        string         `json:"category"`
+	Subcategory     sql.NullString `json:"subcategory"`
+	Summary         sql.NullString `json:"summary"`
+	SeverityTypical sql.NullString `json:"severity_typical"`
+	Rank            float32        `json:"rank"`
+}
+
+func (q *Queries) SearchRegulationsWithOffset(ctx context.Context, arg SearchRegulationsWithOffsetParams) ([]SearchRegulationsWithOffsetRow, error) {
+	rows, err := q.db.QueryContext(ctx, searchRegulationsWithOffset, arg.WebsearchToTsquery, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchRegulationsWithOffsetRow{}
+	for rows.Next() {
+		var i SearchRegulationsWithOffsetRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.StandardNumber,
+			&i.Title,
+			&i.Category,
+			&i.Subcategory,
+			&i.Summary,
+			&i.SeverityTypical,
 			&i.Rank,
 		); err != nil {
 			return nil, err
