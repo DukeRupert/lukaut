@@ -11,6 +11,7 @@
 
 # Output of go coverage
 *.out
+coverage.html
 
 # Go workspace
 go.work
@@ -25,10 +26,11 @@ vendor/
 *.swp
 *.swo
 
-# Environment
+# Environment files (keep examples)
 .env
 .env.local
 .env.*.local
+.env.production
 
 # OS
 .DS_Store
@@ -39,13 +41,23 @@ node_modules/
 
 # Local storage (dev)
 uploads/
+storage/
 
 # Air hot reload
 .air.toml
 tmp/
-node_modules
+
+# Build artifacts
 web/static/css/output.css
 
 # Development assets
 planning/ai
 planning/catalyst-ui-kit
+
+# Docker volumes (if using bind mounts)
+backups/
+
+# Secrets
+*.pem
+*.key
+id_rsa*

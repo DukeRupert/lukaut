@@ -1,6 +1,6 @@
 module github.com/DukeRupert/lukaut
 
-go 1.25.4
+go 1.24.0
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.0
@@ -9,11 +9,11 @@ require (
 	github.com/aws/smithy-go v1.24.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.7.6
+	github.com/jackc/pgx/v5 v5.7.4
 	github.com/joho/godotenv v1.5.1
-	github.com/pressly/goose/v3 v3.26.0
+	github.com/pressly/goose/v3 v3.24.1
 	github.com/sqlc-dev/pqtype v0.3.0
-	golang.org/x/crypto v0.46.0
+	golang.org/x/crypto v0.31.0
 )
 
 require (

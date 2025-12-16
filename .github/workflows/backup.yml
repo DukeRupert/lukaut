@@ -1,0 +1,88 @@
+# =============================================================================
+# Database Backup Workflow
+# =============================================================================
+# Runs daily at 2 AM UTC to backup the production database.
+# Can also be triggered manually.
+#
+# Required Secrets:
+#   - VPS_HOST: VPS IP address or hostname
+#   - VPS_USER: SSH username
+#   - VPS_SSH_KEY: Private SSH key
+#   - VPS_DEPLOY_PATH: Deployment directory path
+# =============================================================================
+
+name: Database Backup
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      backup_name:
+        description: "Custom backup name suffix (optional)"
+        required: false
+        type: string
+
+jobs:
+  backup:
+    name: Backup Database
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run backup via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ secrets.VPS_DEPLOY_PATH }}
+
+            # Create backup directory if it doesn't exist
+            mkdir -p backups
+
+            # Generate backup filename
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            SUFFIX="${{ inputs.backup_name }}"
+            if [ -n "$SUFFIX" ]; then
+              BACKUP_FILE="backups/lukaut_${TIMESTAMP}_${SUFFIX}.dump"
+            else
+              BACKUP_FILE="backups/lukaut_${TIMESTAMP}.dump"
+            fi
+
+            # Run backup using the backup profile
+            docker compose -f docker-compose.prod.yml run --rm db-backup
+
+            # Verify backup was created
+            LATEST_BACKUP=$(ls -t backups/*.dump | head -1)
+            if [ -z "$LATEST_BACKUP" ]; then
+              echo "Backup failed - no backup file created"
+              exit 1
+            fi
+
+            BACKUP_SIZE=$(stat -c %s "$LATEST_BACKUP")
+            echo "Backup created: $LATEST_BACKUP (${BACKUP_SIZE} bytes)"
+
+            # Clean up old backups (keep last 7 days)
+            find backups -name "*.dump" -mtime +7 -delete
+            echo "Cleaned up backups older than 7 days"
+
+            # List remaining backups
+            echo "Current backups:"
+            ls -lh backups/*.dump
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            await github.rest.issues.create({
+              owner,
+              repo,
+              title: 'Database Backup Failed',
+              body: `Database backup workflow failed at ${new Date().toISOString()}.\n\nSee [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.`,
+              labels: ['bug', 'ops']
+            });

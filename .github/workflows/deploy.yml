@@ -1,0 +1,209 @@
+# =============================================================================
+# Deployment Workflow
+# =============================================================================
+# Builds and pushes Docker image to GitHub Container Registry, then deploys
+# to VPS via SSH.
+#
+# Triggers:
+#   - Push to main branch (auto-deploy)
+#   - Manual workflow dispatch
+#   - Release published (tagged deploy)
+#
+# Required Secrets:
+#   - VPS_HOST: VPS IP address or hostname
+#   - VPS_USER: SSH username (typically 'deploy' or 'lukaut')
+#   - VPS_SSH_KEY: Private SSH key for authentication
+#   - VPS_DEPLOY_PATH: Path to deployment directory (e.g., /opt/lukaut)
+# =============================================================================
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".github/workflows/ci.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build and Push Docker Image
+  # ---------------------------------------------------------------------------
+  build-and-push:
+    name: Build and Push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
+      image-digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            COMMIT=${{ github.sha }}
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  # ---------------------------------------------------------------------------
+  # Deploy to VPS
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment:
+      name: ${{ inputs.environment || 'production' }}
+      url: ${{ vars.APP_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Copy deployment files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "docker-compose.prod.yml,Caddyfile"
+          target: ${{ secrets.VPS_DEPLOY_PATH }}
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: IMAGE_TAG,GITHUB_REPOSITORY
+          script: |
+            set -e
+            cd ${{ secrets.VPS_DEPLOY_PATH }}
+
+            # Export environment variables for docker-compose
+            export IMAGE_TAG="${IMAGE_TAG}"
+            export GITHUB_REPOSITORY="${GITHUB_REPOSITORY}"
+
+            # Source production environment
+            if [ -f .env.production ]; then
+              export $(cat .env.production | grep -v '^#' | xargs)
+            fi
+
+            # Pull latest images
+            docker compose -f docker-compose.prod.yml pull
+
+            # Deploy with zero-downtime
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            # Prune old images
+            docker image prune -af --filter "until=24h"
+
+            # Verify deployment
+            echo "Waiting for health check..."
+            sleep 10
+            curl -sf http://localhost:8080/health || exit 1
+            echo "Deployment successful!"
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'Deployment failed! Check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.'
+            })
+
+  # ---------------------------------------------------------------------------
+  # Post-Deploy Health Check
+  # ---------------------------------------------------------------------------
+  health-check:
+    name: Health Check
+    runs-on: ubuntu-latest
+    needs: deploy
+
+    steps:
+      - name: Wait for deployment to stabilize
+        run: sleep 30
+
+      - name: Check application health
+        run: |
+          response=$(curl -sf "${{ vars.APP_URL }}/health" || echo "FAILED")
+          if [ "$response" != "OK" ]; then
+            echo "Health check failed!"
+            exit 1
+          fi
+          echo "Application is healthy!"
+
+      - name: Check SSL certificate
+        run: |
+          echo | openssl s_client -servername ${{ vars.APP_DOMAIN }} -connect ${{ vars.APP_DOMAIN }}:443 2>/dev/null | openssl x509 -noout -dates

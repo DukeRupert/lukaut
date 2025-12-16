@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+docs/
+planning/
+
+# Development files
+.env
+.env.*
+.air.toml
+tmp/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.claude/
+
+# Build artifacts
+/server
+*.exe
+*.test
+*.out
+coverage.html
+
+# Local storage
+storage/
+uploads/
+
+# Node modules (will be installed fresh in build)
+node_modules/
+
+# Tailwind output (will be built fresh)
+web/static/css/output.css
+
+# Test files
+*_test.go
+
+# OS files
+.DS_Store
+Thumbs.db
