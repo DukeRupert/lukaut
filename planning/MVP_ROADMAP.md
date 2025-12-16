@@ -353,12 +353,12 @@ type EmailService interface {
 Implement forgot password and reset password functionality.
 
 **Tasks:**
-- [ ] Implement GET/POST `/forgot-password` handler
-- [ ] Implement GET/POST `/reset-password` handler
-- [ ] Create password reset templates
-- [ ] Send reset email with secure token
-- [ ] Validate token and allow password change
-- [ ] Invalidate all sessions on password change
+- [x] Implement GET/POST `/forgot-password` handler
+- [x] Implement GET/POST `/reset-password` handler
+- [x] Create password reset templates (forgot_password, forgot_password_sent, reset_password, reset_password_invalid)
+- [x] Send reset email with secure token
+- [x] Validate token and allow password change
+- [x] Invalidate all sessions on password change (handled by UserService.ResetPassword)
 
 **Routes:**
 ```
@@ -369,9 +369,11 @@ POST /reset-password            -> Process password change
 ```
 
 **Acceptance Criteria:**
-- User can request password reset via email
-- Reset link works for 1 hour
-- Password change invalidates existing sessions
+- [x] User can request password reset via email
+- [x] Reset link works for 1 hour (token expiry handled by P0-004)
+- [x] Password change invalidates existing sessions
+
+**Status: COMPLETE**
 
 ---
 

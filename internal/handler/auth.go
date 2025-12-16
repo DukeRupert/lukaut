@@ -849,6 +849,12 @@ func (h *AuthHandler) RegisterRoutes(mux *http.ServeMux) {
 	// Email verification routes (P0-004, P0-005)
 	mux.HandleFunc("GET /verify-email", h.ShowVerifyEmail)
 	mux.HandleFunc("POST /resend-verification", h.ResendVerification)
+
+	// Password reset routes (P0-006)
+	mux.HandleFunc("GET /forgot-password", h.ShowForgotPassword)
+	mux.HandleFunc("POST /forgot-password", h.ForgotPassword)
+	mux.HandleFunc("GET /reset-password", h.ShowResetPassword)
+	mux.HandleFunc("POST /reset-password", h.ResetPassword)
 }
 
 // =============================================================================
@@ -1015,6 +1021,328 @@ func (h *AuthHandler) renderResendVerificationError(w http.ResponseWriter, r *ht
 		"Message":     message,
 	}
 	h.renderer.RenderHTTP(w, "auth/resend_verification", data)
+}
+
+// =============================================================================
+// GET /forgot-password - Show Forgot Password Form
+// =============================================================================
+
+// ForgotPasswordPageData contains data for the forgot password template.
+type ForgotPasswordPageData struct {
+	CurrentPath string
+	CSRFToken   string
+	Form        map[string]string
+	Errors      map[string]string
+	Flash       *Flash
+}
+
+// ShowForgotPassword renders the forgot password form.
+//
+// Template: auth/forgot_password
+//
+// Template Data:
+// - CurrentPath: "/forgot-password"
+// - CSRFToken: Token for form protection
+// - Form: Empty map (no pre-filled values)
+// - Errors: Empty map (no validation errors)
+// - Flash: nil (no flash message)
+func (h *AuthHandler) ShowForgotPassword(w http.ResponseWriter, r *http.Request) {
+	data := ForgotPasswordPageData{
+		CurrentPath: r.URL.Path,
+		CSRFToken:   "", // TODO: Set CSRF token
+		Form:        make(map[string]string),
+		Errors:      make(map[string]string),
+		Flash:       nil,
+	}
+
+	h.renderer.RenderHTTP(w, "auth/forgot_password", data)
+}
+
+// =============================================================================
+// POST /forgot-password - Process Forgot Password Request
+// =============================================================================
+
+// ForgotPassword processes the forgot password form submission.
+//
+// Form Fields:
+// - email (required): User's email address
+//
+// Flow:
+// 1. Parse and validate email
+// 2. Create password reset token (if user exists)
+// 3. Send password reset email (if user exists)
+// 4. Always show success message (don't reveal if email exists)
+//
+// Security Notes:
+// - Always show success message regardless of whether email exists
+// - This prevents email enumeration attacks
+// - Consider rate limiting to prevent abuse
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	// Parse form
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error("failed to parse form", "error", err)
+		h.renderForgotPasswordError(w, r, nil, nil, &Flash{
+			Type:    "error",
+			Message: "Invalid form submission. Please try again.",
+		})
+		return
+	}
+
+	// Get email
+	emailAddr := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+
+	// Store form values for re-rendering
+	formValues := map[string]string{
+		"Email": emailAddr,
+	}
+
+	// Basic validation
+	if emailAddr == "" {
+		h.renderForgotPasswordError(w, r, formValues, map[string]string{
+			"email": "Email is required",
+		}, nil)
+		return
+	}
+
+	if !isValidEmail(emailAddr) {
+		h.renderForgotPasswordError(w, r, formValues, map[string]string{
+			"email": "Please enter a valid email address",
+		}, nil)
+		return
+	}
+
+	// Create password reset token (if user exists)
+	result, err := h.userService.CreatePasswordResetToken(r.Context(), emailAddr)
+	if err != nil {
+		// Log error but show generic success (prevents enumeration)
+		h.logger.Debug("password reset token creation failed", "error", err, "email", emailAddr)
+	} else {
+		// Get user name for the email
+		user, err := h.userService.GetByID(r.Context(), result.UserID)
+		if err != nil {
+			h.logger.Error("failed to get user for password reset", "error", err, "user_id", result.UserID)
+		} else {
+			// Send the email asynchronously
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+
+				if err := h.emailService.SendPasswordResetEmail(ctx, emailAddr, user.Name, result.Token); err != nil {
+					h.logger.Error("failed to send password reset email", "error", err, "email", emailAddr)
+				} else {
+					h.logger.Info("password reset email sent", "email", emailAddr)
+				}
+			}()
+		}
+	}
+
+	// Always show success (don't reveal if email exists)
+	h.renderer.RenderHTTP(w, "auth/forgot_password_sent", map[string]interface{}{
+		"CurrentPath": r.URL.Path,
+	})
+}
+
+// renderForgotPasswordError re-renders the forgot password form with errors.
+func (h *AuthHandler) renderForgotPasswordError(
+	w http.ResponseWriter,
+	r *http.Request,
+	formValues map[string]string,
+	errors map[string]string,
+	flash *Flash,
+) {
+	if formValues == nil {
+		formValues = make(map[string]string)
+	}
+	if errors == nil {
+		errors = make(map[string]string)
+	}
+
+	data := ForgotPasswordPageData{
+		CurrentPath: "/forgot-password",
+		CSRFToken:   "", // TODO: Regenerate CSRF token
+		Form:        formValues,
+		Errors:      errors,
+		Flash:       flash,
+	}
+
+	h.renderer.RenderHTTP(w, "auth/forgot_password", data)
+}
+
+// =============================================================================
+// GET /reset-password - Show Reset Password Form
+// =============================================================================
+
+// ResetPasswordPageData contains data for the reset password template.
+type ResetPasswordPageData struct {
+	CurrentPath string
+	CSRFToken   string
+	Token       string // The reset token from URL
+	Form        map[string]string
+	Errors      map[string]string
+	Flash       *Flash
+}
+
+// ShowResetPassword renders the reset password form.
+//
+// Query Parameters:
+// - token (required): The password reset token from the email link
+//
+// Template: auth/reset_password (if token is valid)
+// Template: auth/reset_password_invalid (if token is invalid/expired)
+//
+// Flow:
+// 1. Extract token from query string
+// 2. Validate the token
+// 3. If valid: show reset password form
+// 4. If invalid: show error message with link to request new reset
+func (h *AuthHandler) ShowResetPassword(w http.ResponseWriter, r *http.Request) {
+	// Get token from query string
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		h.renderResetPasswordInvalid(w, r, "Invalid reset link. Please check your email for the correct link.")
+		return
+	}
+
+	// Validate the token
+	_, err := h.userService.ValidatePasswordResetToken(r.Context(), token)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		switch code {
+		case domain.ENOTFOUND:
+			h.renderResetPasswordInvalid(w, r, "This reset link has expired or is invalid. Please request a new password reset.")
+		case domain.EINVALID:
+			h.renderResetPasswordInvalid(w, r, "This reset link is invalid. Please request a new password reset.")
+		default:
+			h.logger.Error("password reset token validation failed", "error", err)
+			h.renderResetPasswordInvalid(w, r, "Something went wrong. Please request a new password reset.")
+		}
+		return
+	}
+
+	// Token is valid - show reset form
+	data := ResetPasswordPageData{
+		CurrentPath: r.URL.Path,
+		CSRFToken:   "", // TODO: Set CSRF token
+		Token:       token,
+		Form:        make(map[string]string),
+		Errors:      make(map[string]string),
+		Flash:       nil,
+	}
+
+	h.renderer.RenderHTTP(w, "auth/reset_password", data)
+}
+
+// renderResetPasswordInvalid renders the invalid token page.
+func (h *AuthHandler) renderResetPasswordInvalid(w http.ResponseWriter, r *http.Request, message string) {
+	data := map[string]interface{}{
+		"CurrentPath": r.URL.Path,
+		"Message":     message,
+	}
+	h.renderer.RenderHTTP(w, "auth/reset_password_invalid", data)
+}
+
+// =============================================================================
+// POST /reset-password - Process Password Reset
+// =============================================================================
+
+// ResetPassword processes the password reset form submission.
+//
+// Form Fields:
+// - token (required): The password reset token (hidden field)
+// - password (required): New password (min 8 chars)
+// - password_confirmation (required): Must match password
+//
+// Flow:
+// 1. Parse and validate form data
+// 2. Validate passwords match and meet requirements
+// 3. Call userService.ResetPassword to update password
+// 4. Redirect to login with success message
+//
+// Security Notes:
+// - Token is re-validated during the reset operation
+// - All existing sessions are invalidated after password change
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	// Parse form
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error("failed to parse form", "error", err)
+		h.renderResetPasswordInvalid(w, r, "Invalid form submission. Please try again.")
+		return
+	}
+
+	// Get form values
+	token := r.FormValue("token")
+	password := r.FormValue("password")
+	passwordConfirmation := r.FormValue("password_confirmation")
+
+	// Validate token is present
+	if token == "" {
+		h.renderResetPasswordInvalid(w, r, "Invalid reset link. Please request a new password reset.")
+		return
+	}
+
+	// Validate passwords
+	errors := make(map[string]string)
+
+	if password == "" {
+		errors["password"] = "Password is required"
+	} else if len(password) < 8 {
+		errors["password"] = "Password must be at least 8 characters"
+	}
+
+	if passwordConfirmation == "" {
+		errors["password_confirmation"] = "Please confirm your password"
+	} else if password != passwordConfirmation {
+		errors["password_confirmation"] = "Passwords do not match"
+	}
+
+	// If validation errors, re-render form
+	if len(errors) > 0 {
+		data := ResetPasswordPageData{
+			CurrentPath: "/reset-password",
+			CSRFToken:   "", // TODO: Regenerate CSRF token
+			Token:       token,
+			Form:        make(map[string]string),
+			Errors:      errors,
+			Flash:       nil,
+		}
+		h.renderer.RenderHTTP(w, "auth/reset_password", data)
+		return
+	}
+
+	// Call UserService.ResetPassword
+	err := h.userService.ResetPassword(r.Context(), domain.ResetPasswordParams{
+		Token:       token,
+		NewPassword: password,
+	})
+	if err != nil {
+		code := domain.ErrorCode(err)
+		switch code {
+		case domain.ENOTFOUND:
+			h.renderResetPasswordInvalid(w, r, "This reset link has expired or is invalid. Please request a new password reset.")
+		case domain.EINVALID:
+			// Password validation error from service
+			data := ResetPasswordPageData{
+				CurrentPath: "/reset-password",
+				CSRFToken:   "",
+				Token:       token,
+				Form:        make(map[string]string),
+				Errors:      make(map[string]string),
+				Flash: &Flash{
+					Type:    "error",
+					Message: domain.ErrorMessage(err),
+				},
+			}
+			h.renderer.RenderHTTP(w, "auth/reset_password", data)
+		default:
+			h.logger.Error("password reset failed", "error", err)
+			h.renderResetPasswordInvalid(w, r, "Something went wrong. Please try again.")
+		}
+		return
+	}
+
+	// Success - redirect to login with success message
+	h.logger.Info("password reset completed")
+	http.Redirect(w, r, "/login?reset=1", http.StatusSeeOther)
 }
 
 // =============================================================================
