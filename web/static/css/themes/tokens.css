@@ -311,7 +311,20 @@
      LUKAUT BRAND COLORS
      ======================================== */
 
-  /* Forest (Primary) - PNG highlands rainforest */
+  /* Puerto Rico (Primary) - Fresh teal-green */
+  --color-puerto-rico-50: oklch(98.2% 0.025 170);
+  --color-puerto-rico-100: oklch(95.5% 0.055 172);
+  --color-puerto-rico-200: oklch(91% 0.095 173);
+  --color-puerto-rico-300: oklch(85% 0.135 174);
+  --color-puerto-rico-400: oklch(78% 0.145 175);
+  --color-puerto-rico-500: oklch(70% 0.135 175);
+  --color-puerto-rico-600: oklch(58% 0.115 175);
+  --color-puerto-rico-700: oklch(48% 0.095 175);
+  --color-puerto-rico-800: oklch(40% 0.075 175);
+  --color-puerto-rico-900: oklch(35% 0.06 175);
+  --color-puerto-rico-950: oklch(25% 0.04 175);
+
+  /* Forest (Legacy) - PNG highlands rainforest */
   --color-forest-50: oklch(96.5% 0.02 155);
   --color-forest-100: oklch(93% 0.04 155);
   --color-forest-200: oklch(87% 0.07 155);
@@ -320,15 +333,15 @@
   --color-forest-500: oklch(55% 0.14 155);
   --color-forest-600: oklch(47% 0.12 155);
   --color-forest-700: oklch(40% 0.10 155);
-  --color-forest-800: oklch(35% 0.08 155);  /* #1A4D2E equivalent */
+  --color-forest-800: oklch(35% 0.08 155);
   --color-forest-900: oklch(25% 0.05 155);
   --color-forest-950: oklch(18% 0.03 155);
 
-  /* Gold (Accent) - Bird-of-Paradise, PNG flag */
+  /* Gold (Accent - use sparingly) */
   --color-gold-50: oklch(99% 0.02 95);
   --color-gold-100: oklch(97% 0.05 95);
   --color-gold-200: oklch(94% 0.10 95);
-  --color-gold-300: oklch(90% 0.16 90);  /* #FCD116 equivalent */
+  --color-gold-300: oklch(90% 0.16 90);
   --color-gold-400: oklch(86% 0.17 85);
   --color-gold-500: oklch(80% 0.16 80);
   --color-gold-600: oklch(70% 0.15 70);
@@ -337,20 +350,20 @@
   --color-gold-900: oklch(40% 0.09 50);
   --color-gold-950: oklch(28% 0.06 45);
 
-  /* Clay (Secondary) - Sepik River clay */
+  /* Clay (Secondary) */
   --color-clay-50: oklch(98% 0.005 60);
   --color-clay-100: oklch(95% 0.01 55);
   --color-clay-200: oklch(90% 0.02 50);
   --color-clay-300: oklch(82% 0.04 50);
   --color-clay-400: oklch(72% 0.06 50);
   --color-clay-500: oklch(62% 0.07 50);
-  --color-clay-600: oklch(52% 0.07 50);  /* #8B7355 equivalent */
+  --color-clay-600: oklch(52% 0.07 50);
   --color-clay-700: oklch(43% 0.06 50);
   --color-clay-800: oklch(35% 0.05 45);
   --color-clay-900: oklch(28% 0.04 40);
   --color-clay-950: oklch(20% 0.03 35);
 
-  /* Cream (Background) - Traditional tapa cloth */
+  /* Cream (Background - legacy) */
   --color-cream: oklch(92% 0.01 80);
 
   /* ========================================
@@ -373,20 +386,20 @@
      ======================================== */
 
   /* Primary action color */
-  --color-primary: var(--color-forest-800);
-  --color-primary-hover: var(--color-forest-700);
-  --color-primary-active: var(--color-forest-900);
-  --color-primary-subtle: var(--color-forest-50);
+  --color-primary: var(--color-puerto-rico-700);
+  --color-primary-hover: var(--color-puerto-rico-600);
+  --color-primary-active: var(--color-puerto-rico-800);
+  --color-primary-subtle: var(--color-puerto-rico-50);
 
   /* Secondary/neutral actions */
-  --color-secondary: var(--color-clay-600);
-  --color-secondary-hover: var(--color-clay-500);
-  --color-secondary-subtle: var(--color-clay-50);
+  --color-secondary: var(--color-zinc-600);
+  --color-secondary-hover: var(--color-zinc-500);
+  --color-secondary-subtle: var(--color-zinc-50);
 
-  /* Accent/CTA color */
-  --color-accent: var(--color-gold-300);
-  --color-accent-hover: var(--color-gold-400);
-  --color-accent-text: var(--color-forest-800);
+  /* Accent/CTA color (gold - use sparingly) */
+  --color-accent: var(--color-gold-400);
+  --color-accent-hover: var(--color-gold-500);
+  --color-accent-text: var(--color-puerto-rico-950);
 
   /* Danger/destructive actions */
   --color-danger: var(--color-red-600);
@@ -394,9 +407,9 @@
   --color-danger-subtle: var(--color-red-50);
 
   /* Success state */
-  --color-success: var(--color-green-600);
-  --color-success-hover: var(--color-green-700);
-  --color-success-subtle: var(--color-green-50);
+  --color-success: var(--color-puerto-rico-600);
+  --color-success-hover: var(--color-puerto-rico-700);
+  --color-success-subtle: var(--color-puerto-rico-50);
 
   /* Warning state */
   --color-warning: var(--color-amber-500);
@@ -409,19 +422,19 @@
   --color-info-subtle: var(--color-blue-50);
 
   /* Surface colors */
-  --color-background: var(--color-cream);
+  --color-background: var(--color-gray-50);
   --color-surface: var(--color-white);
   --color-surface-raised: var(--color-white);
   --color-surface-overlay: oklch(100% 0 0 / 80%);
-  --color-surface-inset: var(--color-zinc-50);
+  --color-surface-inset: var(--color-gray-50);
 
   /* Text colors */
   --color-text: var(--color-zinc-950);
-  --color-text-secondary: var(--color-zinc-500);
+  --color-text-secondary: var(--color-zinc-600);
   --color-text-tertiary: var(--color-zinc-400);
   --color-text-inverse: var(--color-white);
   --color-text-on-primary: var(--color-white);
-  --color-text-on-accent: var(--color-forest-800);
+  --color-text-on-accent: var(--color-puerto-rico-950);
 
   /* Border colors */
   --color-border: var(--color-zinc-950-10);
