@@ -164,7 +164,7 @@ func run() error {
 		}
 
 		// Register job handlers
-		jobWorker.Register(jobs.NewAnalyzeInspectionHandler(repo, aiProvider, logger))
+		jobWorker.Register(jobs.NewAnalyzeInspectionHandler(repo, aiProvider, storageService, logger))
 		jobWorker.Register(jobs.NewGenerateReportHandler(repo, storageService, logger))
 
 		// Start the worker
