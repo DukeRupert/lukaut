@@ -17,6 +17,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/middleware"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/DukeRupert/lukaut/internal/storage"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -85,6 +86,34 @@ func run() error {
 	}
 	logger.Info("Email service initialized", "host", cfg.SMTPHost, "port", cfg.SMTPPort)
 
+	// Initialize storage service
+	var storageService storage.Storage
+	if cfg.StorageProvider == storage.ProviderR2 {
+		storageService, err = storage.NewR2Storage(storage.R2Config{
+			AccountID:       cfg.R2AccountID,
+			AccessKeyID:     cfg.R2AccessKeyID,
+			SecretAccessKey: cfg.R2SecretAccessKey,
+			BucketName:      cfg.R2BucketName,
+			PublicURL:       cfg.R2PublicURL,
+			Region:          "auto",
+		}, logger)
+		if err != nil {
+			return fmt.Errorf("R2 storage initialization failed: %w", err)
+		}
+	} else {
+		storageService, err = storage.NewLocalStorage(storage.LocalConfig{
+			BasePath: cfg.LocalStoragePath,
+			BaseURL:  cfg.LocalStorageURL,
+		}, logger)
+		if err != nil {
+			return fmt.Errorf("local storage initialization failed: %w", err)
+		}
+	}
+	logger.Info("Storage service initialized", "provider", cfg.StorageProvider)
+
+	// TODO: Pass storageService to handlers when implementing image upload
+	_ = storageService
+
 	// Initialize middleware
 	isSecure := cfg.Env != "development"
 	authMw := middleware.NewAuthMiddleware(userService, logger, isSecure)
@@ -101,6 +130,13 @@ func run() error {
 	// Static files
 	staticFS := http.FileServer(http.Dir("web/static"))
 	mux.Handle("GET /static/", http.StripPrefix("/static/", staticFS))
+
+	// File storage (local development only)
+	if cfg.StorageProvider == storage.ProviderLocal {
+		filesFS := http.FileServer(http.Dir(cfg.LocalStoragePath))
+		mux.Handle("GET /files/", http.StripPrefix("/files/", filesFS))
+		logger.Info("Local file server enabled", "path", cfg.LocalStoragePath)
+	}
 
 	// Health check
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {

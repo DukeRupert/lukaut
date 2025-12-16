@@ -24,6 +24,20 @@ type Config struct {
 
 	// Application base URL (for email links)
 	BaseURL string
+
+	// Storage Configuration
+	StorageProvider string // "local" or "r2"
+
+	// Local Storage (development)
+	LocalStoragePath string // Base directory for local file storage
+	LocalStorageURL  string // Base URL for accessing local files
+
+	// R2 Storage (production)
+	R2AccountID        string
+	R2AccessKeyID      string
+	R2SecretAccessKey  string
+	R2BucketName       string
+	R2PublicURL        string // Optional custom domain URL
 }
 
 func NewConfig() (*Config, error) {
@@ -45,12 +59,42 @@ func NewConfig() (*Config, error) {
 
 		// Base URL defaults to localhost for development
 		BaseURL: getEnv("BASE_URL", "http://localhost:8080"),
+
+		// Storage defaults to local filesystem for development
+		StorageProvider:  getEnv("STORAGE_PROVIDER", "local"),
+		LocalStoragePath: getEnv("LOCAL_STORAGE_PATH", "./storage"),
+		LocalStorageURL:  getEnv("LOCAL_STORAGE_URL", "http://localhost:8080/files"),
+
+		// R2 configuration (production only)
+		R2AccountID:       getEnv("R2_ACCOUNT_ID", ""),
+		R2AccessKeyID:     getEnv("R2_ACCESS_KEY_ID", ""),
+		R2SecretAccessKey: getEnv("R2_SECRET_ACCESS_KEY", ""),
+		R2BucketName:      getEnv("R2_BUCKET_NAME", ""),
+		R2PublicURL:       getEnv("R2_PUBLIC_URL", ""),
 	}
 
 	// Required
 	cfg.DatabaseUrl = os.Getenv("DATABASE_URL")
 	if cfg.DatabaseUrl == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")
+	}
+
+	// Validate storage configuration
+	if cfg.StorageProvider == "r2" {
+		if cfg.R2AccountID == "" {
+			return nil, fmt.Errorf("R2_ACCOUNT_ID is required when STORAGE_PROVIDER is 'r2'")
+		}
+		if cfg.R2AccessKeyID == "" {
+			return nil, fmt.Errorf("R2_ACCESS_KEY_ID is required when STORAGE_PROVIDER is 'r2'")
+		}
+		if cfg.R2SecretAccessKey == "" {
+			return nil, fmt.Errorf("R2_SECRET_ACCESS_KEY is required when STORAGE_PROVIDER is 'r2'")
+		}
+		if cfg.R2BucketName == "" {
+			return nil, fmt.Errorf("R2_BUCKET_NAME is required when STORAGE_PROVIDER is 'r2'")
+		}
+	} else if cfg.StorageProvider != "local" {
+		return nil, fmt.Errorf("STORAGE_PROVIDER must be either 'local' or 'r2', got: %s", cfg.StorageProvider)
 	}
 
 	return cfg, nil
