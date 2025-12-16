@@ -14,10 +14,12 @@ import (
 	"github.com/DukeRupert/lukaut/internal"
 	"github.com/DukeRupert/lukaut/internal/email"
 	"github.com/DukeRupert/lukaut/internal/handler"
+	"github.com/DukeRupert/lukaut/internal/jobs"
 	"github.com/DukeRupert/lukaut/internal/middleware"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/service"
 	"github.com/DukeRupert/lukaut/internal/storage"
+	"github.com/DukeRupert/lukaut/internal/worker"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -118,6 +120,31 @@ func run() error {
 	}
 	logger.Info("Email service initialized", "host", cfg.SMTPHost, "port", cfg.SMTPPort)
 
+	// Initialize background worker
+	var jobWorker *worker.Worker
+	if cfg.WorkerEnabled {
+		workerConfig := worker.Config{
+			Concurrency:       cfg.WorkerConcurrency,
+			PollInterval:      cfg.WorkerPollInterval,
+			JobTimeout:        cfg.WorkerJobTimeout,
+			ShutdownTimeout:   30 * time.Second,
+			StaleJobThreshold: 10 * time.Minute,
+		}
+
+		jobWorker, err = worker.New(db, repo, workerConfig, logger)
+		if err != nil {
+			return fmt.Errorf("worker initialization failed: %w", err)
+		}
+
+		// Register job handlers
+		jobWorker.Register(jobs.NewAnalyzeInspectionHandler(repo, logger))
+		jobWorker.Register(jobs.NewGenerateReportHandler(repo, storageService, logger))
+
+		// Start the worker
+		jobWorker.Start(ctx)
+		logger.Info("Background worker started", "concurrency", workerConfig.Concurrency)
+	}
+
 	// Initialize middleware
 	isSecure := cfg.Env != "development"
 	authMw := middleware.NewAuthMiddleware(userService, logger, isSecure)
@@ -202,6 +229,12 @@ func run() error {
 	// Wait for interrupt signal
 	<-sigChan
 	logger.Info("Shutdown signal received, initiating graceful shutdown...")
+
+	// Stop background worker first (if running)
+	if jobWorker != nil {
+		logger.Info("Stopping background worker...")
+		jobWorker.Stop()
+	}
 
 	// Create shutdown context with timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

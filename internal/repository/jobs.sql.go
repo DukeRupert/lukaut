@@ -126,6 +126,23 @@ func (q *Queries) GetJobByID(ctx context.Context, id uuid.UUID) (Job, error) {
 	return i, err
 }
 
+const recoverStaleJobs = `-- name: RecoverStaleJobs :execrows
+UPDATE jobs
+SET status = 'pending',
+    error_message = 'Job timed out - worker may have crashed'
+WHERE status = 'running'
+AND started_at < NOW() - $1::INTERVAL
+`
+
+// Recovers jobs that have been running too long (worker may have crashed)
+func (q *Queries) RecoverStaleJobs(ctx context.Context, dollar_1 int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, recoverStaleJobs, dollar_1)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const updateJobCompleted = `-- name: UpdateJobCompleted :exec
 UPDATE jobs
 SET status = 'completed',
@@ -146,7 +163,7 @@ SET status = CASE
 END,
 error_message = $2,
 scheduled_at = CASE
-    WHEN attempts < max_attempts THEN NOW() + INTERVAL '5 minutes'
+    WHEN attempts < max_attempts THEN NOW() + (LEAST(POWER(2, attempts - 1) * 30, 3600) * INTERVAL '1 second')
     ELSE scheduled_at
 END
 WHERE id = $1
@@ -157,6 +174,7 @@ type UpdateJobFailedParams struct {
 	ErrorMessage sql.NullString `json:"error_message"`
 }
 
+// Updates a failed job with exponential backoff (30s * 2^attempts, max 1 hour)
 func (q *Queries) UpdateJobFailed(ctx context.Context, arg UpdateJobFailedParams) error {
 	_, err := q.db.ExecContext(ctx, updateJobFailed, arg.ID, arg.ErrorMessage)
 	return err

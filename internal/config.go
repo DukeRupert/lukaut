@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -38,6 +39,12 @@ type Config struct {
 	R2SecretAccessKey  string
 	R2BucketName       string
 	R2PublicURL        string // Optional custom domain URL
+
+	// Worker Configuration
+	WorkerEnabled      bool
+	WorkerConcurrency  int
+	WorkerPollInterval time.Duration
+	WorkerJobTimeout   time.Duration
 }
 
 func NewConfig() (*Config, error) {
@@ -71,6 +78,12 @@ func NewConfig() (*Config, error) {
 		R2SecretAccessKey: getEnv("R2_SECRET_ACCESS_KEY", ""),
 		R2BucketName:      getEnv("R2_BUCKET_NAME", ""),
 		R2PublicURL:       getEnv("R2_PUBLIC_URL", ""),
+
+		// Worker defaults
+		WorkerEnabled:      getEnvBool("WORKER_ENABLED", true),
+		WorkerConcurrency:  getEnvInt("WORKER_CONCURRENCY", 2),
+		WorkerPollInterval: getEnvDuration("WORKER_POLL_INTERVAL", 5*time.Second),
+		WorkerJobTimeout:   getEnvDuration("WORKER_JOB_TIMEOUT", 5*time.Minute),
 	}
 
 	// Required
@@ -111,6 +124,24 @@ func getEnvInt(key string, fallback int) int {
 	if value := os.Getenv(key); value != "" {
 		if i, err := strconv.Atoi(value); err == nil {
 			return i
+		}
+	}
+	return fallback
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if b, err := strconv.ParseBool(value); err == nil {
+			return b
+		}
+	}
+	return fallback
+}
+
+func getEnvDuration(key string, fallback time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if d, err := time.ParseDuration(value); err == nil {
+			return d
 		}
 	}
 	return fallback

@@ -32,6 +32,7 @@ SET status = 'completed',
 WHERE id = $1;
 
 -- name: UpdateJobFailed :exec
+-- Updates a failed job with exponential backoff (30s * 2^attempts, max 1 hour)
 UPDATE jobs
 SET status = CASE
     WHEN attempts >= max_attempts THEN 'failed'
@@ -39,7 +40,7 @@ SET status = CASE
 END,
 error_message = $2,
 scheduled_at = CASE
-    WHEN attempts < max_attempts THEN NOW() + INTERVAL '5 minutes'
+    WHEN attempts < max_attempts THEN NOW() + (LEAST(POWER(2, attempts - 1) * 30, 3600) * INTERVAL '1 second')
     ELSE scheduled_at
 END
 WHERE id = $1;
@@ -52,3 +53,11 @@ WHERE id = $1;
 DELETE FROM jobs
 WHERE status = 'completed'
 AND completed_at < $1;
+
+-- name: RecoverStaleJobs :execrows
+-- Recovers jobs that have been running too long (worker may have crashed)
+UPDATE jobs
+SET status = 'pending',
+    error_message = 'Job timed out - worker may have crashed'
+WHERE status = 'running'
+AND started_at < NOW() - $1::INTERVAL;
