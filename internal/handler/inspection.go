@@ -32,6 +32,7 @@ type InspectionListPageData struct {
 	Inspections []domain.Inspection     // List of inspections
 	Pagination  PaginationData          // Pagination information
 	Flash       *Flash                  // Flash message (if any)
+	CSRFToken   string                  // CSRF token for form protection
 }
 
 // InspectionFormPageData contains data for the inspection create/edit form.
@@ -44,6 +45,7 @@ type InspectionFormPageData struct {
 	Errors      map[string]string  // Field-level validation errors
 	Flash       *Flash             // Flash message (if any)
 	IsEdit      bool               // true for edit, false for create
+	CSRFToken   string             // CSRF token for form protection
 }
 
 // InspectionShowPageData contains data for the inspection detail page.
@@ -56,6 +58,7 @@ type InspectionShowPageData struct {
 	GalleryData    ImageGalleryData    // Image gallery data
 	AnalysisStatus AnalysisStatusData  // Analysis status data
 	Flash          *Flash              // Flash message (if any)
+	CSRFToken      string              // CSRF token for form protection
 }
 
 // AnalysisStatusData contains data for the analysis status partial.
@@ -79,6 +82,7 @@ type InspectionReviewPageData struct {
 	Violations      []ViolationWithDetails   // Violations with details
 	ViolationCounts ViolationCounts          // Summary counts
 	Flash           *Flash                   // Flash message (if any)
+	CSRFToken       string                   // CSRF token for form protection
 }
 
 // ViolationWithDetails contains a violation plus related data for display.

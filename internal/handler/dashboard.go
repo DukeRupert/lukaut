@@ -84,6 +84,7 @@ type DashboardPageData struct {
 	Stats             DashboardStats         // Dashboard statistics
 	RecentInspections []DashboardInspection  // Recent inspections (up to 10)
 	Flash             *Flash                 // Flash message to display (if any)
+	CSRFToken         string                 // CSRF token for form protection
 }
 
 // =============================================================================
