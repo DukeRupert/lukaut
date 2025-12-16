@@ -255,7 +255,7 @@ func (s *SMTPEmailService) buildMessage(email Email) []byte {
 	// Plain text part
 	buf.WriteString(fmt.Sprintf("--%s\r\n", boundary))
 	buf.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
-	buf.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
+	buf.WriteString("Content-Transfer-Encoding: 8bit\r\n")
 	buf.WriteString("\r\n")
 	buf.WriteString(email.TextBody)
 	buf.WriteString("\r\n")
@@ -263,7 +263,7 @@ func (s *SMTPEmailService) buildMessage(email Email) []byte {
 	// HTML part
 	buf.WriteString(fmt.Sprintf("--%s\r\n", boundary))
 	buf.WriteString("Content-Type: text/html; charset=utf-8\r\n")
-	buf.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
+	buf.WriteString("Content-Transfer-Encoding: 8bit\r\n")
 	buf.WriteString("\r\n")
 	buf.WriteString(email.HTMLBody)
 	buf.WriteString("\r\n")

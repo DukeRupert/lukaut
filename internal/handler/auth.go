@@ -848,6 +848,7 @@ func (h *AuthHandler) RegisterRoutes(mux *http.ServeMux) {
 
 	// Email verification routes (P0-004, P0-005)
 	mux.HandleFunc("GET /verify-email", h.ShowVerifyEmail)
+	mux.HandleFunc("GET /resend-verification", h.ShowResendVerification)
 	mux.HandleFunc("POST /resend-verification", h.ResendVerification)
 
 	// Password reset routes (P0-006)
@@ -917,6 +918,7 @@ type VerifyEmailPageData struct {
 	Success     bool   // true = verification succeeded, false = error
 	Message     string // Success or error message
 	CanResend   bool   // Show resend verification option
+	Flash       *Flash // Required by auth layout
 }
 
 // renderVerifyEmailSuccess renders the verify email page with a success message.
@@ -939,6 +941,34 @@ func (h *AuthHandler) renderVerifyEmailError(w http.ResponseWriter, r *http.Requ
 		CanResend:   true, // Allow user to request new verification email
 	}
 	h.renderer.RenderHTTP(w, "auth/verify_email", data)
+}
+
+// =============================================================================
+// GET /resend-verification - Show Resend Verification Form
+// =============================================================================
+
+// ResendVerificationPageData contains data for the resend verification template.
+type ResendVerificationPageData struct {
+	CurrentPath string
+	CSRFToken   string
+	Form        map[string]string
+	Errors      map[string]string
+	Flash       *Flash
+	Success     bool
+	Message     string
+}
+
+// ShowResendVerification renders the resend verification form.
+func (h *AuthHandler) ShowResendVerification(w http.ResponseWriter, r *http.Request) {
+	data := ResendVerificationPageData{
+		CurrentPath: r.URL.Path,
+		CSRFToken:   "",
+		Form:        make(map[string]string),
+		Errors:      make(map[string]string),
+		Flash:       nil,
+		Success:     false,
+	}
+	h.renderer.RenderHTTP(w, "auth/resend_verification", data)
 }
 
 // =============================================================================
@@ -1005,20 +1035,28 @@ func (h *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Request)
 
 // renderResendVerificationSuccess renders success message (always shown to prevent enumeration).
 func (h *AuthHandler) renderResendVerificationSuccess(w http.ResponseWriter, r *http.Request) {
-	data := map[string]interface{}{
-		"CurrentPath": r.URL.Path,
-		"Success":     true,
-		"Message":     "If an account exists with that email, a verification link has been sent.",
+	data := ResendVerificationPageData{
+		CurrentPath: r.URL.Path,
+		Success:     true,
+		Message:     "If an account exists with that email, a verification link has been sent.",
+		Form:        make(map[string]string),
+		Errors:      make(map[string]string),
 	}
 	h.renderer.RenderHTTP(w, "auth/resend_verification", data)
 }
 
 // renderResendVerificationError renders error message for resend failures.
 func (h *AuthHandler) renderResendVerificationError(w http.ResponseWriter, r *http.Request, message string) {
-	data := map[string]interface{}{
-		"CurrentPath": r.URL.Path,
-		"Success":     false,
-		"Message":     message,
+	data := ResendVerificationPageData{
+		CurrentPath: r.URL.Path,
+		Success:     false,
+		Message:     message,
+		Form:        make(map[string]string),
+		Errors:      make(map[string]string),
+		Flash: &Flash{
+			Type:    "error",
+			Message: message,
+		},
 	}
 	h.renderer.RenderHTTP(w, "auth/resend_verification", data)
 }
