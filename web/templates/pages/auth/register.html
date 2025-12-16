@@ -3,7 +3,7 @@
 {{define "heading"}}Create your account{{end}}
 
 {{define "subheading"}}
-<p class="mt-2 text-center text-sm text-gray-600">
+<p class="mt-2 text-center text-sm text-[var(--color-text-secondary)]">
     Start your 14-day free trial. No credit card required.
 </p>
 {{end}}
@@ -13,79 +13,157 @@
     {{if .CSRFToken}}{{csrfField .CSRFToken}}{{end}}
     {{if .ReturnTo}}<input type="hidden" name="return_to" value="{{.ReturnTo}}">{{end}}
 
-    <div>
-        <label for="name" class="block text-sm font-medium leading-6 text-gray-900">Full name</label>
+    {{/* Full name field */}}
+    <div data-slot="field">
+        <label for="name" data-slot="label" class="block text-sm/6 font-medium text-[var(--color-text)]">
+            Full name
+        </label>
         <div class="mt-2">
-            <input id="name" name="name" type="text" autocomplete="name" required
+            <input type="text"
+                   name="name"
+                   id="name"
+                   autocomplete="name"
+                   required
                    value="{{.Form.Name}}"
-                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 px-3">
+                   class="block w-full rounded-lg border-none bg-white py-2.5 px-3.5 text-base/6 text-[var(--color-text)] sm:py-1.5 sm:px-3 sm:text-sm/6
+                          shadow-sm ring-1 ring-inset ring-[var(--color-zinc-950)]/10
+                          placeholder:text-[var(--color-text-tertiary)]
+                          focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]
+                          {{if .Errors.name}}ring-[var(--color-danger)] focus:ring-[var(--color-danger)]{{end}}">
         </div>
         {{if .Errors.name}}
-        <p class="mt-2 text-sm text-red-600">{{.Errors.name}}</p>
+        <p data-slot="error" class="mt-2 text-sm/6 text-[var(--color-danger)]" role="alert">{{.Errors.name}}</p>
         {{end}}
     </div>
 
-    <div>
-        <label for="email" class="block text-sm font-medium leading-6 text-gray-900">Email address</label>
+    {{/* Email field */}}
+    <div data-slot="field">
+        <label for="email" data-slot="label" class="block text-sm/6 font-medium text-[var(--color-text)]">
+            Email address
+        </label>
         <div class="mt-2">
-            <input id="email" name="email" type="email" autocomplete="email" required
+            <input type="email"
+                   name="email"
+                   id="email"
+                   autocomplete="email"
+                   required
                    value="{{.Form.Email}}"
-                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 px-3">
+                   class="block w-full rounded-lg border-none bg-white py-2.5 px-3.5 text-base/6 text-[var(--color-text)] sm:py-1.5 sm:px-3 sm:text-sm/6
+                          shadow-sm ring-1 ring-inset ring-[var(--color-zinc-950)]/10
+                          placeholder:text-[var(--color-text-tertiary)]
+                          focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]
+                          {{if .Errors.email}}ring-[var(--color-danger)] focus:ring-[var(--color-danger)]{{end}}">
         </div>
         {{if .Errors.email}}
-        <p class="mt-2 text-sm text-red-600">{{.Errors.email}}</p>
+        <p data-slot="error" class="mt-2 text-sm/6 text-[var(--color-danger)]" role="alert">{{.Errors.email}}</p>
         {{end}}
     </div>
 
-    <div>
-        <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Password</label>
+    {{/* Password field */}}
+    <div data-slot="field">
+        <label for="password" data-slot="label" class="block text-sm/6 font-medium text-[var(--color-text)]">
+            Password
+        </label>
         <div class="mt-2">
-            <input id="password" name="password" type="password" autocomplete="new-password" required
-                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 px-3">
+            <input type="password"
+                   name="password"
+                   id="password"
+                   autocomplete="new-password"
+                   required
+                   class="block w-full rounded-lg border-none bg-white py-2.5 px-3.5 text-base/6 text-[var(--color-text)] sm:py-1.5 sm:px-3 sm:text-sm/6
+                          shadow-sm ring-1 ring-inset ring-[var(--color-zinc-950)]/10
+                          placeholder:text-[var(--color-text-tertiary)]
+                          focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]
+                          {{if .Errors.password}}ring-[var(--color-danger)] focus:ring-[var(--color-danger)]{{end}}">
         </div>
-        <p class="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
+        <p data-slot="description" class="mt-1 text-xs text-[var(--color-text-tertiary)]">Must be at least 8 characters</p>
         {{if .Errors.password}}
-        <p class="mt-2 text-sm text-red-600">{{.Errors.password}}</p>
+        <p data-slot="error" class="mt-2 text-sm/6 text-[var(--color-danger)]" role="alert">{{.Errors.password}}</p>
         {{end}}
     </div>
 
-    <div>
-        <label for="password_confirmation" class="block text-sm font-medium leading-6 text-gray-900">Confirm password</label>
+    {{/* Password confirmation field */}}
+    <div data-slot="field">
+        <label for="password_confirmation" data-slot="label" class="block text-sm/6 font-medium text-[var(--color-text)]">
+            Confirm password
+        </label>
         <div class="mt-2">
-            <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" required
-                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 px-3">
+            <input type="password"
+                   name="password_confirmation"
+                   id="password_confirmation"
+                   autocomplete="new-password"
+                   required
+                   class="block w-full rounded-lg border-none bg-white py-2.5 px-3.5 text-base/6 text-[var(--color-text)] sm:py-1.5 sm:px-3 sm:text-sm/6
+                          shadow-sm ring-1 ring-inset ring-[var(--color-zinc-950)]/10
+                          placeholder:text-[var(--color-text-tertiary)]
+                          focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]
+                          {{if .Errors.password_confirmation}}ring-[var(--color-danger)] focus:ring-[var(--color-danger)]{{end}}">
         </div>
         {{if .Errors.password_confirmation}}
-        <p class="mt-2 text-sm text-red-600">{{.Errors.password_confirmation}}</p>
+        <p data-slot="error" class="mt-2 text-sm/6 text-[var(--color-danger)]" role="alert">{{.Errors.password_confirmation}}</p>
         {{end}}
     </div>
 
+    {{/* Invite code field (conditional) */}}
     {{if .InviteCodesEnabled}}
-    <div>
-        <label for="invite_code" class="block text-sm font-medium leading-6 text-gray-900">Invite code</label>
+    <div data-slot="field">
+        <label for="invite_code" data-slot="label" class="block text-sm/6 font-medium text-[var(--color-text)]">
+            Invite code
+        </label>
         <div class="mt-2">
-            <input id="invite_code" name="invite_code" type="text" required
+            <input type="text"
+                   name="invite_code"
+                   id="invite_code"
+                   required
                    value="{{.Form.InviteCode}}"
                    placeholder="Enter your invite code"
-                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 px-3">
+                   class="block w-full rounded-lg border-none bg-white py-2.5 px-3.5 text-base/6 text-[var(--color-text)] sm:py-1.5 sm:px-3 sm:text-sm/6
+                          shadow-sm ring-1 ring-inset ring-[var(--color-zinc-950)]/10
+                          placeholder:text-[var(--color-text-tertiary)]
+                          focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]
+                          {{if .Errors.invite_code}}ring-[var(--color-danger)] focus:ring-[var(--color-danger)]{{end}}">
         </div>
         {{if .Errors.invite_code}}
-        <p class="mt-2 text-sm text-red-600">{{.Errors.invite_code}}</p>
+        <p data-slot="error" class="mt-2 text-sm/6 text-[var(--color-danger)]" role="alert">{{.Errors.invite_code}}</p>
         {{end}}
     </div>
     {{end}}
 
-    <div class="flex items-start">
-        <input id="terms" name="terms" type="checkbox" required
-               class="h-4 w-4 rounded border-gray-300 text-forest focus:ring-forest mt-0.5">
-        <label for="terms" class="ml-3 block text-sm leading-6 text-gray-600">
-            I agree to the <a href="/terms" class="font-medium text-forest hover:text-forest/80">Terms of Service</a> and <a href="/privacy" class="font-medium text-forest hover:text-forest/80">Privacy Policy</a>
+    {{/* Terms checkbox */}}
+    <div class="grid grid-cols-[1.125rem_1fr] gap-x-3 sm:grid-cols-[1rem_1fr] items-start">
+        <span class="group inline-flex mt-0.5">
+            <input type="checkbox"
+                   id="terms"
+                   name="terms"
+                   required
+                   class="peer sr-only">
+            <span class="relative isolate flex size-[1.125rem] sm:size-4 items-center justify-center rounded-[0.3125rem] cursor-pointer
+                         before:absolute before:inset-0 before:-z-10 before:rounded-[calc(0.3125rem-1px)] before:bg-white before:shadow-sm
+                         border border-[var(--color-zinc-950)]/15 hover:border-[var(--color-zinc-950)]/30
+                         peer-checked:border-transparent peer-checked:before:bg-[var(--color-primary)] peer-checked:bg-[var(--color-primary-hover)]
+                         peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-[var(--color-primary)]">
+                <svg class="size-4 sm:size-3.5 stroke-white opacity-0 peer-checked:group-[]:opacity-100"
+                     viewBox="0 0 14 14" fill="none">
+                    <path d="M3 8L6 11L11 3.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </span>
+        </span>
+        <label for="terms" class="text-sm/6 text-[var(--color-text-secondary)]">
+            I agree to the
+            <a href="/terms" class="font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]">Terms of Service</a>
+            and
+            <a href="/privacy" class="font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]">Privacy Policy</a>
         </label>
     </div>
 
+    {{/* Submit button */}}
     <div>
         <button type="submit"
-                class="flex w-full justify-center rounded-md bg-forest px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-forest/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest transition-colors">
+                class="flex w-full justify-center rounded-lg px-3.5 py-2.5 sm:px-3 sm:py-1.5 text-base/6 sm:text-sm/6 font-semibold
+                       bg-[var(--color-primary)] text-white shadow-sm
+                       hover:bg-[var(--color-primary-hover)]
+                       focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]
+                       transition-colors">
             Create account
         </button>
     </div>
@@ -93,8 +171,8 @@
 {{end}}
 
 {{define "footer"}}
-<p class="mt-10 text-center text-sm text-gray-500">
+<p class="mt-10 text-center text-sm text-[var(--color-text-secondary)]">
     Already have an account?
-    <a href="/login" class="font-semibold leading-6 text-forest hover:text-forest/80">Sign in</a>
+    <a href="/login" class="font-semibold text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]">Sign in</a>
 </p>
 {{end}}

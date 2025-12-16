@@ -1,6 +1,6 @@
 {{define "app"}}
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-cream">
+<html lang="en" class="h-full bg-[var(--color-background)]">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,6 +18,10 @@
 
     <!-- Alpine.js -->
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
 
     {{block "head" .}}{{end}}
 </head>
