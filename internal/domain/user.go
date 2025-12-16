@@ -171,3 +171,11 @@ func ToNullUUID(id *uuid.UUID) uuid.NullUUID {
 	}
 	return uuid.NullUUID{UUID: *id, Valid: true}
 }
+
+// NullUUIDToPtr converts a uuid.NullUUID to a uuid pointer.
+func NullUUIDToPtr(nu uuid.NullUUID) *uuid.UUID {
+	if !nu.Valid {
+		return nil
+	}
+	return &nu.UUID
+}

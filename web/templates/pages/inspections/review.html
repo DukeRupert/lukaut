@@ -1,0 +1,134 @@
+{{define "title"}}Review Violations - {{.Inspection.Title}}{{end}}
+
+{{define "breadcrumb"}}
+<nav class="flex" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-4">
+        <li>
+            <div>
+                <a href="/inspections" class="text-gray-400 hover:text-gray-500">
+                    Inspections
+                </a>
+            </div>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <svg class="h-5 w-5 flex-shrink-0 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                </svg>
+                <a href="/inspections/{{.Inspection.ID}}" class="ml-4 text-sm font-medium text-gray-400 hover:text-gray-500">
+                    {{.Inspection.Title}}
+                </a>
+            </div>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <svg class="h-5 w-5 flex-shrink-0 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                </svg>
+                <span class="ml-4 text-sm font-medium text-gray-500">Review Violations</span>
+            </div>
+        </li>
+    </ol>
+</nav>
+{{end}}
+
+{{define "content"}}
+<!-- Header -->
+<div class="md:flex md:items-center md:justify-between mb-6">
+    <div class="min-w-0 flex-1">
+        <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+            Review Violations
+        </h2>
+        <p class="mt-1 text-sm text-gray-500">
+            Review AI-detected violations and add manual findings for {{.Inspection.Title}}
+        </p>
+    </div>
+    <div class="mt-4 flex md:ml-4 md:mt-0">
+        <a href="/inspections/{{.Inspection.ID}}"
+           class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+            Back to Inspection
+        </a>
+    </div>
+</div>
+
+<!-- Summary Stats Bar -->
+<div class="bg-white shadow sm:rounded-lg mb-6">
+    <div class="px-4 py-5 sm:p-6">
+        <dl class="grid grid-cols-1 gap-5 sm:grid-cols-4">
+            <div class="overflow-hidden">
+                <dt class="truncate text-sm font-medium text-gray-500">Total Violations</dt>
+                <dd class="mt-1 text-3xl font-semibold tracking-tight text-gray-900">{{.ViolationCounts.Total}}</dd>
+            </div>
+            <div class="overflow-hidden">
+                <dt class="truncate text-sm font-medium text-gray-500">Pending Review</dt>
+                <dd class="mt-1 text-3xl font-semibold tracking-tight text-yellow-600">{{.ViolationCounts.Pending}}</dd>
+            </div>
+            <div class="overflow-hidden">
+                <dt class="truncate text-sm font-medium text-gray-500">Confirmed</dt>
+                <dd class="mt-1 text-3xl font-semibold tracking-tight text-green-600">{{.ViolationCounts.Confirmed}}</dd>
+            </div>
+            <div class="overflow-hidden">
+                <dt class="truncate text-sm font-medium text-gray-500">Rejected</dt>
+                <dd class="mt-1 text-3xl font-semibold tracking-tight text-gray-600">{{.ViolationCounts.Rejected}}</dd>
+            </div>
+        </dl>
+    </div>
+</div>
+
+<!-- Add Violation Button -->
+<div class="mb-6">
+    <button
+        type="button"
+        class="inline-flex items-center rounded-md bg-gold px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gold/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+        x-data
+        @click="$dispatch('open-violation-form')">
+        <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+        </svg>
+        Add Manual Violation
+    </button>
+</div>
+
+<!-- Add Violation Form (initially hidden) -->
+<div
+    x-data="{ open: false }"
+    @open-violation-form.window="open = true"
+    @close-violation-form.window="open = false"
+    x-show="open"
+    x-cloak
+    class="mb-6">
+    {{template "violation_form.html" .Inspection}}
+</div>
+
+<!-- Violations List -->
+{{if eq .ViolationCounts.Total 0}}
+<div class="bg-white shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+        <div class="text-center py-12">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <h3 class="mt-2 text-sm font-semibold text-gray-900">No violations yet</h3>
+            <p class="mt-1 text-sm text-gray-500">Get started by running AI analysis or adding a manual violation.</p>
+            <div class="mt-6">
+                <button
+                    type="button"
+                    class="inline-flex items-center rounded-md bg-gold px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gold/90"
+                    @click="$dispatch('open-violation-form')">
+                    <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                    </svg>
+                    Add Manual Violation
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{{else}}
+<div id="violation-list" class="space-y-4">
+    {{range .Violations}}
+        {{template "violation_card.html" .}}
+    {{end}}
+</div>
+{{end}}
+{{end}}

@@ -70,6 +70,31 @@ type AnalysisStatusData struct {
 	PollingEnabled bool                    // Whether to enable htmx polling
 }
 
+// InspectionReviewPageData contains data for the violation review page.
+type InspectionReviewPageData struct {
+	CurrentPath     string                   // Current URL path
+	User            interface{}              // Authenticated user
+	Inspection      *domain.Inspection       // Inspection details
+	Violations      []ViolationWithDetails   // Violations with details
+	ViolationCounts ViolationCounts          // Summary counts
+	Flash           *Flash                   // Flash message (if any)
+}
+
+// ViolationWithDetails contains a violation plus related data for display.
+type ViolationWithDetails struct {
+	Violation    *domain.Violation            // The violation
+	Regulations  []domain.ViolationRegulation // Linked regulations
+	ThumbnailURL string                       // Image thumbnail URL (if linked to image)
+}
+
+// ViolationCounts contains summary statistics for violations.
+type ViolationCounts struct {
+	Total     int // Total violations
+	Pending   int // Pending review
+	Confirmed int // Accepted by inspector
+	Rejected  int // Rejected by inspector
+}
+
 // PaginationData contains pagination information.
 type PaginationData struct {
 	CurrentPage int    // Current page number (1-indexed)
@@ -96,6 +121,7 @@ type SiteOption struct {
 type InspectionHandler struct {
 	inspectionService service.InspectionService
 	imageService      service.ImageService
+	violationService  service.ViolationService
 	queries           *repository.Queries
 	renderer          TemplateRenderer
 	logger            *slog.Logger
@@ -105,6 +131,7 @@ type InspectionHandler struct {
 func NewInspectionHandler(
 	inspectionService service.InspectionService,
 	imageService service.ImageService,
+	violationService service.ViolationService,
 	queries *repository.Queries,
 	renderer TemplateRenderer,
 	logger *slog.Logger,
@@ -112,6 +139,7 @@ func NewInspectionHandler(
 	return &InspectionHandler{
 		inspectionService: inspectionService,
 		imageService:      imageService,
+		violationService:  violationService,
 		queries:           queries,
 		renderer:          renderer,
 		logger:            logger,
@@ -136,6 +164,7 @@ func NewInspectionHandler(
 // - DELETE /inspections/{id}   -> Delete
 // - POST /inspections/{id}/analyze -> TriggerAnalysis
 // - GET  /inspections/{id}/status  -> GetStatus
+// - GET  /inspections/{id}/review  -> Review
 func (h *InspectionHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(http.Handler) http.Handler) {
 	mux.Handle("GET /inspections", requireUser(http.HandlerFunc(h.Index)))
 	mux.Handle("GET /inspections/new", requireUser(http.HandlerFunc(h.New)))
@@ -146,6 +175,7 @@ func (h *InspectionHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(
 	mux.Handle("DELETE /inspections/{id}", requireUser(http.HandlerFunc(h.Delete)))
 	mux.Handle("POST /inspections/{id}/analyze", requireUser(http.HandlerFunc(h.TriggerAnalysis)))
 	mux.Handle("GET /inspections/{id}/status", requireUser(http.HandlerFunc(h.GetStatus)))
+	mux.Handle("GET /inspections/{id}/review", requireUser(http.HandlerFunc(h.Review)))
 }
 
 // =============================================================================
@@ -774,6 +804,110 @@ func (h *InspectionHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.renderer.RenderHTTP(w, "partials/analysis_status", statusData)
+}
+
+// =============================================================================
+// GET /inspections/{id}/review - Review Violations
+// =============================================================================
+
+// Review displays the violation review page where inspectors can accept/reject
+// AI-detected violations and add manual violations.
+func (h *InspectionHandler) Review(w http.ResponseWriter, r *http.Request) {
+	user := getUser(r)
+	if user == nil {
+		h.logger.Error("review handler called without authenticated user")
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	// Parse inspection ID
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		NotFoundResponse(w, r, h.logger)
+		return
+	}
+
+	// Fetch inspection
+	inspection, err := h.inspectionService.GetByID(r.Context(), id, user.ID)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		if code == domain.ENOTFOUND {
+			NotFoundResponse(w, r, h.logger)
+		} else {
+			h.logger.Error("failed to get inspection", "error", err, "inspection_id", id)
+			h.renderError(w, r, "Failed to load inspection. Please try again.")
+		}
+		return
+	}
+
+	// Fetch violations
+	violations, err := h.violationService.ListByInspection(r.Context(), id, user.ID)
+	if err != nil {
+		h.logger.Error("failed to list violations", "error", err, "inspection_id", id)
+		h.renderError(w, r, "Failed to load violations. Please try again.")
+		return
+	}
+
+	// Build violation details with regulations and thumbnail URLs
+	violationDetails := make([]ViolationWithDetails, 0, len(violations))
+	for _, v := range violations {
+		// Get regulations for this violation
+		_, regulations, err := h.violationService.GetByIDWithRegulations(r.Context(), v.ID, user.ID)
+		if err != nil {
+			h.logger.Warn("failed to get regulations for violation",
+				"error", err,
+				"violation_id", v.ID,
+			)
+			regulations = []domain.ViolationRegulation{} // Continue with empty list
+		}
+
+		// Get thumbnail URL if violation has an image
+		thumbnailURL := ""
+		if v.ImageID != nil {
+			thumbnailURL, err = h.imageService.GetThumbnailURL(r.Context(), *v.ImageID, user.ID)
+			if err != nil {
+				h.logger.Warn("failed to generate thumbnail URL",
+					"error", err,
+					"image_id", *v.ImageID,
+				)
+				// Continue with empty thumbnail URL
+			}
+		}
+
+		violationDetails = append(violationDetails, ViolationWithDetails{
+			Violation:    &v,
+			Regulations:  regulations,
+			ThumbnailURL: thumbnailURL,
+		})
+	}
+
+	// Calculate violation counts by status
+	counts := ViolationCounts{
+		Total: len(violations),
+	}
+	for _, v := range violations {
+		switch v.Status {
+		case domain.ViolationStatusPending:
+			counts.Pending++
+		case domain.ViolationStatusConfirmed:
+			counts.Confirmed++
+		case domain.ViolationStatusRejected:
+			counts.Rejected++
+		}
+	}
+
+	// Render review page
+	data := InspectionReviewPageData{
+		CurrentPath:     r.URL.Path,
+		User:            user,
+		Inspection:      inspection,
+		Violations:      violationDetails,
+		ViolationCounts: counts,
+		Flash:           nil,
+	}
+
+	h.renderer.RenderHTTP(w, "pages/inspections/review", data)
 }
 
 // =============================================================================

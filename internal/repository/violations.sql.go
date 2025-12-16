@@ -25,6 +25,23 @@ func (q *Queries) CountViolationsByInspectionID(ctx context.Context, inspectionI
 	return count, err
 }
 
+const countViolationsByStatus = `-- name: CountViolationsByStatus :one
+SELECT COUNT(*) FROM violations
+WHERE inspection_id = $1 AND status = $2
+`
+
+type CountViolationsByStatusParams struct {
+	InspectionID uuid.UUID `json:"inspection_id"`
+	Status       string    `json:"status"`
+}
+
+func (q *Queries) CountViolationsByStatus(ctx context.Context, arg CountViolationsByStatusParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countViolationsByStatus, arg.InspectionID, arg.Status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countViolationsByUserID = `-- name: CountViolationsByUserID :one
 SELECT COUNT(*) FROM violations v
 JOIN inspections i ON i.id = v.inspection_id
@@ -111,6 +128,24 @@ func (q *Queries) DeleteViolation(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteViolationByIDAndUserID = `-- name: DeleteViolationByIDAndUserID :exec
+DELETE FROM violations v
+USING inspections i
+WHERE v.id = $1
+AND v.inspection_id = i.id
+AND i.user_id = $2
+`
+
+type DeleteViolationByIDAndUserIDParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteViolationByIDAndUserID(ctx context.Context, arg DeleteViolationByIDAndUserIDParams) error {
+	_, err := q.db.ExecContext(ctx, deleteViolationByIDAndUserID, arg.ID, arg.UserID)
+	return err
+}
+
 const getViolationByID = `-- name: GetViolationByID :one
 SELECT id, inspection_id, image_id, description, ai_description, confidence, bounding_box, status, severity, inspector_notes, sort_order, created_at, updated_at FROM violations
 WHERE id = $1
@@ -164,6 +199,89 @@ func (q *Queries) GetViolationByIDAndInspectionID(ctx context.Context, arg GetVi
 		&i.SortOrder,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getViolationByIDAndUserID = `-- name: GetViolationByIDAndUserID :one
+SELECT v.id, v.inspection_id, v.image_id, v.description, v.ai_description, v.confidence, v.bounding_box, v.status, v.severity, v.inspector_notes, v.sort_order, v.created_at, v.updated_at FROM violations v
+JOIN inspections i ON i.id = v.inspection_id
+WHERE v.id = $1 AND i.user_id = $2
+`
+
+type GetViolationByIDAndUserIDParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetViolationByIDAndUserID(ctx context.Context, arg GetViolationByIDAndUserIDParams) (Violation, error) {
+	row := q.db.QueryRowContext(ctx, getViolationByIDAndUserID, arg.ID, arg.UserID)
+	var i Violation
+	err := row.Scan(
+		&i.ID,
+		&i.InspectionID,
+		&i.ImageID,
+		&i.Description,
+		&i.AiDescription,
+		&i.Confidence,
+		&i.BoundingBox,
+		&i.Status,
+		&i.Severity,
+		&i.InspectorNotes,
+		&i.SortOrder,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getViolationWithImage = `-- name: GetViolationWithImage :one
+SELECT
+    v.id, v.inspection_id, v.image_id, v.description, v.ai_description, v.confidence, v.bounding_box, v.status, v.severity, v.inspector_notes, v.sort_order, v.created_at, v.updated_at,
+    i.thumbnail_key,
+    i.original_filename
+FROM violations v
+LEFT JOIN images i ON i.id = v.image_id
+WHERE v.id = $1
+`
+
+type GetViolationWithImageRow struct {
+	ID               uuid.UUID             `json:"id"`
+	InspectionID     uuid.UUID             `json:"inspection_id"`
+	ImageID          uuid.NullUUID         `json:"image_id"`
+	Description      string                `json:"description"`
+	AiDescription    sql.NullString        `json:"ai_description"`
+	Confidence       sql.NullString        `json:"confidence"`
+	BoundingBox      pqtype.NullRawMessage `json:"bounding_box"`
+	Status           string                `json:"status"`
+	Severity         sql.NullString        `json:"severity"`
+	InspectorNotes   sql.NullString        `json:"inspector_notes"`
+	SortOrder        sql.NullInt32         `json:"sort_order"`
+	CreatedAt        sql.NullTime          `json:"created_at"`
+	UpdatedAt        sql.NullTime          `json:"updated_at"`
+	ThumbnailKey     sql.NullString        `json:"thumbnail_key"`
+	OriginalFilename sql.NullString        `json:"original_filename"`
+}
+
+func (q *Queries) GetViolationWithImage(ctx context.Context, id uuid.UUID) (GetViolationWithImageRow, error) {
+	row := q.db.QueryRowContext(ctx, getViolationWithImage, id)
+	var i GetViolationWithImageRow
+	err := row.Scan(
+		&i.ID,
+		&i.InspectionID,
+		&i.ImageID,
+		&i.Description,
+		&i.AiDescription,
+		&i.Confidence,
+		&i.BoundingBox,
+		&i.Status,
+		&i.Severity,
+		&i.InspectorNotes,
+		&i.SortOrder,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ThumbnailKey,
+		&i.OriginalFilename,
 	)
 	return i, err
 }
@@ -269,6 +387,32 @@ type UpdateViolationDescriptionParams struct {
 
 func (q *Queries) UpdateViolationDescription(ctx context.Context, arg UpdateViolationDescriptionParams) error {
 	_, err := q.db.ExecContext(ctx, updateViolationDescription, arg.ID, arg.Description)
+	return err
+}
+
+const updateViolationDetails = `-- name: UpdateViolationDetails :exec
+UPDATE violations
+SET description = $2,
+    severity = $3,
+    inspector_notes = $4,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateViolationDetailsParams struct {
+	ID             uuid.UUID      `json:"id"`
+	Description    string         `json:"description"`
+	Severity       sql.NullString `json:"severity"`
+	InspectorNotes sql.NullString `json:"inspector_notes"`
+}
+
+func (q *Queries) UpdateViolationDetails(ctx context.Context, arg UpdateViolationDetailsParams) error {
+	_, err := q.db.ExecContext(ctx, updateViolationDetails,
+		arg.ID,
+		arg.Description,
+		arg.Severity,
+		arg.InspectorNotes,
+	)
 	return err
 }
 

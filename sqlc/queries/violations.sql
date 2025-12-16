@@ -70,3 +70,36 @@ WHERE inspection_id = $1;
 SELECT COUNT(*) FROM violations v
 JOIN inspections i ON i.id = v.inspection_id
 WHERE i.user_id = $1;
+
+-- name: GetViolationWithImage :one
+SELECT
+    v.*,
+    i.thumbnail_key,
+    i.original_filename
+FROM violations v
+LEFT JOIN images i ON i.id = v.image_id
+WHERE v.id = $1;
+
+-- name: UpdateViolationDetails :exec
+UPDATE violations
+SET description = $2,
+    severity = $3,
+    inspector_notes = $4,
+    updated_at = NOW()
+WHERE id = $1;
+
+-- name: CountViolationsByStatus :one
+SELECT COUNT(*) FROM violations
+WHERE inspection_id = $1 AND status = $2;
+
+-- name: GetViolationByIDAndUserID :one
+SELECT v.* FROM violations v
+JOIN inspections i ON i.id = v.inspection_id
+WHERE v.id = $1 AND i.user_id = $2;
+
+-- name: DeleteViolationByIDAndUserID :exec
+DELETE FROM violations v
+USING inspections i
+WHERE v.id = $1
+AND v.inspection_id = i.id
+AND i.user_id = $2;
