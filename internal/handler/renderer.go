@@ -75,11 +75,20 @@ func NewRendererFromFS(fsys fs.FS, logger *slog.Logger) (*Renderer, error) {
 func (r *Renderer) loadTemplates() error {
 	templatesDir := r.templatesDir
 
-	// Get component templates (shared across layouts)
-	componentPattern := filepath.Join(templatesDir, "components", "*.html")
-	componentFiles, err := filepath.Glob(componentPattern)
+	// Get component templates (shared across layouts) - recursively from all subdirs
+	var componentFiles []string
+	componentsDir := filepath.Join(templatesDir, "components")
+	err := filepath.WalkDir(componentsDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasSuffix(path, ".html") {
+			componentFiles = append(componentFiles, path)
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("failed to glob components: %w", err)
+		return fmt.Errorf("failed to walk components dir: %w", err)
 	}
 
 	// Get partial templates (standalone fragments for htmx)

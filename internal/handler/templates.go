@@ -144,6 +144,10 @@ func TemplateFuncs() template.FuncMap {
 		"ne": func(a, b interface{}) bool {
 			return a != b
 		},
+		"isset": func(m map[string]interface{}, key string) bool {
+			_, ok := m[key]
+			return ok
+		},
 
 		// Collection functions
 		"list": func(items ...interface{}) []interface{} {
