@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/google/uuid"
 )
@@ -334,7 +335,7 @@ func TestRequireUser_WithUser_ContinuesToHandler(t *testing.T) {
 
 	// Create request with user in context
 	req := httptest.NewRequest("GET", "/dashboard", nil)
-	ctx := setUser(req.Context(), user)
+	ctx := auth.SetUser(req.Context(), user)
 	req = req.WithContext(ctx)
 	rec := httptest.NewRecorder()
 
@@ -476,7 +477,7 @@ func TestRequireEmailVerified_Verified_Continues(t *testing.T) {
 
 	// Create request with verified user in context
 	req := httptest.NewRequest("GET", "/dashboard", nil)
-	ctx := setUser(req.Context(), user)
+	ctx := auth.SetUser(req.Context(), user)
 	req = req.WithContext(ctx)
 	rec := httptest.NewRecorder()
 
@@ -514,7 +515,7 @@ func TestRequireEmailVerified_NotVerified_Redirects(t *testing.T) {
 	// Create HTML request with unverified user
 	req := httptest.NewRequest("GET", "/dashboard", nil)
 	req.Header.Set("Accept", "text/html")
-	ctx := setUser(req.Context(), user)
+	ctx := auth.SetUser(req.Context(), user)
 	req = req.WithContext(ctx)
 	rec := httptest.NewRecorder()
 
@@ -565,7 +566,7 @@ func TestRequireActiveSubscription_Active_Continues(t *testing.T) {
 			})
 
 			req := httptest.NewRequest("GET", "/dashboard", nil)
-			ctx := setUser(req.Context(), user)
+			ctx := auth.SetUser(req.Context(), user)
 			req = req.WithContext(ctx)
 			rec := httptest.NewRecorder()
 

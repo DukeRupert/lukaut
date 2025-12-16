@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/service"
 	"github.com/google/uuid"
@@ -89,7 +90,7 @@ func (h *ImageHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(http.
 
 // Upload handles image upload for an inspection.
 func (h *ImageHandler) Upload(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("upload handler called without authenticated user")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -207,7 +208,7 @@ func (h *ImageHandler) Upload(w http.ResponseWriter, r *http.Request) {
 
 // Delete handles image deletion.
 func (h *ImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("delete handler called without authenticated user")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -245,7 +246,7 @@ func (h *ImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // ServeThumbnail redirects to the thumbnail URL.
 func (h *ImageHandler) ServeThumbnail(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("serve thumbnail handler called without authenticated user")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -283,7 +284,7 @@ func (h *ImageHandler) ServeThumbnail(w http.ResponseWriter, r *http.Request) {
 
 // ServeOriginal redirects to the original image URL.
 func (h *ImageHandler) ServeOriginal(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("serve original handler called without authenticated user")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -321,7 +322,7 @@ func (h *ImageHandler) ServeOriginal(w http.ResponseWriter, r *http.Request) {
 
 // ListImages returns the image gallery partial for an inspection.
 func (h *ImageHandler) ListImages(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("list images handler called without authenticated user")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/handler"
 	"github.com/DukeRupert/lukaut/internal/service"
@@ -35,44 +36,13 @@ const (
 )
 
 // =============================================================================
-// Context Keys
-// =============================================================================
-
-// contextKey is a custom type for context keys to avoid collisions.
-type contextKey string
-
-const (
-	// UserContextKey is the key used to store the authenticated user in context.
-	// Use GetUser(ctx) to retrieve the user from the context.
-	userContextKey contextKey = "user"
-)
-
-// =============================================================================
-// Context Helpers
+// Context Helpers (re-exported from auth package)
 // =============================================================================
 
 // GetUser retrieves the authenticated user from the request context.
-//
-// Returns nil if no user is authenticated (request passed through WithUser
-// but no valid session was found).
-//
-// Usage:
-//
-//	user := middleware.GetUser(r.Context())
-//	if user == nil {
-//	    // Handle unauthenticated request
-//	}
+// This is re-exported from the auth package for convenience.
 func GetUser(ctx context.Context) *domain.User {
-	user, ok := ctx.Value(userContextKey).(*domain.User)
-	if !ok {
-		return nil
-	}
-	return user
-}
-
-// setUser stores a user in the request context.
-func setUser(ctx context.Context, user *domain.User) context.Context {
-	return context.WithValue(ctx, userContextKey, user)
+	return auth.GetUser(ctx)
 }
 
 // =============================================================================
@@ -150,7 +120,7 @@ func (m *AuthMiddleware) WithUser(next http.Handler) http.Handler {
 		}
 
 		// Set user in context
-		ctx := setUser(r.Context(), user)
+		ctx := auth.SetUser(r.Context(), user)
 		r = r.WithContext(ctx)
 
 		// Call next handler with user in context

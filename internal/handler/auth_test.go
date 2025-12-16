@@ -155,14 +155,25 @@ func (m *mockUserService) DeleteExpiredPasswordResetTokens(ctx context.Context) 
 // Mock Renderer Implementation
 // =============================================================================
 
-// mockRenderer implements the Renderer interface for testing.
+// mockRenderer implements the TemplateRenderer interface for testing.
 type mockRenderer struct {
-	RenderHTTPFunc func(w http.ResponseWriter, templateName string, data interface{})
+	RenderHTTPFunc    func(w http.ResponseWriter, templateName string, data interface{})
+	RenderPartialFunc func(w http.ResponseWriter, templateName string, data interface{})
 }
 
 func (m *mockRenderer) RenderHTTP(w http.ResponseWriter, templateName string, data interface{}) {
 	if m.RenderHTTPFunc != nil {
 		m.RenderHTTPFunc(w, templateName, data)
+	} else {
+		// Default: write template name and status 200
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(templateName))
+	}
+}
+
+func (m *mockRenderer) RenderPartial(w http.ResponseWriter, templateName string, data interface{}) {
+	if m.RenderPartialFunc != nil {
+		m.RenderPartialFunc(w, templateName, data)
 	} else {
 		// Default: write template name and status 200
 		w.WriteHeader(http.StatusOK)

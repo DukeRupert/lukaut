@@ -9,33 +9,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DukeRupert/lukaut/internal/domain"
+	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/google/uuid"
 )
-
-// =============================================================================
-// Context Keys (duplicated from middleware to avoid import cycle)
-// =============================================================================
-
-// contextKey is a custom type for context keys to avoid collisions.
-type contextKey string
-
-const (
-	// userContextKey is the key used to store the authenticated user in context.
-	// This is duplicated from middleware/auth.go to avoid import cycle.
-	userContextKey contextKey = "user"
-)
-
-// getUser retrieves the authenticated user from the request context.
-// This is duplicated from middleware/auth.go to avoid import cycle.
-func getUser(r *http.Request) *domain.User {
-	user, ok := r.Context().Value(userContextKey).(*domain.User)
-	if !ok {
-		return nil
-	}
-	return user
-}
 
 // =============================================================================
 // Dashboard Handler Configuration
@@ -134,7 +111,7 @@ type DashboardPageData struct {
 // - Errors are logged at WARN level since the page can still function
 func (h *DashboardHandler) Show(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		// This shouldn't happen if RequireUser middleware is used
 		h.logger.Error("dashboard handler called without authenticated user")

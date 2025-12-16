@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/service"
 	"github.com/google/uuid"
@@ -83,7 +84,7 @@ func (h *ViolationHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(h
 
 // Create handles creating a new manual violation.
 func (h *ViolationHandler) Create(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("create violation handler called without authenticated user")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -158,7 +159,7 @@ func (h *ViolationHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // Update handles updating a violation's details.
 func (h *ViolationHandler) Update(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("update violation handler called without authenticated user")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -240,7 +241,7 @@ func (h *ViolationHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 // UpdateStatus handles accepting or rejecting a violation.
 func (h *ViolationHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("update status handler called without authenticated user")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -316,7 +317,7 @@ func (h *ViolationHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) 
 
 // Delete handles deleting a violation.
 func (h *ViolationHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("delete violation handler called without authenticated user")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -355,7 +356,7 @@ func (h *ViolationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // GetCard returns the violation card partial (for refreshing after edits).
 func (h *ViolationHandler) GetCard(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("get card handler called without authenticated user")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)

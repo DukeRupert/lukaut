@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/service"
@@ -184,7 +185,7 @@ func (h *InspectionHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(
 
 // Index displays a paginated list of inspections.
 func (h *InspectionHandler) Index(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("index handler called without authenticated user")
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -235,7 +236,7 @@ func (h *InspectionHandler) Index(w http.ResponseWriter, r *http.Request) {
 
 // New displays the inspection creation form.
 func (h *InspectionHandler) New(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("new handler called without authenticated user")
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -273,7 +274,7 @@ func (h *InspectionHandler) New(w http.ResponseWriter, r *http.Request) {
 
 // Create processes the inspection creation form.
 func (h *InspectionHandler) Create(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("create handler called without authenticated user")
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -365,7 +366,7 @@ func (h *InspectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // Show displays inspection details.
 func (h *InspectionHandler) Show(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("show handler called without authenticated user")
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -457,7 +458,7 @@ func (h *InspectionHandler) Show(w http.ResponseWriter, r *http.Request) {
 
 // Edit displays the inspection edit form.
 func (h *InspectionHandler) Edit(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("edit handler called without authenticated user")
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -529,7 +530,7 @@ func (h *InspectionHandler) Edit(w http.ResponseWriter, r *http.Request) {
 
 // Update processes the inspection update form.
 func (h *InspectionHandler) Update(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("update handler called without authenticated user")
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -643,7 +644,7 @@ func (h *InspectionHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 // Delete deletes an inspection.
 func (h *InspectionHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("delete handler called without authenticated user")
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -688,7 +689,7 @@ func (h *InspectionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // TriggerAnalysis enqueues a background job to analyze inspection images.
 func (h *InspectionHandler) TriggerAnalysis(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("trigger analysis handler called without authenticated user")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -775,7 +776,7 @@ func (h *InspectionHandler) TriggerAnalysis(w http.ResponseWriter, r *http.Reque
 
 // GetStatus returns the current analysis status as an htmx partial.
 func (h *InspectionHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("get status handler called without authenticated user")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -813,7 +814,7 @@ func (h *InspectionHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 // Review displays the violation review page where inspectors can accept/reject
 // AI-detected violations and add manual violations.
 func (h *InspectionHandler) Review(w http.ResponseWriter, r *http.Request) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	if user == nil {
 		h.logger.Error("review handler called without authenticated user")
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -951,7 +952,7 @@ func buildPaginationData(result *domain.ListInspectionsResult) PaginationData {
 
 // renderError renders a generic error page.
 func (h *InspectionHandler) renderError(w http.ResponseWriter, r *http.Request, message string) {
-	user := getUser(r)
+	user := auth.GetUserFromRequest(r)
 	data := map[string]interface{}{
 		"CurrentPath": r.URL.Path,
 		"User":        user,
