@@ -120,6 +120,7 @@ func run() error {
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userService, emailService, renderer, logger, isSecure)
+	dashboardHandler := handler.NewDashboardHandler(repo, renderer, logger)
 
 	// ==========================================================================
 	// Create router and register routes
@@ -163,15 +164,7 @@ func run() error {
 	requireUser := middleware.Stack(authMw.WithUser, authMw.RequireUser)
 
 	// Dashboard (requires authentication)
-	mux.Handle("GET /dashboard", requireUser(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := middleware.GetUser(r.Context())
-		renderer.RenderHTTP(w, "dashboard", map[string]interface{}{
-			"CurrentPath":       r.URL.Path,
-			"User":              user,
-			"Stats":             map[string]int{},
-			"RecentInspections": nil,
-		})
-	})))
+	mux.Handle("GET /dashboard", requireUser(http.HandlerFunc(dashboardHandler.Show)))
 
 	// ==========================================================================
 	// Start server

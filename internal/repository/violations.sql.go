@@ -25,6 +25,19 @@ func (q *Queries) CountViolationsByInspectionID(ctx context.Context, inspectionI
 	return count, err
 }
 
+const countViolationsByUserID = `-- name: CountViolationsByUserID :one
+SELECT COUNT(*) FROM violations v
+JOIN inspections i ON i.id = v.inspection_id
+WHERE i.user_id = $1
+`
+
+func (q *Queries) CountViolationsByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countViolationsByUserID, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createViolation = `-- name: CreateViolation :one
 INSERT INTO violations (
     inspection_id,

@@ -191,6 +191,84 @@ func (q *Queries) ListInspectionsByUserID(ctx context.Context, arg ListInspectio
 	return items, nil
 }
 
+const listRecentInspectionsWithViolationCount = `-- name: ListRecentInspectionsWithViolationCount :many
+SELECT
+    i.id,
+    i.user_id,
+    i.site_id,
+    i.title,
+    i.status,
+    i.inspection_date,
+    i.weather_conditions,
+    i.temperature,
+    i.inspector_notes,
+    i.created_at,
+    i.updated_at,
+    COALESCE(COUNT(v.id), 0)::int AS violation_count
+FROM inspections i
+LEFT JOIN violations v ON v.inspection_id = i.id
+WHERE i.user_id = $1
+GROUP BY i.id
+ORDER BY i.created_at DESC
+LIMIT $2
+`
+
+type ListRecentInspectionsWithViolationCountParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Limit  int32     `json:"limit"`
+}
+
+type ListRecentInspectionsWithViolationCountRow struct {
+	ID                uuid.UUID      `json:"id"`
+	UserID            uuid.UUID      `json:"user_id"`
+	SiteID            uuid.NullUUID  `json:"site_id"`
+	Title             string         `json:"title"`
+	Status            string         `json:"status"`
+	InspectionDate    time.Time      `json:"inspection_date"`
+	WeatherConditions sql.NullString `json:"weather_conditions"`
+	Temperature       sql.NullString `json:"temperature"`
+	InspectorNotes    sql.NullString `json:"inspector_notes"`
+	CreatedAt         sql.NullTime   `json:"created_at"`
+	UpdatedAt         sql.NullTime   `json:"updated_at"`
+	ViolationCount    int32          `json:"violation_count"`
+}
+
+func (q *Queries) ListRecentInspectionsWithViolationCount(ctx context.Context, arg ListRecentInspectionsWithViolationCountParams) ([]ListRecentInspectionsWithViolationCountRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRecentInspectionsWithViolationCount, arg.UserID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRecentInspectionsWithViolationCountRow{}
+	for rows.Next() {
+		var i ListRecentInspectionsWithViolationCountRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.SiteID,
+			&i.Title,
+			&i.Status,
+			&i.InspectionDate,
+			&i.WeatherConditions,
+			&i.Temperature,
+			&i.InspectorNotes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ViolationCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateInspection = `-- name: UpdateInspection :exec
 UPDATE inspections
 SET title = $2,

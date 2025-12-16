@@ -12,6 +12,31 @@ import (
 	"github.com/google/uuid"
 )
 
+const countReportsByUserID = `-- name: CountReportsByUserID :one
+SELECT COUNT(*) FROM reports
+WHERE user_id = $1
+`
+
+func (q *Queries) CountReportsByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countReportsByUserID, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countReportsThisMonthByUserID = `-- name: CountReportsThisMonthByUserID :one
+SELECT COUNT(*) FROM reports
+WHERE user_id = $1
+  AND generated_at >= DATE_TRUNC('month', CURRENT_TIMESTAMP)
+`
+
+func (q *Queries) CountReportsThisMonthByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countReportsThisMonthByUserID, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createReport = `-- name: CreateReport :one
 INSERT INTO reports (
     inspection_id,

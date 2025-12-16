@@ -65,3 +65,8 @@ WHERE id = $1;
 -- name: CountViolationsByInspectionID :one
 SELECT COUNT(*) FROM violations
 WHERE inspection_id = $1;
+
+-- name: CountViolationsByUserID :one
+SELECT COUNT(*) FROM violations v
+JOIN inspections i ON i.id = v.inspection_id
+WHERE i.user_id = $1;

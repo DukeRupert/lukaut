@@ -51,3 +51,24 @@ WHERE user_id = $1;
 -- name: DeleteInspection :exec
 DELETE FROM inspections
 WHERE id = $1;
+
+-- name: ListRecentInspectionsWithViolationCount :many
+SELECT
+    i.id,
+    i.user_id,
+    i.site_id,
+    i.title,
+    i.status,
+    i.inspection_date,
+    i.weather_conditions,
+    i.temperature,
+    i.inspector_notes,
+    i.created_at,
+    i.updated_at,
+    COALESCE(COUNT(v.id), 0)::int AS violation_count
+FROM inspections i
+LEFT JOIN violations v ON v.inspection_id = i.id
+WHERE i.user_id = $1
+GROUP BY i.id
+ORDER BY i.created_at DESC
+LIMIT $2;
