@@ -1,0 +1,231 @@
+{{/*
+  Pagination Component
+
+  Navigation controls for paginated content.
+
+  Components:
+    - pagination-start/end: Container nav element
+    - pagination-previous: Previous page button
+    - pagination-next: Next page button
+    - pagination-list-start/end: Page number list (hidden on mobile)
+    - pagination-page: Individual page number
+    - pagination-gap: Ellipsis for skipped pages
+
+  Params for pagination-start:
+    label - Aria label (default: "Page navigation")
+    class - Additional CSS classes
+
+  Usage:
+    {{template "pagination-start"}}
+      {{template "pagination-previous" dict "href" "/items?page=1"}}
+
+      {{template "pagination-list-start"}}
+        {{template "pagination-page" dict "href" "/items?page=1" "page" 1}}
+        {{template "pagination-page" dict "href" "/items?page=2" "page" 2 "current" true}}
+        {{template "pagination-page" dict "href" "/items?page=3" "page" 3}}
+        {{template "pagination-gap"}}
+        {{template "pagination-page" dict "href" "/items?page=10" "page" 10}}
+      {{template "pagination-list-end"}}
+
+      {{template "pagination-next" dict "href" "/items?page=3"}}
+    {{template "pagination-end"}}
+
+  Disabled state (first/last page):
+    {{template "pagination-previous" dict "disabled" true}}
+    {{template "pagination-next" dict "disabled" true}}
+*/}}
+
+{{define "pagination-start"}}
+{{- $label := or .label "Page navigation" -}}
+<nav aria-label="{{$label}}" class="flex gap-x-2 {{.class}}">
+{{end}}
+
+{{define "pagination-end"}}
+</nav>
+{{end}}
+
+{{/*
+  Pagination Previous
+
+  Previous page button with arrow icon.
+
+  Params:
+    href     - URL for previous page
+    disabled - Boolean, disables when on first page
+    text     - Button text (default: "Previous")
+    class    - Additional CSS classes
+*/}}
+{{define "pagination-previous"}}
+{{- $text := or .text "Previous" -}}
+{{- $disabled := or .disabled false -}}
+<span class="grow basis-0 {{.class}}">
+  {{if $disabled}}
+  <span class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm/6 font-semibold text-[var(--color-text-tertiary)] cursor-not-allowed opacity-50" aria-disabled="true">
+    <svg class="size-4 stroke-current" data-slot="icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M2.75 8H13.25M2.75 8L5.25 5.5M2.75 8L5.25 10.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    {{$text}}
+  </span>
+  {{else}}
+  <a href="{{.href}}" class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm/6 font-semibold text-[var(--color-text)] hover:bg-[var(--color-zinc-950)]/5 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]" aria-label="Previous page">
+    <svg class="size-4 stroke-current" data-slot="icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M2.75 8H13.25M2.75 8L5.25 5.5M2.75 8L5.25 10.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    {{$text}}
+  </a>
+  {{end}}
+</span>
+{{end}}
+
+{{/*
+  Pagination Next
+
+  Next page button with arrow icon.
+
+  Params:
+    href     - URL for next page
+    disabled - Boolean, disables when on last page
+    text     - Button text (default: "Next")
+    class    - Additional CSS classes
+*/}}
+{{define "pagination-next"}}
+{{- $text := or .text "Next" -}}
+{{- $disabled := or .disabled false -}}
+<span class="flex grow basis-0 justify-end {{.class}}">
+  {{if $disabled}}
+  <span class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm/6 font-semibold text-[var(--color-text-tertiary)] cursor-not-allowed opacity-50" aria-disabled="true">
+    {{$text}}
+    <svg class="size-4 stroke-current" data-slot="icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M13.25 8L2.75 8M13.25 8L10.75 10.5M13.25 8L10.75 5.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </span>
+  {{else}}
+  <a href="{{.href}}" class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm/6 font-semibold text-[var(--color-text)] hover:bg-[var(--color-zinc-950)]/5 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]" aria-label="Next page">
+    {{$text}}
+    <svg class="size-4 stroke-current" data-slot="icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M13.25 8L2.75 8M13.25 8L10.75 10.5M13.25 8L10.75 5.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </a>
+  {{end}}
+</span>
+{{end}}
+
+{{/*
+  Pagination List
+
+  Container for page numbers. Hidden on mobile.
+*/}}
+{{define "pagination-list-start"}}
+<span class="hidden items-baseline gap-x-2 sm:flex {{.class}}">
+{{end}}
+
+{{define "pagination-list-end"}}
+</span>
+{{end}}
+
+{{/*
+  Pagination Page
+
+  Individual page number button.
+
+  Params:
+    href    - URL for this page
+    page    - Page number to display
+    current - Boolean, marks as current page
+    class   - Additional CSS classes
+*/}}
+{{define "pagination-page"}}
+{{- $current := or .current false -}}
+<a href="{{.href}}"
+   class="relative min-w-9 rounded-lg px-3 py-2 text-center text-sm/6 font-semibold text-[var(--color-text)]
+          before:absolute before:-inset-px before:rounded-lg
+          hover:bg-[var(--color-zinc-950)]/5
+          focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]
+          {{if $current}}before:bg-[var(--color-zinc-950)]/5{{end}} {{.class}}"
+   {{if $current}}aria-current="page"{{end}}
+   aria-label="Page {{.page}}">
+  <span class="-mx-0.5">{{.page}}</span>
+</a>
+{{end}}
+
+{{/*
+  Pagination Gap
+
+  Ellipsis indicator for skipped pages.
+*/}}
+{{define "pagination-gap"}}
+<span aria-hidden="true" class="w-9 text-center text-sm/6 font-semibold text-[var(--color-text)] select-none {{.class}}">
+  &hellip;
+</span>
+{{end}}
+
+{{/*
+  Pagination Info
+
+  Shows current range and total count.
+
+  Params:
+    start - First item number on current page
+    end   - Last item number on current page
+    total - Total number of items
+    class - Additional CSS classes
+
+  Usage:
+    {{template "pagination-info" dict "start" 1 "end" 10 "total" 97}}
+*/}}
+{{define "pagination-info"}}
+<p class="text-sm text-[var(--color-text-secondary)] {{.class}}">
+  Showing <span class="font-medium text-[var(--color-text)]">{{.start}}</span>
+  to <span class="font-medium text-[var(--color-text)]">{{.end}}</span>
+  of <span class="font-medium text-[var(--color-text)]">{{.total}}</span> results
+</p>
+{{end}}
+
+{{/*
+  Simple Pagination
+
+  Compact previous/next only pagination.
+
+  Params:
+    prevHref - URL for previous page (omit if on first page)
+    nextHref - URL for next page (omit if on last page)
+    class    - Additional CSS classes
+
+  Usage:
+    {{template "pagination-simple" dict "prevHref" "/items?page=1" "nextHref" "/items?page=3"}}
+*/}}
+{{define "pagination-simple"}}
+<nav class="flex items-center justify-between {{.class}}" aria-label="Pagination">
+  {{if .prevHref}}
+  <a href="{{.prevHref}}" class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm/6 font-semibold text-[var(--color-text)] hover:bg-[var(--color-zinc-950)]/5">
+    <svg class="size-4 stroke-current" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M2.75 8H13.25M2.75 8L5.25 5.5M2.75 8L5.25 10.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Previous
+  </a>
+  {{else}}
+  <span class="inline-flex items-center gap-2 px-3 py-2 text-sm/6 font-semibold text-[var(--color-text-tertiary)] opacity-50">
+    <svg class="size-4 stroke-current" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M2.75 8H13.25M2.75 8L5.25 5.5M2.75 8L5.25 10.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Previous
+  </span>
+  {{end}}
+
+  {{if .nextHref}}
+  <a href="{{.nextHref}}" class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm/6 font-semibold text-[var(--color-text)] hover:bg-[var(--color-zinc-950)]/5">
+    Next
+    <svg class="size-4 stroke-current" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M13.25 8L2.75 8M13.25 8L10.75 10.5M13.25 8L10.75 5.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </a>
+  {{else}}
+  <span class="inline-flex items-center gap-2 px-3 py-2 text-sm/6 font-semibold text-[var(--color-text-tertiary)] opacity-50">
+    Next
+    <svg class="size-4 stroke-current" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M13.25 8L2.75 8M13.25 8L10.75 10.5M13.25 8L10.75 5.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </span>
+  {{end}}
+</nav>
+{{end}}
