@@ -60,6 +60,21 @@
         {{end}}
     </div>
 
+    {{if .InviteCodesEnabled}}
+    <div>
+        <label for="invite_code" class="block text-sm font-medium leading-6 text-gray-900">Invite code</label>
+        <div class="mt-2">
+            <input id="invite_code" name="invite_code" type="text" required
+                   value="{{.Form.InviteCode}}"
+                   placeholder="Enter your invite code"
+                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 px-3">
+        </div>
+        {{if .Errors.invite_code}}
+        <p class="mt-2 text-sm text-red-600">{{.Errors.invite_code}}</p>
+        {{end}}
+    </div>
+    {{end}}
+
     <div class="flex items-start">
         <input id="terms" name="terms" type="checkbox" required
                class="h-4 w-4 rounded border-gray-300 text-forest focus:ring-forest mt-0.5">

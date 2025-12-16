@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/DukeRupert/lukaut/internal/domain"
+	"github.com/DukeRupert/lukaut/internal/invite"
 	"github.com/google/uuid"
 )
 
@@ -226,7 +227,9 @@ func newTestLogger() *slog.Logger {
 
 // newTestAuthHandler creates an AuthHandler with mock dependencies for testing.
 func newTestAuthHandler(mock *mockUserService, renderer *mockRenderer) *AuthHandler {
-	return NewAuthHandler(mock, &mockEmailService{}, renderer, newTestLogger(), false)
+	// Create a disabled invite validator for tests (no invite code required)
+	inviteValidator := invite.New(false, nil)
+	return NewAuthHandler(mock, &mockEmailService{}, inviteValidator, renderer, newTestLogger(), false)
 }
 
 // =============================================================================

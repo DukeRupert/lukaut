@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -53,6 +54,10 @@ type Config struct {
 	AIMaxRetries       int
 	AIRetryBaseDelay   time.Duration
 	AIRequestTimeout   time.Duration
+
+	// Invite code system (MVP testing)
+	InviteCodesEnabled bool     // Enable/disable invite code requirement
+	ValidInviteCodes   []string // List of valid codes to accept
 }
 
 func NewConfig() (*Config, error) {
@@ -100,6 +105,21 @@ func NewConfig() (*Config, error) {
 		AIMaxRetries:       getEnvInt("AI_MAX_RETRIES", 3),
 		AIRetryBaseDelay:   getEnvDuration("AI_RETRY_BASE_DELAY", 1*time.Second),
 		AIRequestTimeout:   getEnvDuration("AI_REQUEST_TIMEOUT", 60*time.Second),
+
+		// Invite code defaults (enabled by default for MVP testing)
+		InviteCodesEnabled: getEnvBool("INVITE_CODES_ENABLED", true),
+	}
+
+	// Parse invite codes from comma-separated environment variable
+	inviteCodesStr := getEnv("VALID_INVITE_CODES", "")
+	if inviteCodesStr != "" {
+		codes := strings.Split(inviteCodesStr, ",")
+		for _, code := range codes {
+			trimmed := strings.TrimSpace(strings.ToUpper(code))
+			if trimmed != "" {
+				cfg.ValidInviteCodes = append(cfg.ValidInviteCodes, trimmed)
+			}
+		}
 	}
 
 	// Required

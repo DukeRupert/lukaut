@@ -17,6 +17,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/ai/mock"
 	"github.com/DukeRupert/lukaut/internal/email"
 	"github.com/DukeRupert/lukaut/internal/handler"
+	"github.com/DukeRupert/lukaut/internal/invite"
 	"github.com/DukeRupert/lukaut/internal/jobs"
 	"github.com/DukeRupert/lukaut/internal/middleware"
 	"github.com/DukeRupert/lukaut/internal/repository"
@@ -173,12 +174,20 @@ func run() error {
 		logger.Info("Background worker started", "concurrency", workerConfig.Concurrency)
 	}
 
+	// Initialize invite code validator for MVP testing
+	inviteValidator := invite.New(cfg.InviteCodesEnabled, cfg.ValidInviteCodes)
+	if inviteValidator.IsEnabled() {
+		logger.Info("invite code validation enabled", "valid_codes_count", len(cfg.ValidInviteCodes))
+	} else {
+		logger.Info("invite code validation disabled - open registration")
+	}
+
 	// Initialize middleware
 	isSecure := cfg.Env != "development"
 	authMw := middleware.NewAuthMiddleware(userService, logger, isSecure)
 
 	// Initialize handlers
-	authHandler := handler.NewAuthHandler(userService, emailService, renderer, logger, isSecure)
+	authHandler := handler.NewAuthHandler(userService, emailService, inviteValidator, renderer, logger, isSecure)
 	dashboardHandler := handler.NewDashboardHandler(repo, renderer, logger)
 	inspectionHandler := handler.NewInspectionHandler(inspectionService, imageService, violationService, repo, renderer, logger)
 	imageHandler := handler.NewImageHandler(imageService, inspectionService, renderer, logger)

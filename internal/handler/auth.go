@@ -14,6 +14,7 @@ import (
 
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/email"
+	"github.com/DukeRupert/lukaut/internal/invite"
 	"github.com/DukeRupert/lukaut/internal/service"
 	"github.com/google/uuid"
 )
@@ -58,6 +59,7 @@ type TemplateRenderer interface {
 // Dependencies:
 // - userService: Business logic for user operations (registration, login, logout)
 // - emailService: Service for sending transactional emails
+// - inviteValidator: Validates invite codes for MVP testing
 // - renderer: Template rendering for HTML responses
 // - logger: Structured logging for request handling
 // - isSecure: Whether to set Secure flag on cookies (true in production)
@@ -69,11 +71,12 @@ type TemplateRenderer interface {
 // - POST /login    -> Login
 // - POST /logout   -> Logout
 type AuthHandler struct {
-	userService  service.UserService
-	emailService email.EmailService
-	renderer     TemplateRenderer
-	logger       *slog.Logger
-	isSecure     bool
+	userService     service.UserService
+	emailService    email.EmailService
+	inviteValidator *invite.Validator
+	renderer        TemplateRenderer
+	logger          *slog.Logger
+	isSecure        bool
 }
 
 // NewAuthHandler creates a new AuthHandler with the required dependencies.
@@ -81,26 +84,29 @@ type AuthHandler struct {
 // Parameters:
 // - userService: Service for user-related operations
 // - emailService: Service for sending transactional emails
+// - inviteValidator: Validator for invite codes (MVP testing)
 // - renderer: Template renderer for HTML pages
 // - logger: Structured logger for request logging
 // - isSecure: Set to true in production (enables Secure cookie flag)
 //
 // Example usage in main.go:
 //
-//	authHandler := handler.NewAuthHandler(userService, emailService, renderer, logger, cfg.Env != "development")
+//	authHandler := handler.NewAuthHandler(userService, emailService, inviteValidator, renderer, logger, cfg.Env != "development")
 func NewAuthHandler(
 	userService service.UserService,
 	emailService email.EmailService,
+	inviteValidator *invite.Validator,
 	renderer TemplateRenderer,
 	logger *slog.Logger,
 	isSecure bool,
 ) *AuthHandler {
 	return &AuthHandler{
-		userService:  userService,
-		emailService: emailService,
-		renderer:     renderer,
-		logger:       logger,
-		isSecure:     isSecure,
+		userService:     userService,
+		emailService:    emailService,
+		inviteValidator: inviteValidator,
+		renderer:        renderer,
+		logger:          logger,
+		isSecure:        isSecure,
 	}
 }
 
@@ -123,12 +129,13 @@ type Flash struct {
 // AuthPageData contains common data for authentication pages.
 // This struct is passed to login.html and register.html templates.
 type AuthPageData struct {
-	CurrentPath string            // Current URL path for navigation highlighting
-	CSRFToken   string            // CSRF token for form protection
-	Form        map[string]string // Form field values for re-populating on error
-	Errors      map[string]string // Field-level validation errors
-	Flash       *Flash            // Flash message to display
-	ReturnTo    string            // URL to redirect to after successful login
+	CurrentPath        string            // Current URL path for navigation highlighting
+	CSRFToken          string            // CSRF token for form protection
+	Form               map[string]string // Form field values for re-populating on error
+	Errors             map[string]string // Field-level validation errors
+	Flash              *Flash            // Flash message to display
+	ReturnTo           string            // URL to redirect to after successful login
+	InviteCodesEnabled bool              // Whether invite codes are required
 }
 
 // =============================================================================
@@ -186,12 +193,13 @@ func (h *AuthHandler) ShowRegister(w http.ResponseWriter, r *http.Request) {
 	returnTo := r.URL.Query().Get("return_to")
 
 	data := AuthPageData{
-		CurrentPath: r.URL.Path,
-		CSRFToken:   "", // TODO: Set CSRF token
-		Form:        make(map[string]string),
-		Errors:      make(map[string]string),
-		Flash:       nil,
-		ReturnTo:    returnTo,
+		CurrentPath:        r.URL.Path,
+		CSRFToken:          "", // TODO: Set CSRF token
+		Form:               make(map[string]string),
+		Errors:             make(map[string]string),
+		Flash:              nil,
+		ReturnTo:           returnTo,
+		InviteCodesEnabled: h.inviteValidator.IsEnabled(),
 	}
 
 	h.renderer.RenderHTTP(w, "auth/register", data)
@@ -253,12 +261,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 	passwordConfirmation := r.FormValue("password_confirmation")
 	terms := r.FormValue("terms")
+	inviteCode := strings.TrimSpace(r.FormValue("invite_code"))
 	returnTo := r.FormValue("return_to")
 
 	// Store form values for re-rendering (except passwords)
 	formValues := map[string]string{
-		"Name":  name,
-		"Email": email,
+		"Name":       name,
+		"Email":      email,
+		"InviteCode": inviteCode,
 	}
 
 	// TODO: Validate CSRF token
@@ -298,6 +308,15 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	if terms != "on" {
 		errors["terms"] = "You must accept the Terms of Service"
+	}
+
+	// Validate invite code if enabled
+	if h.inviteValidator.IsEnabled() {
+		if inviteCode == "" {
+			errors["invite_code"] = "Invite code is required"
+		} else if !h.inviteValidator.ValidateCode(inviteCode) {
+			errors["invite_code"] = "Invalid invite code"
+		}
 	}
 
 	// If validation errors, re-render form
@@ -382,12 +401,13 @@ func (h *AuthHandler) renderRegisterError(
 	}
 
 	data := AuthPageData{
-		CurrentPath: "/register",
-		CSRFToken:   "", // TODO: Regenerate CSRF token
-		Form:        formValues,
-		Errors:      errors,
-		Flash:       flash,
-		ReturnTo:    r.FormValue("return_to"),
+		CurrentPath:        "/register",
+		CSRFToken:          "", // TODO: Regenerate CSRF token
+		Form:               formValues,
+		Errors:             errors,
+		Flash:              flash,
+		ReturnTo:           r.FormValue("return_to"),
+		InviteCodesEnabled: h.inviteValidator.IsEnabled(),
 	}
 
 	h.renderer.RenderHTTP(w, "auth/register", data)
