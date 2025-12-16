@@ -163,3 +163,11 @@ func ToNullString(s string) sql.NullString {
 	}
 	return sql.NullString{String: s, Valid: true}
 }
+
+// ToNullUUID converts a uuid pointer to uuid.NullUUID.
+func ToNullUUID(id *uuid.UUID) uuid.NullUUID {
+	if id == nil {
+		return uuid.NullUUID{Valid: false}
+	}
+	return uuid.NullUUID{UUID: *id, Valid: true}
+}

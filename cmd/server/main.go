@@ -66,6 +66,7 @@ func run() error {
 
 	// Initialize services
 	userService := service.NewUserService(repo, logger)
+	inspectionService := service.NewInspectionService(repo, logger)
 
 	// Initialize email service
 	emailService, err := email.NewSMTPEmailService(
@@ -121,6 +122,7 @@ func run() error {
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userService, emailService, renderer, logger, isSecure)
 	dashboardHandler := handler.NewDashboardHandler(repo, renderer, logger)
+	inspectionHandler := handler.NewInspectionHandler(inspectionService, repo, renderer, logger)
 
 	// ==========================================================================
 	// Create router and register routes
@@ -165,6 +167,9 @@ func run() error {
 
 	// Dashboard (requires authentication)
 	mux.Handle("GET /dashboard", requireUser(http.HandlerFunc(dashboardHandler.Show)))
+
+	// Inspection routes (requires authentication)
+	inspectionHandler.RegisterRoutes(mux, requireUser)
 
 	// ==========================================================================
 	// Start server

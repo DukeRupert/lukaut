@@ -28,6 +28,15 @@ func TemplateFuncs() template.FuncMap {
 		"mul": func(a, b int) int {
 			return a * b
 		},
+		"mult": func(a, b int32) int64 {
+			return int64(a) * int64(b)
+		},
+		"min": func(a, b int64) int64 {
+			if a < b {
+				return a
+			}
+			return b
+		},
 
 		// Date/Time functions
 		"year": func() int {
@@ -156,6 +165,39 @@ func TemplateFuncs() template.FuncMap {
 		},
 		"seq": func(start, end int) []int {
 			var result []int
+			for i := start; i <= end; i++ {
+				result = append(result, i)
+			}
+			return result
+		},
+		"pageRange": func(currentPage, totalPages int) []int {
+			// Show max 7 page numbers
+			maxPages := 7
+			if totalPages <= maxPages {
+				result := []int{}
+				for i := 1; i <= totalPages; i++ {
+					result = append(result, i)
+				}
+				return result
+			}
+
+			// Calculate range around current page
+			start := currentPage - 3
+			end := currentPage + 3
+
+			// Adjust if at beginning
+			if start < 1 {
+				start = 1
+				end = maxPages
+			}
+
+			// Adjust if at end
+			if end > totalPages {
+				end = totalPages
+				start = totalPages - maxPages + 1
+			}
+
+			result := []int{}
 			for i := start; i <= end; i++ {
 				result = append(result, i)
 			}

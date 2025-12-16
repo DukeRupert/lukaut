@@ -72,3 +72,69 @@ WHERE i.user_id = $1
 GROUP BY i.id
 ORDER BY i.created_at DESC
 LIMIT $2;
+
+-- name: ListInspectionsWithSiteByUserID :many
+SELECT
+    i.id,
+    i.user_id,
+    i.site_id,
+    i.title,
+    i.status,
+    i.inspection_date,
+    i.weather_conditions,
+    i.temperature,
+    i.inspector_notes,
+    i.created_at,
+    i.updated_at,
+    COALESCE(s.name, '') AS site_name,
+    COALESCE(COUNT(v.id), 0)::int AS violation_count
+FROM inspections i
+LEFT JOIN sites s ON s.id = i.site_id
+LEFT JOIN violations v ON v.inspection_id = i.id
+WHERE i.user_id = $1
+GROUP BY i.id, i.user_id, i.site_id, i.title, i.status, i.inspection_date,
+         i.weather_conditions, i.temperature, i.inspector_notes, i.created_at, i.updated_at, s.name
+ORDER BY i.created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: GetInspectionWithSiteByIDAndUserID :one
+SELECT
+    i.id,
+    i.user_id,
+    i.site_id,
+    i.title,
+    i.status,
+    i.inspection_date,
+    i.weather_conditions,
+    i.temperature,
+    i.inspector_notes,
+    i.created_at,
+    i.updated_at,
+    COALESCE(s.name, '') AS site_name,
+    COALESCE(s.address_line1, '') AS site_address,
+    COALESCE(s.city, '') AS site_city,
+    COALESCE(s.state, '') AS site_state
+FROM inspections i
+LEFT JOIN sites s ON s.id = i.site_id
+WHERE i.id = $1 AND i.user_id = $2;
+
+-- name: DeleteInspectionByIDAndUserID :exec
+DELETE FROM inspections
+WHERE id = $1 AND user_id = $2;
+
+-- name: UpdateInspectionByIDAndUserID :exec
+UPDATE inspections
+SET title = $3,
+    site_id = $4,
+    inspection_date = $5,
+    weather_conditions = $6,
+    temperature = $7,
+    inspector_notes = $8,
+    updated_at = NOW()
+WHERE id = $1 AND user_id = $2;
+
+-- name: UpdateInspectionStatusByIDAndUserID :exec
+UPDATE inspections
+SET status = $3,
+    updated_at = NOW()
+WHERE id = $1 AND user_id = $2;
