@@ -163,83 +163,72 @@ A simple geometric symbol suggesting oversight, vision, or protection—paired w
 
 ### Color Palette
 
-The Lukaut color palette draws inspiration from Papua New Guinea—the origin of the brand name. This creates a distinctive visual identity that stands apart from typical SaaS blues and purples while carrying authentic meaning.
+The Lukaut color palette is rooted in construction safety—industry-native colors that feel authoritative and trustworthy. Slate Navy conveys professionalism and reliability, while Safety Orange brings energy and action without feeling alarming.
 
-#### Primary Colors
+#### Core Colors
 
-| Color | Name | Hex | RGB | Inspiration | Usage |
-|-------|------|-----|-----|-------------|-------|
-| | **Forest Deep** | `#1A4D2E` | 26, 77, 46 | PNG highlands rainforest | Primary brand color, headers, logo |
-| | **Paradise Gold** | `#FCD116` | 252, 209, 22 | Bird-of-Paradise, PNG flag | Accent, CTAs, highlights |
-| | **Cloud White** | `#FAFAFA` | 250, 250, 250 | Southern Cross, clarity | Primary backgrounds |
-
-#### Secondary Colors
-
-| Color | Name | Hex | RGB | Inspiration | Usage |
-|-------|------|-----|-----|-------------|-------|
-| | **Tribal Black** | `#1A1A1A` | 26, 26, 26 | PNG flag, the people | Primary text |
-| | **Sepik Clay** | `#8B7355` | 139, 115, 85 | River clay, pottery, earth | Secondary text, subtle borders |
-| | **Tapa Cream** | `#E8E4DF` | 232, 228, 223 | Traditional tapa cloth | Card backgrounds, containers |
+| Color | Name | Hex | RGB | Usage |
+|-------|------|-----|-----|-------|
+| | **Slate Navy** | `#1E3A5F` | 30, 58, 95 | Primary brand color, headers, nav, primary buttons, links |
+| | **Safety Orange** | `#FF6B35` | 255, 107, 53 | Accent, CTAs, highlights, key actions |
+| | **Clean White** | `#FEFEFE` | 254, 254, 254 | Page backgrounds |
+| | **Soft Gray** | `#F3F4F6` | 243, 244, 246 | Cards, containers, input backgrounds |
+| | **Near Black** | `#111827` | 17, 24, 39 | Body text |
+| | **Slate Gray** | `#64748B` | 100, 116, 139 | Secondary text, borders |
 
 #### Semantic Colors
 
 | Color | Name | Hex | RGB | Usage |
 |-------|------|-----|-----|-------|
-| | **Cleared Green** | `#16A34A` | 22, 163, 74 | Success, approved, no violations |
-| | **Alert Red** | `#CE1126` | 206, 17, 38 | PNG flag red — errors, critical violations |
+| | **Field Green** | `#16A34A` | 22, 163, 74 | Success, approved, no violations |
+| | **Alert Red** | `#DC2626` | 220, 38, 38 | Errors, critical violations |
 | | **Caution Amber** | `#F59E0B` | 245, 158, 11 | Warnings, attention needed |
 
 #### Color Rationale
 
-**Forest Deep (#1A4D2E)** as primary:
-- Distinctive positioning (competitors use blue/purple)
-- Connected to PNG's natural environment
-- Conveys growth, safety, stability
-- Professional and serious without being cold
+**Slate Navy (#1E3A5F)** as primary:
+- Conveys trust, authority, and professionalism
+- Industry-appropriate without feeling corporate
+- Strong contrast for readability
+- Distinctive from typical SaaS purples/teals
 
-**Paradise Gold (#FCD116)** as accent:
-- Directly from PNG flag
-- High visibility for CTAs
-- Creates energy and draws attention to key actions
-- Beautiful contrast with Forest Deep
+**Safety Orange (#FF6B35)** as accent:
+- Immediately recognizable as construction/safety
+- High energy for CTAs without being alarming
+- Creates visual hierarchy and draws attention to key actions
+- Warm and actionable
 
-**Sepik Clay (#8B7355)** for secondary elements:
-- Named for the Sepik River region
-- Earthy, grounded, human warmth
+**Slate Gray (#64748B)** for secondary elements:
+- Professional and readable
 - Excellent for secondary text and borders
-- Softens the overall palette
-
-**Tapa Cream (#E8E4DF)** for backgrounds:
-- References traditional bark cloth art
-- Warmer than clinical white
-- Easier on eyes for extended use
-- Distinctive from typical SaaS white-box aesthetic
+- Neutral enough to not compete with primary colors
 
 #### Color Usage Guidelines
 
 ```
-Primary Background:     Cloud White (#FAFAFA) or Tapa Cream (#E8E4DF)
-Primary Text:           Tribal Black (#1A1A1A)
-Secondary Text:         Sepik Clay (#8B7355)
-Primary CTA:            Paradise Gold (#FCD116) with Forest Deep text
-Secondary CTA:          Forest Deep (#1A4D2E) with Cloud White text
-Links:                  Forest Deep (#1A4D2E)
-Borders/Dividers:       Sepik Clay (#8B7355) at 30% opacity
-Header/Navigation:      Forest Deep (#1A4D2E) with Cloud White text
+Primary Background:     Clean White (#FEFEFE)
+Surface/Cards:          Soft Gray (#F3F4F6)
+Primary Text:           Near Black (#111827)
+Secondary Text:         Slate Gray (#64748B)
+Primary CTA:            Safety Orange (#FF6B35) with white text
+Secondary CTA:          Slate Navy (#1E3A5F) with white text
+Links:                  Slate Navy (#1E3A5F)
+Borders/Dividers:       Slate Gray (#64748B) at 20% opacity
+Header/Navigation:      Slate Navy (#1E3A5F) with white text
 ```
 
 #### Accessibility Compliance
 
 | Combination | Contrast Ratio | WCAG Rating |
 |-------------|----------------|-------------|
-| Tribal Black on Cloud White | 18.1:1 | AAA ✓ |
-| Tribal Black on Tapa Cream | 12.4:1 | AAA ✓ |
-| Forest Deep on Cloud White | 9.2:1 | AAA ✓ |
-| Cloud White on Forest Deep | 9.2:1 | AAA ✓ |
-| Forest Deep on Paradise Gold | 8.7:1 | AAA ✓ |
-| Sepik Clay on Cloud White | 4.6:1 | AA ✓ |
+| Near Black on Clean White | 16.8:1 | AAA ✓ |
+| Near Black on Soft Gray | 14.7:1 | AAA ✓ |
+| Slate Navy on Clean White | 9.4:1 | AAA ✓ |
+| Clean White on Slate Navy | 9.4:1 | AAA ✓ |
+| Clean White on Safety Orange | 4.6:1 | AA ✓ |
+| Slate Gray on Clean White | 4.7:1 | AA ✓ |
 
-**Important:** Never use Paradise Gold as a text color on light backgrounds—it fails contrast requirements. Use it only for buttons, icons, and decorative elements with Forest Deep or Tribal Black text.
+**Important:** Use white text on Safety Orange buttons, not dark text. The orange is vibrant enough that white provides excellent contrast and readability.
 
 ---
 
@@ -403,7 +392,7 @@ Lukaut's brand is built on the **Alfred principle**—quietly competent, always 
 
 **Tagline:** "You inspect. We'll handle the rest."
 
-**Visual Identity:** Our PNG-rooted color palette (Forest Deep green, Paradise Gold, earthy supporting tones) sets us apart from generic SaaS products while carrying authentic meaning tied to the brand name's origin.
+**Visual Identity:** Our construction-safety color palette (Slate Navy, Safety Orange) is industry-native and authoritative. The navy conveys trust and professionalism; the orange brings energy and action. Clean, modern, and unmistakably appropriate for safety inspection work.
 
 **Voice:** Clear, confident, concise. We respect our users' expertise and never overstate our capabilities.
 

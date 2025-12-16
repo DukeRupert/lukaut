@@ -25,7 +25,7 @@
                     id="search"
                     value="{{.Filter.Query}}"
                     placeholder="Search by keyword, standard number, or topic..."
-                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-forest focus:ring-forest sm:text-sm"
+                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-navy focus:ring-navy sm:text-sm"
                     hx-get="/regulations/search"
                     hx-trigger="input changed delay:300ms, search"
                     hx-target="#results"
@@ -42,7 +42,7 @@
                 <select
                     name="category"
                     id="category"
-                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-forest focus:ring-forest sm:text-sm"
+                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-navy focus:ring-navy sm:text-sm"
                     hx-get="/regulations/search"
                     hx-trigger="change"
                     hx-target="#results"
@@ -60,7 +60,7 @@
     <!-- Loading Indicator -->
     <div id="search-indicator" class="htmx-indicator mt-4">
         <div class="flex items-center text-sm text-gray-500">
-            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-forest" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-navy" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
@@ -85,7 +85,7 @@
                         <div class="px-4 py-4 sm:px-6">
                             <div class="flex items-center justify-between">
                                 <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-medium text-forest truncate">
+                                    <p class="text-sm font-medium text-navy truncate">
                                         {{.StandardNumber}}
                                     </p>
                                     <p class="mt-1 text-base font-semibold text-gray-900">
@@ -161,7 +161,7 @@
 
                         {{range $page := pageRange .Pagination.CurrentPage .Pagination.TotalPages}}
                             {{if eq $page $.Pagination.CurrentPage}}
-                            <span aria-current="page" class="relative z-10 inline-flex items-center bg-forest px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest">{{$page}}</span>
+                            <span aria-current="page" class="relative z-10 inline-flex items-center bg-navy px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy">{{$page}}</span>
                             {{else}}
                             <a href="/regulations?page={{$page}}{{if $.Filter.Query}}&q={{$.Filter.Query}}{{end}}{{if $.Filter.Category}}&category={{$.Filter.Category}}{{end}}" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">{{$page}}</a>
                             {{end}}

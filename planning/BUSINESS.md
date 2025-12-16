@@ -40,17 +40,18 @@ Lukaut is **the reliable colleague**—the experienced coworker who's seen it al
 
 ### Visual Identity
 
-Lukaut's color palette draws inspiration from Papua New Guinea, creating a distinctive visual identity that stands apart from typical SaaS products:
+Lukaut's color palette is rooted in construction safety—industry-native colors that feel authoritative and trustworthy:
 
 | Color | Name | Hex | Usage |
 |-------|------|-----|-------|
-| | **Forest Deep** | `#1A4D2E` | Primary brand color |
-| | **Paradise Gold** | `#FCD116` | Accent, CTAs |
-| | **Tapa Cream** | `#E8E4DF` | Backgrounds |
-| | **Sepik Clay** | `#8B7355` | Secondary text |
-| | **Alert Red** | `#CE1126` | Errors, critical violations |
+| | **Slate Navy** | `#1E3A5F` | Primary brand color, headers, nav |
+| | **Safety Orange** | `#FF6B35` | Accent, CTAs, highlights |
+| | **Clean White** | `#FEFEFE` | Page backgrounds |
+| | **Soft Gray** | `#F3F4F6` | Cards, containers |
+| | **Slate Gray** | `#64748B` | Secondary text, borders |
+| | **Alert Red** | `#DC2626` | Errors, critical violations |
 
-This PNG-rooted palette differentiates Lukaut from the sea of blue/purple SaaS products while carrying authentic meaning tied to the brand name's origin.
+This construction-safety palette conveys trust and professionalism while being immediately recognizable to our target users.
 
 ### Brand Voice
 

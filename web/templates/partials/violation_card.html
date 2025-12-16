@@ -119,7 +119,7 @@
                                         name="description"
                                         rows="3"
                                         required
-                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-forest focus:ring-forest sm:text-sm">{{.Violation.Description}}</textarea>
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-navy focus:ring-navy sm:text-sm">{{.Violation.Description}}</textarea>
                                 </div>
 
                                 <div>
@@ -129,7 +129,7 @@
                                     <select
                                         id="severity-{{.Violation.ID}}"
                                         name="severity"
-                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-forest focus:ring-forest sm:text-sm">
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-navy focus:ring-navy sm:text-sm">
                                         <option value="critical" {{if eq .Violation.Severity "critical"}}selected{{end}}>Critical</option>
                                         <option value="serious" {{if eq .Violation.Severity "serious"}}selected{{end}}>Serious</option>
                                         <option value="other" {{if eq .Violation.Severity "other"}}selected{{end}}>Other</option>
@@ -145,13 +145,13 @@
                                         id="notes-{{.Violation.ID}}"
                                         name="inspector_notes"
                                         rows="2"
-                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-forest focus:ring-forest sm:text-sm">{{.Violation.InspectorNotes}}</textarea>
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-navy focus:ring-navy sm:text-sm">{{.Violation.InspectorNotes}}</textarea>
                                 </div>
 
                                 <div class="flex gap-2">
                                     <button
                                         type="submit"
-                                        class="inline-flex items-center rounded-md bg-forest px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-forest/90">
+                                        class="inline-flex items-center rounded-md bg-navy px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-navy/90">
                                         Save Changes
                                     </button>
                                     <button
@@ -173,10 +173,10 @@
                     <ul class="space-y-1">
                         {{range .Regulations}}
                         <li class="text-sm">
-                            <span class="font-medium text-forest">{{.StandardNumber}}</span>
+                            <span class="font-medium text-navy">{{.StandardNumber}}</span>
                             <span class="text-gray-700">- {{.Title}}</span>
                             {{if .IsPrimary}}
-                            <span class="ml-1 inline-flex items-center rounded-md bg-forest/10 px-1.5 py-0.5 text-xs font-medium text-forest">
+                            <span class="ml-1 inline-flex items-center rounded-md bg-navy/10 px-1.5 py-0.5 text-xs font-medium text-navy">
                                 Primary
                             </span>
                             {{end}}

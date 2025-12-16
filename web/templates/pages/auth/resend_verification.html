@@ -28,7 +28,7 @@
         </div>
         <div class="mt-6">
             <a href="/login"
-               class="inline-flex items-center rounded-md bg-forest px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-forest/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest transition-colors">
+               class="inline-flex items-center rounded-md bg-navy px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-navy/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy transition-colors">
                 Back to sign in
             </a>
         </div>
@@ -46,7 +46,7 @@
                 <input id="email" name="email" type="email" autocomplete="email" required
                        value="{{.Form.Email}}"
                        placeholder="you@example.com"
-                       class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 px-3">
+                       class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6 px-3">
             </div>
             {{if .Errors.email}}
             <p class="mt-2 text-sm text-red-600">{{.Errors.email}}</p>
@@ -58,7 +58,7 @@
 
         <div>
             <button type="submit"
-                    class="flex w-full justify-center rounded-md bg-forest px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-forest/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest transition-colors">
+                    class="flex w-full justify-center rounded-md bg-navy px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-navy/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy transition-colors">
                 Send verification email
             </button>
         </div>
@@ -70,7 +70,7 @@
 {{if not .Success}}
 <p class="mt-10 text-center text-sm text-gray-500">
     Remember your verification link?
-    <a href="/login" class="font-semibold leading-6 text-forest hover:text-forest/80">Sign in instead</a>
+    <a href="/login" class="font-semibold leading-6 text-navy hover:text-navy/80">Sign in instead</a>
 </p>
 {{end}}
 {{end}}

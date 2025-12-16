@@ -311,60 +311,31 @@
      LUKAUT BRAND COLORS
      ======================================== */
 
-  /* Puerto Rico (Primary) - Fresh teal-green */
-  --color-puerto-rico-50: oklch(98.2% 0.025 170);
-  --color-puerto-rico-100: oklch(95.5% 0.055 172);
-  --color-puerto-rico-200: oklch(91% 0.095 173);
-  --color-puerto-rico-300: oklch(85% 0.135 174);
-  --color-puerto-rico-400: oklch(78% 0.145 175);
-  --color-puerto-rico-500: oklch(70% 0.135 175);
-  --color-puerto-rico-600: oklch(58% 0.115 175);
-  --color-puerto-rico-700: oklch(48% 0.095 175);
-  --color-puerto-rico-800: oklch(40% 0.075 175);
-  --color-puerto-rico-900: oklch(35% 0.06 175);
-  --color-puerto-rico-950: oklch(25% 0.04 175);
+  /* Slate Navy (Primary) - Trust, authority, professionalism */
+  --color-navy-50: oklch(97% 0.01 250);
+  --color-navy-100: oklch(94% 0.02 250);
+  --color-navy-200: oklch(88% 0.04 250);
+  --color-navy-300: oklch(78% 0.06 250);
+  --color-navy-400: oklch(65% 0.08 250);
+  --color-navy-500: oklch(52% 0.09 250);
+  --color-navy-600: oklch(42% 0.09 250);
+  --color-navy-700: oklch(35% 0.08 250);
+  --color-navy-800: oklch(30% 0.07 250);
+  --color-navy-900: oklch(25% 0.06 250);
+  --color-navy-950: oklch(18% 0.04 250);
 
-  /* Forest (Legacy) - PNG highlands rainforest */
-  --color-forest-50: oklch(96.5% 0.02 155);
-  --color-forest-100: oklch(93% 0.04 155);
-  --color-forest-200: oklch(87% 0.07 155);
-  --color-forest-300: oklch(78% 0.12 155);
-  --color-forest-400: oklch(67% 0.15 155);
-  --color-forest-500: oklch(55% 0.14 155);
-  --color-forest-600: oklch(47% 0.12 155);
-  --color-forest-700: oklch(40% 0.10 155);
-  --color-forest-800: oklch(35% 0.08 155);
-  --color-forest-900: oklch(25% 0.05 155);
-  --color-forest-950: oklch(18% 0.03 155);
-
-  /* Gold (Accent - use sparingly) */
-  --color-gold-50: oklch(99% 0.02 95);
-  --color-gold-100: oklch(97% 0.05 95);
-  --color-gold-200: oklch(94% 0.10 95);
-  --color-gold-300: oklch(90% 0.16 90);
-  --color-gold-400: oklch(86% 0.17 85);
-  --color-gold-500: oklch(80% 0.16 80);
-  --color-gold-600: oklch(70% 0.15 70);
-  --color-gold-700: oklch(58% 0.13 60);
-  --color-gold-800: oklch(48% 0.11 55);
-  --color-gold-900: oklch(40% 0.09 50);
-  --color-gold-950: oklch(28% 0.06 45);
-
-  /* Clay (Secondary) */
-  --color-clay-50: oklch(98% 0.005 60);
-  --color-clay-100: oklch(95% 0.01 55);
-  --color-clay-200: oklch(90% 0.02 50);
-  --color-clay-300: oklch(82% 0.04 50);
-  --color-clay-400: oklch(72% 0.06 50);
-  --color-clay-500: oklch(62% 0.07 50);
-  --color-clay-600: oklch(52% 0.07 50);
-  --color-clay-700: oklch(43% 0.06 50);
-  --color-clay-800: oklch(35% 0.05 45);
-  --color-clay-900: oklch(28% 0.04 40);
-  --color-clay-950: oklch(20% 0.03 35);
-
-  /* Cream (Background - legacy) */
-  --color-cream: oklch(92% 0.01 80);
+  /* Safety Orange (Accent) - Energy, action, CTAs */
+  --color-safety-orange-50: oklch(98% 0.02 45);
+  --color-safety-orange-100: oklch(95% 0.05 45);
+  --color-safety-orange-200: oklch(90% 0.10 42);
+  --color-safety-orange-300: oklch(84% 0.15 40);
+  --color-safety-orange-400: oklch(77% 0.18 38);
+  --color-safety-orange-500: oklch(70% 0.20 35);
+  --color-safety-orange-600: oklch(62% 0.19 33);
+  --color-safety-orange-700: oklch(53% 0.17 32);
+  --color-safety-orange-800: oklch(45% 0.14 32);
+  --color-safety-orange-900: oklch(38% 0.11 32);
+  --color-safety-orange-950: oklch(25% 0.07 32);
 
   /* ========================================
      OPACITY VARIANTS
@@ -385,21 +356,21 @@
      These define what colors MEAN - override these for theming
      ======================================== */
 
-  /* Primary action color */
-  --color-primary: var(--color-puerto-rico-700);
-  --color-primary-hover: var(--color-puerto-rico-600);
-  --color-primary-active: var(--color-puerto-rico-800);
-  --color-primary-subtle: var(--color-puerto-rico-50);
+  /* Primary action color (Slate Navy) */
+  --color-primary: var(--color-navy-700);
+  --color-primary-hover: var(--color-navy-600);
+  --color-primary-active: var(--color-navy-800);
+  --color-primary-subtle: var(--color-navy-50);
 
   /* Secondary/neutral actions */
-  --color-secondary: var(--color-zinc-600);
-  --color-secondary-hover: var(--color-zinc-500);
-  --color-secondary-subtle: var(--color-zinc-50);
+  --color-secondary: var(--color-slate-600);
+  --color-secondary-hover: var(--color-slate-500);
+  --color-secondary-subtle: var(--color-slate-50);
 
-  /* Accent/CTA color (gold - use sparingly) */
-  --color-accent: var(--color-gold-400);
-  --color-accent-hover: var(--color-gold-500);
-  --color-accent-text: var(--color-puerto-rico-950);
+  /* Accent/CTA color (Safety Orange) */
+  --color-accent: var(--color-safety-orange-500);
+  --color-accent-hover: var(--color-safety-orange-600);
+  --color-accent-text: var(--color-white);
 
   /* Danger/destructive actions */
   --color-danger: var(--color-red-600);
@@ -407,9 +378,9 @@
   --color-danger-subtle: var(--color-red-50);
 
   /* Success state */
-  --color-success: var(--color-puerto-rico-600);
-  --color-success-hover: var(--color-puerto-rico-700);
-  --color-success-subtle: var(--color-puerto-rico-50);
+  --color-success: var(--color-green-600);
+  --color-success-hover: var(--color-green-700);
+  --color-success-subtle: var(--color-green-50);
 
   /* Warning state */
   --color-warning: var(--color-amber-500);
@@ -434,7 +405,7 @@
   --color-text-tertiary: var(--color-zinc-400);
   --color-text-inverse: var(--color-white);
   --color-text-on-primary: var(--color-white);
-  --color-text-on-accent: var(--color-puerto-rico-950);
+  --color-text-on-accent: var(--color-white);
 
   /* Border colors */
   --color-border: var(--color-zinc-950-10);
@@ -646,8 +617,8 @@
   --color-input-placeholder: var(--color-zinc-500);
 
   /* Adjust subtle backgrounds for dark mode */
-  --color-primary-subtle: oklch(35% 0.08 155 / 20%);
-  --color-secondary-subtle: oklch(50% 0.06 60 / 20%);
+  --color-primary-subtle: oklch(35% 0.08 250 / 20%);
+  --color-secondary-subtle: oklch(44.6% 0.043 257 / 20%);
   --color-danger-subtle: oklch(57.7% 0.245 27.325 / 20%);
   --color-success-subtle: oklch(62.7% 0.194 149.214 / 20%);
   --color-warning-subtle: oklch(76.9% 0.188 70.08 / 20%);

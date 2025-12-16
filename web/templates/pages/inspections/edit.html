@@ -56,7 +56,7 @@
                 <label for="title" class="block text-sm font-medium leading-6 text-gray-900">Title <span class="text-red-500">*</span></label>
                 <div class="mt-2">
                     <input type="text" name="title" id="title" value="{{.Form.title}}" required
-                           class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 {{if .Errors.title}}ring-red-500{{end}}">
+                           class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6 {{if .Errors.title}}ring-red-500{{end}}">
                 </div>
                 {{if .Errors.title}}
                 <p class="mt-2 text-sm text-red-600">{{.Errors.title}}</p>
@@ -68,7 +68,7 @@
                 <label for="site_id" class="block text-sm font-medium leading-6 text-gray-900">Site</label>
                 <div class="mt-2">
                     <select name="site_id" id="site_id"
-                            class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 {{if .Errors.site_id}}ring-red-500{{end}}">
+                            class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6 {{if .Errors.site_id}}ring-red-500{{end}}">
                         <option value="">-- No site --</option>
                         {{range .Sites}}
                         <option value="{{.ID}}" {{if eq $.Form.site_id (.ID.String)}}selected{{end}}>{{.Name}}</option>
@@ -86,7 +86,7 @@
                 <label for="inspection_date" class="block text-sm font-medium leading-6 text-gray-900">Inspection Date <span class="text-red-500">*</span></label>
                 <div class="mt-2">
                     <input type="date" name="inspection_date" id="inspection_date" value="{{.Form.inspection_date}}" required
-                           class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6 {{if .Errors.inspection_date}}ring-red-500{{end}}">
+                           class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6 {{if .Errors.inspection_date}}ring-red-500{{end}}">
                 </div>
                 {{if .Errors.inspection_date}}
                 <p class="mt-2 text-sm text-red-600">{{.Errors.inspection_date}}</p>
@@ -99,7 +99,7 @@
                 <div class="mt-2">
                     <input type="text" name="weather_conditions" id="weather_conditions" value="{{.Form.weather_conditions}}"
                            placeholder="e.g., Sunny, Cloudy, Rainy"
-                           class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6">
+                           class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6">
                 </div>
             </div>
 
@@ -109,7 +109,7 @@
                 <div class="mt-2">
                     <input type="text" name="temperature" id="temperature" value="{{.Form.temperature}}"
                            placeholder="e.g., 72°F, 22°C"
-                           class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6">
+                           class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6">
                 </div>
             </div>
 
@@ -118,7 +118,7 @@
                 <label for="inspector_notes" class="block text-sm font-medium leading-6 text-gray-900">Inspector Notes</label>
                 <div class="mt-2">
                     <textarea name="inspector_notes" id="inspector_notes" rows="4"
-                              class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6">{{.Form.inspector_notes}}</textarea>
+                              class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6">{{.Form.inspector_notes}}</textarea>
                 </div>
                 <p class="mt-2 text-sm text-gray-500">General observations or notes about the inspection.</p>
             </div>
@@ -130,7 +130,7 @@
                     Cancel
                 </a>
                 <button type="submit"
-                        class="rounded-md bg-gold px-3 py-2 text-sm font-semibold text-forest shadow-sm hover:bg-gold/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold">
+                        class="rounded-md bg-safety-orange px-3 py-2 text-sm font-semibold text-navy shadow-sm hover:bg-safety-orange/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold">
                     Save Changes
                 </button>
             </div>

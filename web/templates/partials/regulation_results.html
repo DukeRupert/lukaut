@@ -14,7 +14,7 @@
                 <div class="px-4 py-4 sm:px-6">
                     <div class="flex items-center justify-between">
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-forest truncate">
+                            <p class="text-sm font-medium text-navy truncate">
                                 {{.StandardNumber}}
                             </p>
                             <p class="mt-1 text-base font-semibold text-gray-900">
@@ -108,7 +108,7 @@
 
                 {{range $page := pageRange .Pagination.CurrentPage .Pagination.TotalPages}}
                     {{if eq $page $.Pagination.CurrentPage}}
-                    <span aria-current="page" class="relative z-10 inline-flex items-center bg-forest px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest">{{$page}}</span>
+                    <span aria-current="page" class="relative z-10 inline-flex items-center bg-navy px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy">{{$page}}</span>
                     {{else}}
                     <button
                         hx-get="/regulations/search?page={{$page}}{{if $.Filter.Query}}&q={{$.Filter.Query}}{{end}}{{if $.Filter.Category}}&category={{$.Filter.Category}}{{end}}{{if $.ViolationID}}&violation_id={{$.ViolationID}}{{end}}"

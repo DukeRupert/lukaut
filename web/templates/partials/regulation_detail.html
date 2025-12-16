@@ -4,7 +4,7 @@
     <div class="flex items-start justify-between mb-4">
         <div class="flex-1">
             <div class="flex items-center gap-2 mb-2">
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-forest text-white">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-navy text-white">
                     {{.Regulation.StandardNumber}}
                 </span>
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -106,7 +106,7 @@
                 type="button"
                 hx-post="/violations/{{.ViolationID}}/regulations/{{.Regulation.ID}}"
                 hx-swap="none"
-                class="rounded-md bg-forest px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-forest/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest">
+                class="rounded-md bg-navy px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-navy/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy">
                 Add to Violation
             </button>
             {{end}}

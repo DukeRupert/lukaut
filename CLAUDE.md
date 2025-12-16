@@ -92,8 +92,8 @@ POSTMARK_API_TOKEN=
 
 ## Brand Colors (Tailwind)
 
-The brand uses a PNG-inspired color palette:
-- `forest` (#1A4D2E) - Primary brand color
-- `gold` (#FCD116) - Accent, CTAs
-- `cream` (#E8E4DF) - Backgrounds
-- `clay` (#8B7355) - Secondary text
+The brand uses a construction-safety inspired color palette:
+- `navy` (#1E3A5F) - Primary brand color, headers, nav
+- `safety-orange` (#FF6B35) - Accent, CTAs, highlights
+- Slate gray tones for text and borders
+- Clean white/soft gray for backgrounds

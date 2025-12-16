@@ -23,21 +23,21 @@
 
   /* Better focus styles */
   :focus-visible {
-    outline: 2px solid #1A4D2E;
+    outline: 2px solid #1E3A5F;
     outline-offset: 2px;
   }
 
   /* Selection color using brand colors */
   ::selection {
-    background-color: #FCD116;
-    color: #1A4D2E;
+    background-color: #FF6B35;
+    color: #FFFFFF;
   }
 }
 
 @layer components {
   /* Button variants */
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-md bg-forest px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-forest-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest transition-colors;
+    @apply inline-flex items-center justify-center rounded-md bg-navy px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-navy-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy transition-colors;
   }
 
   .btn-secondary {
@@ -45,7 +45,7 @@
   }
 
   .btn-accent {
-    @apply inline-flex items-center justify-center rounded-md bg-gold px-4 py-2 text-sm font-semibold text-forest shadow-sm hover:bg-gold-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold transition-colors;
+    @apply inline-flex items-center justify-center rounded-md bg-safety-orange px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-safety-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-safety-orange transition-colors;
   }
 
   .btn-danger {
@@ -54,7 +54,7 @@
 
   /* Form inputs */
   .input {
-    @apply block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-forest sm:text-sm sm:leading-6;
+    @apply block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6;
   }
 
   .input-error {
@@ -80,19 +80,19 @@
   }
 
   .badge-draft {
-    @apply bg-clay/20 text-clay;
+    @apply bg-slate-200 text-slate-600;
   }
 
   .badge-analyzing {
-    @apply bg-gold/20 text-forest;
+    @apply bg-safety-orange-100 text-safety-orange-700;
   }
 
   .badge-review {
-    @apply bg-gold text-forest;
+    @apply bg-safety-orange text-white;
   }
 
   .badge-completed {
-    @apply bg-forest text-white;
+    @apply bg-navy text-white;
   }
 
   /* Severity badges */
