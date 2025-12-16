@@ -1,0 +1,119 @@
+{{/*
+  Checkbox Component
+
+  Custom styled checkbox using native input with visual overlay.
+
+  Params:
+    name     - Checkbox name attribute (required)
+    id       - Checkbox ID (defaults to name if not provided)
+    value    - Checkbox value (default: "on")
+    checked  - Boolean, pre-checked state
+    required - Boolean, marks field as required
+    disabled - Boolean, disables the checkbox
+    color    - Color variant: primary, danger, success, accent (default: primary)
+    class    - Additional CSS classes for the wrapper
+
+  Usage:
+    {{template "checkbox" dict "name" "terms" "id" "terms"}}
+    {{template "checkbox" dict "name" "subscribe" "checked" true "color" "success"}}
+
+  With label (use checkbox-field layout):
+    {{template "checkbox-field-start"}}
+      {{template "checkbox" dict "name" "terms" "id" "terms"}}
+      {{template "label" dict "for" "terms" "text" "I agree to the terms"}}
+    {{template "checkbox-field-end"}}
+*/}}
+
+{{define "checkbox"}}
+{{- $id := or .id .name -}}
+{{- $value := or .value "on" -}}
+{{- $color := or .color "primary" -}}
+{{- $checked := or .checked false -}}
+{{- $disabled := or .disabled false -}}
+
+<span data-slot="control" class="group inline-flex focus-within:outline-hidden {{.class}}">
+  <input type="checkbox"
+         name="{{.name}}"
+         id="{{$id}}"
+         value="{{$value}}"
+         {{if $checked}}checked{{end}}
+         {{if .required}}required{{end}}
+         {{if $disabled}}disabled{{end}}
+         class="peer sr-only">
+  <span class="relative isolate flex size-[1.125rem] sm:size-4 items-center justify-center rounded-[0.3125rem] cursor-pointer
+               before:absolute before:inset-0 before:-z-10 before:rounded-[calc(0.3125rem-1px)] before:bg-white before:shadow-sm
+               border border-[var(--color-zinc-950)]/15 hover:border-[var(--color-zinc-950)]/30
+               peer-checked:border-transparent
+               peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-[var(--color-primary)]
+               peer-disabled:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:border-[var(--color-zinc-950)]/25 peer-disabled:before:bg-transparent
+               {{if eq $color "primary"}}peer-checked:before:bg-[var(--color-primary)] peer-checked:bg-[var(--color-primary-hover)]{{end}}
+               {{if eq $color "danger"}}peer-checked:before:bg-[var(--color-danger)] peer-checked:bg-[var(--color-danger-hover)]{{end}}
+               {{if eq $color "success"}}peer-checked:before:bg-[var(--color-success)] peer-checked:bg-[var(--color-success-hover)]{{end}}
+               {{if eq $color "accent"}}peer-checked:before:bg-[var(--color-accent)] peer-checked:bg-[var(--color-accent-hover)]{{end}}">
+    <svg class="size-4 sm:size-3.5 stroke-white opacity-0 peer-checked:group-[]:opacity-100"
+         viewBox="0 0 14 14"
+         fill="none">
+      <path d="M3 8L6 11L11 3.5"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"/>
+    </svg>
+  </span>
+</span>
+{{end}}
+
+{{/*
+  Checkbox Field Layout
+
+  Grid layout for checkbox with label and optional description.
+  Places checkbox on the left, label to the right.
+
+  Usage:
+    {{template "checkbox-field-start"}}
+      {{template "checkbox" dict "name" "terms" "id" "terms"}}
+      {{template "label" dict "for" "terms" "text" "I agree to the terms"}}
+    {{template "checkbox-field-end"}}
+
+    With description:
+    {{template "checkbox-field-start"}}
+      {{template "checkbox" dict "name" "newsletter" "id" "newsletter"}}
+      {{template "label" dict "for" "newsletter" "text" "Subscribe to newsletter"}}
+      {{template "field-description" dict "text" "Get weekly updates on new features."}}
+    {{template "checkbox-field-end"}}
+*/}}
+{{define "checkbox-field-start"}}
+<div class="grid grid-cols-[1.125rem_1fr] gap-x-4 gap-y-1 sm:grid-cols-[1rem_1fr]
+            *:data-[slot=control]:col-start-1 *:data-[slot=control]:row-start-1 *:data-[slot=control]:mt-0.5 sm:*:data-[slot=control]:mt-1
+            *:data-[slot=label]:col-start-2 *:data-[slot=label]:row-start-1
+            *:data-[slot=description]:col-start-2 *:data-[slot=description]:row-start-2
+            has-[*[data-slot=description]]:*:data-[slot=label]:font-medium {{.class}}">
+{{end}}
+
+{{define "checkbox-field-end"}}
+</div>
+{{end}}
+
+{{/*
+  Checkbox Group
+
+  Container for multiple checkboxes with consistent spacing.
+
+  Usage:
+    {{template "checkbox-group-start"}}
+      {{template "checkbox-field-start"}}
+        {{template "checkbox" dict "name" "option1" "id" "option1"}}
+        {{template "label" dict "for" "option1" "text" "Option 1"}}
+      {{template "checkbox-field-end"}}
+      {{template "checkbox-field-start"}}
+        {{template "checkbox" dict "name" "option2" "id" "option2"}}
+        {{template "label" dict "for" "option2" "text" "Option 2"}}
+      {{template "checkbox-field-end"}}
+    {{template "checkbox-group-end"}}
+*/}}
+{{define "checkbox-group-start"}}
+<div data-slot="control" class="space-y-3 has-[*[data-slot=description]]:space-y-6 {{.class}}">
+{{end}}
+
+{{define "checkbox-group-end"}}
+</div>
+{{end}}

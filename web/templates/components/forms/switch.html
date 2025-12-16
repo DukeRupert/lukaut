@@ -1,0 +1,127 @@
+{{/*
+  Switch Component
+
+  Toggle switch using Alpine.js for interactivity.
+  Includes a hidden input for form submission.
+
+  Params:
+    name     - Input name attribute (required)
+    id       - Element ID (defaults to name if not provided)
+    value    - Value when checked (default: "on")
+    checked  - Boolean, initial checked state
+    disabled - Boolean, disables the switch
+    color    - Color variant: primary, danger, success, accent (default: primary)
+    class    - Additional CSS classes for the wrapper
+
+    htmx attributes:
+    hxPost, hxTrigger, hxTarget, hxSwap
+
+  Usage:
+    {{template "switch" dict "name" "notifications" "checked" true}}
+    {{template "switch" dict "name" "dark_mode" "color" "accent"}}
+
+  With label (use switch-field layout):
+    {{template "switch-field-start"}}
+      {{template "label" dict "for" "notifications" "text" "Enable notifications"}}
+      {{template "switch" dict "name" "notifications" "id" "notifications"}}
+    {{template "switch-field-end"}}
+*/}}
+
+{{define "switch"}}
+{{- $id := or .id .name -}}
+{{- $value := or .value "on" -}}
+{{- $color := or .color "primary" -}}
+{{- $checked := or .checked false -}}
+{{- $disabled := or .disabled false -}}
+
+<span data-slot="control"
+      x-data="{ enabled: {{if $checked}}true{{else}}false{{end}} }"
+      class="{{.class}}">
+  {{/* Hidden input for form submission */}}
+  <input type="hidden"
+         name="{{.name}}"
+         :value="enabled ? '{{$value}}' : ''"
+         {{if .hxPost}}hx-post="{{.hxPost}}"{{end}}
+         {{if .hxTrigger}}hx-trigger="{{.hxTrigger}}"{{end}}
+         {{if .hxTarget}}hx-target="{{.hxTarget}}"{{end}}
+         {{if .hxSwap}}hx-swap="{{.hxSwap}}"{{end}}>
+
+  <button type="button"
+          id="{{$id}}"
+          role="switch"
+          :aria-checked="enabled.toString()"
+          @click="{{if not $disabled}}enabled = !enabled{{end}}"
+          @keydown.space.prevent="{{if not $disabled}}enabled = !enabled{{end}}"
+          {{if $disabled}}disabled aria-disabled="true"{{end}}
+          class="group relative isolate inline-flex h-6 w-10 sm:h-5 sm:w-8 rounded-full p-[3px] cursor-pointer
+                 transition duration-200 ease-in-out
+                 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]
+                 {{if $disabled}}opacity-50 cursor-not-allowed{{end}}"
+          :class="enabled
+            ? '{{if eq $color "primary"}}bg-[var(--color-primary)] ring-1 ring-[var(--color-primary-hover)]{{end}}{{if eq $color "danger"}}bg-[var(--color-danger)] ring-1 ring-[var(--color-danger-hover)]{{end}}{{if eq $color "success"}}bg-[var(--color-success)] ring-1 ring-[var(--color-success-hover)]{{end}}{{if eq $color "accent"}}bg-[var(--color-accent)] ring-1 ring-[var(--color-accent-hover)]{{end}}'
+            : 'bg-[var(--color-zinc-200)] ring-1 ring-inset ring-[var(--color-zinc-950)]/5 hover:ring-[var(--color-zinc-950)]/15'">
+    {{/* Switch knob */}}
+    <span aria-hidden="true"
+          class="pointer-events-none relative inline-block size-[1.125rem] sm:size-3.5 rounded-full
+                 border border-transparent bg-white shadow-sm ring-1 ring-[var(--color-zinc-950)]/5
+                 transition duration-200 ease-in-out"
+          :class="enabled ? 'translate-x-4 sm:translate-x-3' : 'translate-x-0'">
+    </span>
+  </button>
+</span>
+{{end}}
+
+{{/*
+  Switch Field Layout
+
+  Horizontal layout with label on the left and switch on the right.
+
+  Usage:
+    {{template "switch-field-start"}}
+      {{template "label" dict "for" "notifications" "text" "Enable notifications"}}
+      {{template "switch" dict "name" "notifications" "id" "notifications"}}
+    {{template "switch-field-end"}}
+
+    With description:
+    {{template "switch-field-start"}}
+      {{template "label" dict "for" "marketing" "text" "Marketing emails"}}
+      {{template "field-description" dict "text" "Receive emails about new features and offers."}}
+      {{template "switch" dict "name" "marketing" "id" "marketing"}}
+    {{template "switch-field-end"}}
+*/}}
+{{define "switch-field-start"}}
+<div data-slot="field" class="grid grid-cols-[1fr_auto] gap-x-8 gap-y-1
+            *:data-[slot=control]:col-start-2 *:data-[slot=control]:row-start-1 *:data-[slot=control]:self-start sm:*:data-[slot=control]:mt-0.5
+            *:data-[slot=label]:col-start-1 *:data-[slot=label]:row-start-1
+            *:data-[slot=description]:col-start-1 *:data-[slot=description]:row-start-2
+            has-[*[data-slot=description]]:*:data-[slot=label]:font-medium {{.class}}">
+{{end}}
+
+{{define "switch-field-end"}}
+</div>
+{{end}}
+
+{{/*
+  Switch Group
+
+  Container for multiple switches with consistent spacing.
+
+  Usage:
+    {{template "switch-group-start"}}
+      {{template "switch-field-start"}}
+        {{template "label" dict "for" "email" "text" "Email notifications"}}
+        {{template "switch" dict "name" "email" "id" "email" "checked" true}}
+      {{template "switch-field-end"}}
+      {{template "switch-field-start"}}
+        {{template "label" dict "for" "sms" "text" "SMS notifications"}}
+        {{template "switch" dict "name" "sms" "id" "sms"}}
+      {{template "switch-field-end"}}
+    {{template "switch-group-end"}}
+*/}}
+{{define "switch-group-start"}}
+<div data-slot="control" class="space-y-3 *:data-[slot=label]:font-normal has-[*[data-slot=description]]:space-y-6 has-[*[data-slot=description]]:*:data-[slot=label]:font-medium {{.class}}">
+{{end}}
+
+{{define "switch-group-end"}}
+</div>
+{{end}}

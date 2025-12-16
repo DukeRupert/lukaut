@@ -1,0 +1,120 @@
+{{/*
+  Radio Component
+
+  Custom styled radio button using native input with visual overlay.
+
+  Params:
+    name     - Radio name attribute (required, shared by group)
+    id       - Radio ID (required for label association)
+    value    - Radio value (required)
+    checked  - Boolean, pre-selected state
+    required - Boolean, marks field as required
+    disabled - Boolean, disables the radio
+    color    - Color variant: primary, danger, success, accent (default: primary)
+    class    - Additional CSS classes for the wrapper
+
+  Usage:
+    {{template "radio" dict "name" "plan" "id" "plan-free" "value" "free"}}
+    {{template "radio" dict "name" "plan" "id" "plan-pro" "value" "pro" "checked" true}}
+
+  With label (use radio-field layout):
+    {{template "radio-field-start"}}
+      {{template "radio" dict "name" "plan" "id" "plan-free" "value" "free"}}
+      {{template "label" dict "for" "plan-free" "text" "Free Plan"}}
+    {{template "radio-field-end"}}
+*/}}
+
+{{define "radio"}}
+{{- $color := or .color "primary" -}}
+{{- $checked := or .checked false -}}
+{{- $disabled := or .disabled false -}}
+
+<span data-slot="control" class="group inline-flex focus-within:outline-hidden {{.class}}">
+  <input type="radio"
+         name="{{.name}}"
+         id="{{.id}}"
+         value="{{.value}}"
+         {{if $checked}}checked{{end}}
+         {{if .required}}required{{end}}
+         {{if $disabled}}disabled{{end}}
+         class="peer sr-only">
+  <span class="relative isolate flex size-[1.1875rem] sm:size-[1.0625rem] shrink-0 rounded-full cursor-pointer
+               before:absolute before:inset-0 before:-z-10 before:rounded-full before:bg-white before:shadow-sm
+               border border-[var(--color-zinc-950)]/15 hover:border-[var(--color-zinc-950)]/30
+               peer-checked:border-transparent
+               peer-focus:outline peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-[var(--color-primary)]
+               peer-disabled:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:border-[var(--color-zinc-950)]/25 peer-disabled:before:bg-transparent
+               {{if eq $color "primary"}}peer-checked:before:bg-[var(--color-primary)] peer-checked:bg-[var(--color-primary-hover)]{{end}}
+               {{if eq $color "danger"}}peer-checked:before:bg-[var(--color-danger)] peer-checked:bg-[var(--color-danger-hover)]{{end}}
+               {{if eq $color "success"}}peer-checked:before:bg-[var(--color-success)] peer-checked:bg-[var(--color-success-hover)]{{end}}
+               {{if eq $color "accent"}}peer-checked:before:bg-[var(--color-accent)] peer-checked:bg-[var(--color-accent-hover)]{{end}}">
+    {{/* Inner dot indicator */}}
+    <span class="size-full rounded-full border-[4.5px] border-transparent bg-transparent bg-clip-padding
+                 peer-checked:group-[]:bg-white"></span>
+  </span>
+</span>
+{{end}}
+
+{{/*
+  Radio Field Layout
+
+  Grid layout for radio with label and optional description.
+  Places radio on the left, label to the right.
+
+  Usage:
+    {{template "radio-field-start"}}
+      {{template "radio" dict "name" "plan" "id" "plan-free" "value" "free"}}
+      {{template "label" dict "for" "plan-free" "text" "Free Plan"}}
+    {{template "radio-field-end"}}
+
+    With description:
+    {{template "radio-field-start"}}
+      {{template "radio" dict "name" "plan" "id" "plan-pro" "value" "pro"}}
+      {{template "label" dict "for" "plan-pro" "text" "Pro Plan"}}
+      {{template "field-description" dict "text" "Best for growing teams."}}
+    {{template "radio-field-end"}}
+*/}}
+{{define "radio-field-start"}}
+<div data-slot="field" class="grid grid-cols-[1.125rem_1fr] gap-x-4 gap-y-1 sm:grid-cols-[1rem_1fr]
+            *:data-[slot=control]:col-start-1 *:data-[slot=control]:row-start-1 *:data-[slot=control]:mt-0.5 sm:*:data-[slot=control]:mt-1
+            *:data-[slot=label]:col-start-2 *:data-[slot=label]:row-start-1
+            *:data-[slot=description]:col-start-2 *:data-[slot=description]:row-start-2
+            has-[*[data-slot=description]]:*:data-[slot=label]:font-medium {{.class}}">
+{{end}}
+
+{{define "radio-field-end"}}
+</div>
+{{end}}
+
+{{/*
+  Radio Group
+
+  Container for a set of related radio buttons.
+  Must wrap all radios that share the same name.
+
+  Params:
+    class - Additional CSS classes
+
+  Usage:
+    {{template "radio-group-start"}}
+      {{template "radio-field-start"}}
+        {{template "radio" dict "name" "size" "id" "size-sm" "value" "sm"}}
+        {{template "label" dict "for" "size-sm" "text" "Small"}}
+      {{template "radio-field-end"}}
+      {{template "radio-field-start"}}
+        {{template "radio" dict "name" "size" "id" "size-md" "value" "md" "checked" true}}
+        {{template "label" dict "for" "size-md" "text" "Medium"}}
+      {{template "radio-field-end"}}
+      {{template "radio-field-start"}}
+        {{template "radio" dict "name" "size" "id" "size-lg" "value" "lg"}}
+        {{template "label" dict "for" "size-lg" "text" "Large"}}
+      {{template "radio-field-end"}}
+    {{template "radio-group-end"}}
+*/}}
+{{define "radio-group-start"}}
+<div data-slot="control" role="radiogroup" class="space-y-3 *:data-[slot=label]:font-normal has-[*[data-slot=description]]:space-y-6 has-[*[data-slot=description]]:*:data-[slot=label]:font-medium {{.class}}">
+{{end}}
+
+{{define "radio-group-end"}}
+</div>
+{{end}}
