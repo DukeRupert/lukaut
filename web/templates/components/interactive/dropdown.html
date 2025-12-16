@@ -1,0 +1,238 @@
+{{/*
+  Dropdown Component
+
+  Menu dropdown using Alpine.js for interactivity.
+
+  Components:
+    - dropdown-start/end: Container with Alpine.js state
+    - dropdown-button: Trigger button
+    - dropdown-menu-start/end: Menu panel
+    - dropdown-item: Menu item (button or link)
+    - dropdown-header: Non-interactive header content
+    - dropdown-section-start/end: Group items with heading
+    - dropdown-heading: Section heading
+    - dropdown-divider: Visual separator
+    - dropdown-label: Item label
+    - dropdown-description: Item description
+
+  Params for dropdown-start:
+    class    - Additional CSS classes
+    position - Menu position: bottom, bottom-start, bottom-end, top, top-start, top-end (default: bottom-start)
+
+  Usage:
+    {{template "dropdown-start" dict "position" "bottom-end"}}
+      {{template "dropdown-button"}}
+        Options
+        {{template "icon" dict "name" "chevron-down" "size" "sm"}}
+      {{template "dropdown-button-end"}}
+
+      {{template "dropdown-menu-start"}}
+        {{template "dropdown-item" dict "text" "Edit" "href" "/edit"}}
+        {{template "dropdown-item" dict "text" "Delete" "onclick" "confirmDelete()"}}
+        {{template "dropdown-divider"}}
+        {{template "dropdown-item" dict "text" "Settings" "href" "/settings"}}
+      {{template "dropdown-menu-end"}}
+    {{template "dropdown-end"}}
+*/}}
+
+{{define "dropdown-start"}}
+{{- $position := or .position "bottom-start" -}}
+<div x-data="{ open: false }"
+     @keydown.escape.window="open = false"
+     class="relative inline-block text-left {{.class}}">
+{{end}}
+
+{{define "dropdown-end"}}
+</div>
+{{end}}
+
+{{/*
+  Dropdown Button
+
+  Trigger button that opens/closes the menu.
+  Content goes between dropdown-button and dropdown-button-end.
+
+  Params:
+    class - Additional CSS classes
+
+  Usage:
+    {{template "dropdown-button"}}
+      Click me
+    {{template "dropdown-button-end"}}
+*/}}
+{{define "dropdown-button"}}
+<button type="button"
+        @click="open = !open"
+        :aria-expanded="open"
+        aria-haspopup="true"
+        class="inline-flex items-center justify-center gap-x-2 rounded-lg px-3.5 py-2.5 sm:px-3 sm:py-1.5 text-base/6 sm:text-sm/6 font-semibold text-[var(--color-text)] bg-white border border-[var(--color-border)] shadow-sm hover:bg-[var(--color-zinc-50)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 {{.class}}">
+{{end}}
+
+{{define "dropdown-button-end"}}
+</button>
+{{end}}
+
+{{/*
+  Dropdown Button Plain
+
+  A plain/unstyled trigger button variant.
+
+  Usage:
+    {{template "dropdown-button-plain"}}
+      {{template "icon" dict "name" "ellipsis-vertical"}}
+    {{template "dropdown-button-end"}}
+*/}}
+{{define "dropdown-button-plain"}}
+<button type="button"
+        @click="open = !open"
+        :aria-expanded="open"
+        aria-haspopup="true"
+        class="inline-flex items-center justify-center rounded-lg p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-zinc-100)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] {{.class}}">
+{{end}}
+
+{{/*
+  Dropdown Menu
+
+  The menu panel that appears when dropdown is open.
+
+  Params:
+    position - Overrides dropdown position: bottom-start (default), bottom-end, top-start, top-end
+    class    - Additional CSS classes
+*/}}
+{{define "dropdown-menu-start"}}
+{{- $position := or .position "bottom-start" -}}
+<div x-show="open"
+     x-transition:enter="transition ease-out duration-100"
+     x-transition:enter-start="transform opacity-0 scale-95"
+     x-transition:enter-end="transform opacity-100 scale-100"
+     x-transition:leave="transition ease-in duration-75"
+     x-transition:leave-start="transform opacity-100 scale-100"
+     x-transition:leave-end="transform opacity-0 scale-95"
+     @click.away="open = false"
+     x-cloak
+     class="absolute z-50 mt-2 w-56 rounded-xl bg-white/75 backdrop-blur-xl p-1 shadow-lg ring-1 ring-[var(--color-zinc-950)]/10 focus:outline-none overflow-y-auto max-h-[calc(100vh-10rem)]
+            {{if eq $position "bottom-start"}}left-0 origin-top-left{{end}}
+            {{if eq $position "bottom-end"}}right-0 origin-top-right{{end}}
+            {{if eq $position "bottom"}}left-1/2 -translate-x-1/2 origin-top{{end}}
+            {{if eq $position "top-start"}}left-0 bottom-full mb-2 mt-0 origin-bottom-left{{end}}
+            {{if eq $position "top-end"}}right-0 bottom-full mb-2 mt-0 origin-bottom-right{{end}}
+            {{if eq $position "top"}}left-1/2 -translate-x-1/2 bottom-full mb-2 mt-0 origin-bottom{{end}}
+            {{.class}}"
+     role="menu"
+     aria-orientation="vertical">
+{{end}}
+
+{{define "dropdown-menu-end"}}
+</div>
+{{end}}
+
+{{/*
+  Dropdown Item
+
+  Individual menu item (button or link).
+
+  Params:
+    text     - Item text (required)
+    href     - Link URL (makes item a link)
+    onclick  - Click handler (for button items)
+    disabled - Boolean, disables the item
+    icon     - Icon name to show before text
+    class    - Additional CSS classes
+
+    htmx attributes:
+    hxGet, hxPost, hxDelete, hxTarget, hxSwap, hxConfirm
+
+  Usage:
+    {{template "dropdown-item" dict "text" "Edit" "href" "/edit" "icon" "pencil"}}
+    {{template "dropdown-item" dict "text" "Delete" "onclick" "deleteItem()" "icon" "trash"}}
+*/}}
+{{define "dropdown-item"}}
+{{- $disabled := or .disabled false -}}
+{{- $tag := "button" -}}
+{{- if .href }}{{- $tag = "a" -}}{{end}}
+
+<{{$tag}} {{if .href}}href="{{.href}}"{{else}}type="button"{{end}}
+       {{if and (not .href) .onclick}}@click="{{.onclick}}; open = false"{{else if not .href}}@click="open = false"{{end}}
+       {{if $disabled}}disabled aria-disabled="true"{{end}}
+       {{if .hxGet}}hx-get="{{.hxGet}}"{{end}}
+       {{if .hxPost}}hx-post="{{.hxPost}}"{{end}}
+       {{if .hxDelete}}hx-delete="{{.hxDelete}}"{{end}}
+       {{if .hxTarget}}hx-target="{{.hxTarget}}"{{end}}
+       {{if .hxSwap}}hx-swap="{{.hxSwap}}"{{end}}
+       {{if .hxConfirm}}hx-confirm="{{.hxConfirm}}"{{end}}
+       class="group flex w-full items-center gap-x-3 rounded-lg px-3.5 py-2.5 sm:px-3 sm:py-1.5 text-left text-base/6 sm:text-sm/6 text-[var(--color-text)] hover:bg-[var(--color-primary)] hover:text-white focus:bg-[var(--color-primary)] focus:text-white focus:outline-none {{if $disabled}}opacity-50 cursor-not-allowed{{end}} {{.class}}"
+       role="menuitem">
+  {{if .icon}}
+  <span class="text-[var(--color-text-tertiary)] group-hover:text-white group-focus:text-white">
+    {{template "icon" dict "name" .icon "size" "sm"}}
+  </span>
+  {{end}}
+  <span class="flex-1">{{.text}}</span>
+  {{if .shortcut}}
+  <kbd class="text-[var(--color-text-tertiary)] group-hover:text-white/70 group-focus:text-white/70 text-xs">{{.shortcut}}</kbd>
+  {{end}}
+</{{$tag}}>
+{{end}}
+
+{{/*
+  Dropdown Header
+
+  Non-interactive header content at the top of a menu.
+
+  Usage:
+    {{template "dropdown-header-start"}}
+      <div class="font-medium">John Doe</div>
+      <div class="text-sm text-zinc-500">john@example.com</div>
+    {{template "dropdown-header-end"}}
+*/}}
+{{define "dropdown-header-start"}}
+<div class="px-3.5 pt-2.5 pb-1 sm:px-3 {{.class}}">
+{{end}}
+
+{{define "dropdown-header-end"}}
+</div>
+{{end}}
+
+{{/*
+  Dropdown Section
+
+  Group items with an optional heading.
+
+  Usage:
+    {{template "dropdown-section-start"}}
+      {{template "dropdown-heading" dict "text" "Actions"}}
+      {{template "dropdown-item" dict "text" "Edit" "href" "/edit"}}
+      {{template "dropdown-item" dict "text" "Delete" "onclick" "del()"}}
+    {{template "dropdown-section-end"}}
+*/}}
+{{define "dropdown-section-start"}}
+<div role="group" class="{{.class}}">
+{{end}}
+
+{{define "dropdown-section-end"}}
+</div>
+{{end}}
+
+{{/*
+  Dropdown Heading
+
+  Section heading text.
+
+  Params:
+    text  - Heading text
+    class - Additional CSS classes
+*/}}
+{{define "dropdown-heading"}}
+<div class="px-3.5 pt-2 pb-1 text-sm/5 sm:text-xs/5 font-medium text-[var(--color-text-tertiary)] sm:px-3 {{.class}}">
+  {{.text}}
+</div>
+{{end}}
+
+{{/*
+  Dropdown Divider
+
+  Visual separator between items/sections.
+*/}}
+{{define "dropdown-divider"}}
+<div class="mx-3.5 my-1 h-px bg-[var(--color-zinc-950)]/5 sm:mx-3 {{.class}}" role="separator"></div>
+{{end}}
