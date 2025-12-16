@@ -126,6 +126,14 @@ func (r *Renderer) loadTemplates() error {
 		}
 	}
 
+	// Parse partials into public layout
+	if len(partialFiles) > 0 {
+		publicBaseTmpl, err = publicBaseTmpl.ParseFiles(partialFiles...)
+		if err != nil {
+			return fmt.Errorf("failed to parse partials into public layout: %w", err)
+		}
+	}
+
 	// Parse auth layout
 	authLayoutPath := filepath.Join(templatesDir, "layouts", "auth.html")
 	authBaseTmpl, err := template.New("auth").Funcs(TemplateFuncs()).ParseFiles(authLayoutPath)
@@ -141,6 +149,14 @@ func (r *Renderer) loadTemplates() error {
 		}
 	}
 
+	// Parse partials into auth layout (so pages can use {{template "partial_name"}})
+	if len(partialFiles) > 0 {
+		authBaseTmpl, err = authBaseTmpl.ParseFiles(partialFiles...)
+		if err != nil {
+			return fmt.Errorf("failed to parse partials into auth layout: %w", err)
+		}
+	}
+
 	// Parse app layout
 	appLayoutPath := filepath.Join(templatesDir, "layouts", "app.html")
 	appBaseTmpl, err := template.New("app").Funcs(TemplateFuncs()).ParseFiles(appLayoutPath)
@@ -153,6 +169,14 @@ func (r *Renderer) loadTemplates() error {
 		appBaseTmpl, err = appBaseTmpl.ParseFiles(componentFiles...)
 		if err != nil {
 			return fmt.Errorf("failed to parse components into app layout: %w", err)
+		}
+	}
+
+	// Parse partials into app layout
+	if len(partialFiles) > 0 {
+		appBaseTmpl, err = appBaseTmpl.ParseFiles(partialFiles...)
+		if err != nil {
+			return fmt.Errorf("failed to parse partials into app layout: %w", err)
 		}
 	}
 
@@ -353,6 +377,7 @@ func (r *Renderer) RenderHTTP(w http.ResponseWriter, name string, data interface
 }
 
 // RenderPartial renders a partial template (for htmx responses).
+// The partial file should contain {{define "name"}}...{{end}} where name matches the file name.
 func (r *Renderer) RenderPartial(w http.ResponseWriter, name string, data interface{}) {
 	fullName := "partial/" + name
 
@@ -367,7 +392,8 @@ func (r *Renderer) RenderPartial(w http.ResponseWriter, name string, data interf
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := tmpl.Execute(w, data); err != nil {
+	// Execute the named template within the partial file
+	if err := tmpl.ExecuteTemplate(w, name, data); err != nil {
 		r.logger.Error("partial execution failed", "name", name, "error", err)
 	}
 }

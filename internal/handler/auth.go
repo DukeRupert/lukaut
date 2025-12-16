@@ -520,6 +520,8 @@ func (h *AuthHandler) ShowLogin(w http.ResponseWriter, r *http.Request) {
 // - Clear password field on error
 // - Consider rate limiting failed login attempts (future enhancement)
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("login attempt", "method", r.Method, "path", r.URL.Path)
+
 	// Parse form data
 	if err := r.ParseForm(); err != nil {
 		h.logger.Error("failed to parse form", "error", err)
@@ -574,6 +576,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		switch code {
 		case domain.EUNAUTHORIZED:
 			// Invalid credentials - use generic message
+			h.logger.Info("login failed: invalid credentials", "email", email)
 			h.renderLoginError(w, r, formValues, nil, &Flash{
 				Type:    "error",
 				Message: "Invalid email or password",
@@ -603,6 +606,14 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if returnTo != "" && isSafeRedirectURL(returnTo) {
 		redirectURL = returnTo
 	}
+
+	// For htmx requests, use HX-Redirect header
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", redirectURL)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 
@@ -628,6 +639,12 @@ func (h *AuthHandler) renderLoginError(
 		Errors:      errors,
 		Flash:       flash,
 		ReturnTo:    r.FormValue("return_to"),
+	}
+
+	// For htmx requests, return just the form partial
+	if r.Header.Get("HX-Request") == "true" {
+		h.renderer.RenderPartial(w, "login_form", data)
+		return
 	}
 
 	h.renderer.RenderHTTP(w, "auth/login", data)

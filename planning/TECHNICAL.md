@@ -149,6 +149,80 @@ r.Post("/inspections/{id}/analyze", analyzeInspectionHandler)
 
 ---
 
+## htmx Patterns
+
+### Form Submission with Partial Swaps
+
+For forms that should update in place without a full page refresh (showing validation errors, etc.), use this pattern:
+
+**1. Create a partial template** (`web/templates/partials/{form_name}.html`):
+```html
+{{define "login_form"}}
+<form id="login-form" action="/login" method="POST"
+      hx-post="/login"
+      hx-swap="outerHTML"
+      hx-target="#login-form">
+
+    {{/* Flash message inside form for htmx swaps */}}
+    {{if .Flash}}
+    <div class="rounded-md p-4 {{if eq .Flash.Type "error"}}bg-red-50{{end}}">
+        <p>{{.Flash.Message}}</p>
+    </div>
+    {{end}}
+
+    {{/* Form fields... */}}
+</form>
+{{end}}
+```
+
+**2. Include partial in the page template** (`web/templates/pages/auth/login.html`):
+```html
+{{define "content"}}
+{{template "login_form" .}}
+{{end}}
+```
+
+**3. Handler checks for htmx and returns partial on error**:
+```go
+func (h *AuthHandler) renderLoginError(w http.ResponseWriter, r *http.Request, ...) {
+    data := AuthPageData{...}
+
+    // For htmx requests, return just the form partial
+    if r.Header.Get("HX-Request") == "true" {
+        h.renderer.RenderPartial(w, "login_form", data)
+        return
+    }
+
+    // For regular requests, return full page
+    h.renderer.RenderHTTP(w, "auth/login", data)
+}
+```
+
+**4. Handler uses HX-Redirect for successful redirects**:
+```go
+// For htmx requests, use HX-Redirect header
+if r.Header.Get("HX-Request") == "true" {
+    w.Header().Set("HX-Redirect", redirectURL)
+    w.WriteHeader(http.StatusOK)
+    return
+}
+
+http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+```
+
+### Key Points
+
+- **Partial naming**: File `partials/foo.html` with `{{define "foo"}}` is rendered via `RenderPartial(w, "foo", data)`
+- **Form ID required**: htmx needs `hx-target` to reference the form by ID for swapping
+- **Flash in form**: Include flash/error messages inside the form so they appear on partial swaps
+- **Graceful degradation**: Keep `action` and `method` on form so it works without JavaScript
+
+### Renderer Configuration
+
+Partials are automatically parsed into all layouts (public, auth, app) so they can be used with `{{template "partial_name" .}}` in page templates.
+
+---
+
 ## CSS Framework
 
 ### Choice: Tailwind CSS
@@ -172,22 +246,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        'forest': {
-          DEFAULT: '#1A4D2E',
-          50: '#E8F5EC',
-          100: '#C5E6CE',
+        'navy': {
+          DEFAULT: '#1E3A5F',
+          50: '#F0F4F8',
           // ... full scale
-          900: '#0D2617',
+          900: '#102A43',
+          950: '#0A1929',
         },
-        'gold': {
-          DEFAULT: '#FCD116',
+        'safety-orange': {
+          DEFAULT: '#FF6B35',
+          50: '#FFF4F0',
           // ... full scale
+          900: '#7A2D14',
+          950: '#4A1B0C',
         },
-        'clay': {
-          DEFAULT: '#8B7355',
-          // ... full scale
-        },
-        'cream': '#E8E4DF',
       }
     }
   }
