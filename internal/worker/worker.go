@@ -94,7 +94,7 @@ func (w *Worker) Stop() {
 // recoverStaleJobs finds jobs that have been running too long and resets them to pending.
 // This handles the case where a worker crashed while processing a job.
 func (w *Worker) recoverStaleJobs(ctx context.Context) error {
-	thresholdSeconds := int64(w.config.StaleJobThreshold.Seconds())
+	thresholdSeconds := w.config.StaleJobThreshold.Seconds()
 	count, err := w.queries.RecoverStaleJobs(ctx, thresholdSeconds)
 	if err != nil {
 		return fmt.Errorf("recover stale jobs: %w", err)

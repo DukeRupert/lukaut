@@ -56,8 +56,9 @@ AND completed_at < $1;
 
 -- name: RecoverStaleJobs :execrows
 -- Recovers jobs that have been running too long (worker may have crashed)
+-- $1 is the threshold in seconds (e.g., 600 for 10 minutes)
 UPDATE jobs
 SET status = 'pending',
     error_message = 'Job timed out - worker may have crashed'
 WHERE status = 'running'
-AND started_at < NOW() - $1::INTERVAL;
+AND started_at < NOW() - make_interval(secs => $1);

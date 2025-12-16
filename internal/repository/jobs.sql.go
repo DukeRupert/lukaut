@@ -131,12 +131,13 @@ UPDATE jobs
 SET status = 'pending',
     error_message = 'Job timed out - worker may have crashed'
 WHERE status = 'running'
-AND started_at < NOW() - $1::INTERVAL
+AND started_at < NOW() - make_interval(secs => $1)
 `
 
 // Recovers jobs that have been running too long (worker may have crashed)
-func (q *Queries) RecoverStaleJobs(ctx context.Context, dollar_1 int64) (int64, error) {
-	result, err := q.db.ExecContext(ctx, recoverStaleJobs, dollar_1)
+// $1 is the threshold in seconds (e.g., 600 for 10 minutes)
+func (q *Queries) RecoverStaleJobs(ctx context.Context, secs float64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, recoverStaleJobs, secs)
 	if err != nil {
 		return 0, err
 	}
