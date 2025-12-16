@@ -390,3 +390,121 @@ func (r *Renderer) ListTemplates() []string {
 	}
 	return names
 }
+
+// ToastData holds data for rendering a toast notification.
+type ToastData struct {
+	Type        string // success, error, warning, info
+	Title       string // optional
+	Message     string
+	AutoDismiss int // seconds, default 5
+}
+
+// RenderHTTPWithToast renders a template and appends an OOB toast notification.
+// This is useful for htmx responses that need to show feedback.
+func (r *Renderer) RenderHTTPWithToast(w http.ResponseWriter, name string, data interface{}, toast ToastData) {
+	// In dev mode, reload templates on each request
+	if r.isDev {
+		if err := r.Reload(); err != nil {
+			r.logger.Error("template reload failed", "error", err)
+			http.Error(w, "Template reload failed", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	r.mu.RLock()
+	tmpl, ok := r.templates[name]
+	r.mu.RUnlock()
+
+	if !ok {
+		r.logger.Error("template not found", "name", name)
+		http.Error(w, "Template not found", http.StatusInternalServerError)
+		return
+	}
+
+	// Determine base template name
+	execName := r.getBaseTemplateName(name)
+
+	// Render main content to buffer
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, execName, data); err != nil {
+		r.logger.Error("template execution failed", "name", name, "error", err)
+		http.Error(w, "Template execution failed", http.StatusInternalServerError)
+		return
+	}
+
+	// Render toast OOB
+	if toast.AutoDismiss == 0 {
+		toast.AutoDismiss = 5
+	}
+	if toast.Type == "" {
+		toast.Type = "info"
+	}
+
+	toastHTML := r.renderToastOOB(toast)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	buf.WriteTo(w)
+	w.Write([]byte(toastHTML))
+}
+
+// renderToastOOB generates the toast OOB HTML.
+func (r *Renderer) renderToastOOB(toast ToastData) string {
+	icon := r.getToastIcon(toast.Type)
+
+	titleHTML := ""
+	if toast.Title != "" {
+		titleHTML = fmt.Sprintf(`<p class="text-sm font-medium text-[var(--color-text)]">%s</p>`, toast.Title)
+	}
+
+	messageClass := "text-sm text-[var(--color-text-secondary)]"
+	if toast.Title != "" {
+		messageClass = "mt-1 " + messageClass
+	}
+
+	return fmt.Sprintf(`<div hx-swap-oob="beforeend:#toast-container">
+  <div x-data="{ show: true, init() { setTimeout(() => { this.show = false; setTimeout(() => this.$el.remove(), 300) }, %d000) } }"
+       x-show="show"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="opacity-0 translate-x-4"
+       x-transition:enter-end="opacity-100 translate-x-0"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="opacity-100 translate-x-0"
+       x-transition:leave-end="opacity-0 translate-x-4"
+       class="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-[var(--color-zinc-950)]/5">
+    <div class="p-4">
+      <div class="flex items-start">
+        <div class="flex-shrink-0">
+          %s
+        </div>
+        <div class="ml-3 w-0 flex-1 pt-0.5">
+          %s
+          <p class="%s">%s</p>
+        </div>
+        <div class="ml-4 flex flex-shrink-0">
+          <button type="button"
+                  @click="show = false; setTimeout(() => $el.closest('[x-data]').remove(), 300)"
+                  class="inline-flex rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2">
+            <span class="sr-only">Close</span>
+            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`, toast.AutoDismiss, icon, titleHTML, messageClass, toast.Message)
+}
+
+func (r *Renderer) getToastIcon(toastType string) string {
+	switch toastType {
+	case "success":
+		return `<svg class="h-6 w-6 text-[var(--color-success)]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`
+	case "error":
+		return `<svg class="h-6 w-6 text-[var(--color-danger)]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>`
+	case "warning":
+		return `<svg class="h-6 w-6 text-[var(--color-warning)]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>`
+	default: // info
+		return `<svg class="h-6 w-6 text-[var(--color-info)]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>`
+	}
+}

@@ -225,14 +225,17 @@ func (h *ViolationHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Render the updated violation card
+	// Render the updated violation card with success toast
 	data := ViolationCardData{
 		Violation:   violation,
 		Regulations: regulations,
 		CanEdit:     true,
 	}
 
-	h.renderer.RenderHTTP(w, "partials/violation_card", data)
+	h.renderer.RenderHTTPWithToast(w, "partials/violation_card", data, ToastData{
+		Type:    "success",
+		Message: "Violation updated successfully.",
+	})
 }
 
 // =============================================================================

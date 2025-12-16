@@ -172,6 +172,16 @@ func (m *mockRenderer) RenderHTTP(w http.ResponseWriter, templateName string, da
 	}
 }
 
+func (m *mockRenderer) RenderHTTPWithToast(w http.ResponseWriter, templateName string, data interface{}, toast ToastData) {
+	// Delegate to RenderHTTPFunc, ignoring toast for tests
+	if m.RenderHTTPFunc != nil {
+		m.RenderHTTPFunc(w, templateName, data)
+	} else {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(templateName))
+	}
+}
+
 func (m *mockRenderer) RenderPartial(w http.ResponseWriter, templateName string, data interface{}) {
 	if m.RenderPartialFunc != nil {
 		m.RenderPartialFunc(w, templateName, data)

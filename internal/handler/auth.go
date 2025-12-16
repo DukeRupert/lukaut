@@ -51,6 +51,7 @@ const (
 // This interface allows for mocking in tests.
 type TemplateRenderer interface {
 	RenderHTTP(w http.ResponseWriter, name string, data interface{})
+	RenderHTTPWithToast(w http.ResponseWriter, name string, data interface{}, toast ToastData)
 	RenderPartial(w http.ResponseWriter, name string, data interface{})
 }
 

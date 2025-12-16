@@ -208,3 +208,91 @@
             {{if eq $position "bottom-left"}}items-start justify-end{{end}}">
 </div>
 {{end}}
+
+{{/*
+  Toast OOB (Out-of-Band for htmx)
+
+  Use this in htmx responses to inject a toast notification.
+  Include this template in your handler response alongside main content.
+
+  Params:
+    type    - Message type: success, error, warning, info
+    title   - Toast title (optional)
+    message - Message text
+    autoDismiss - Seconds before auto-dismiss (default: 5)
+
+  Go handler example:
+    func (h *Handler) CreateItem(w http.ResponseWriter, r *http.Request) {
+        // ... create item logic ...
+
+        // Render main response + toast
+        h.templates.Render(w, "item-row", item)
+        h.templates.Render(w, "toast-oob", map[string]any{
+            "type":    "success",
+            "title":   "Created",
+            "message": "Item was created successfully.",
+        })
+    }
+
+  Or in a single template:
+    <tr id="item-{{.ID}}">...</tr>
+    {{template "toast-oob" dict "type" "success" "message" "Item saved!"}}
+*/}}
+{{define "toast-oob"}}
+{{- $type := or .type "info" -}}
+{{- $autoDismiss := or .autoDismiss 5 -}}
+<div hx-swap-oob="beforeend:#toast-container">
+  <div x-data="{ show: true, init() { setTimeout(() => { this.show = false; setTimeout(() => this.$el.remove(), 300) }, {{$autoDismiss}}000) } }"
+       x-show="show"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="opacity-0 translate-x-4"
+       x-transition:enter-end="opacity-100 translate-x-0"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="opacity-100 translate-x-0"
+       x-transition:leave-end="opacity-0 translate-x-4"
+       class="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-[var(--color-zinc-950)]/5">
+    <div class="p-4">
+      <div class="flex items-start">
+        <div class="flex-shrink-0">
+          {{if eq $type "success"}}
+          <svg class="h-6 w-6 text-[var(--color-success)]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {{end}}
+          {{if eq $type "error"}}
+          <svg class="h-6 w-6 text-[var(--color-danger)]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+          {{end}}
+          {{if eq $type "warning"}}
+          <svg class="h-6 w-6 text-[var(--color-warning)]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+          {{end}}
+          {{if eq $type "info"}}
+          <svg class="h-6 w-6 text-[var(--color-info)]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+          </svg>
+          {{end}}
+        </div>
+        <div class="ml-3 w-0 flex-1 pt-0.5">
+          {{if .title}}
+          <p class="text-sm font-medium text-[var(--color-text)]">{{.title}}</p>
+          {{end}}
+          <p class="{{if .title}}mt-1{{end}} text-sm text-[var(--color-text-secondary)]">{{.message}}</p>
+        </div>
+        <div class="ml-4 flex flex-shrink-0">
+          <button type="button"
+                  @click="show = false; setTimeout(() => $el.closest('[x-data]').remove(), 300)"
+                  class="inline-flex rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2">
+            <span class="sr-only">Close</span>
+            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}
