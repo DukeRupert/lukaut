@@ -1,0 +1,144 @@
+{{/*
+  Badge Component
+
+  Inline label/tag for status, categories, or metadata.
+
+  Params:
+    content - Badge text (required)
+    color   - Color variant (default: "zinc")
+              Options: red, orange, amber, yellow, lime, green, emerald, teal,
+                       cyan, sky, blue, indigo, violet, purple, fuchsia, pink, rose, zinc
+              Semantic aliases: danger (red), warning (amber), success (green), info (blue)
+    class   - Additional CSS classes (optional)
+
+  Usage:
+    {{template "badge" dict "content" "New"}}
+    {{template "badge" dict "content" "Active" "color" "green"}}
+    {{template "badge" dict "content" "Error" "color" "danger"}}
+    {{template "badge" dict "content" "Pending" "color" "warning"}}
+*/}}
+
+{{define "badge"}}
+{{- $color := or .color "zinc" -}}
+
+{{- /* Map semantic colors to actual colors */ -}}
+{{- if eq $color "danger" -}}{{- $color = "red" -}}{{- end -}}
+{{- if eq $color "warning" -}}{{- $color = "amber" -}}{{- end -}}
+{{- if eq $color "success" -}}{{- $color = "green" -}}{{- end -}}
+{{- if eq $color "info" -}}{{- $color = "blue" -}}{{- end -}}
+{{- if eq $color "primary" -}}{{- $color = "emerald" -}}{{- end -}}
+
+{{- /* Color classes */ -}}
+{{- $colorClasses := "" -}}
+{{- if eq $color "red" -}}
+  {{- $colorClasses = "bg-red-500/15 text-red-700" -}}
+{{- else if eq $color "orange" -}}
+  {{- $colorClasses = "bg-orange-500/15 text-orange-700" -}}
+{{- else if eq $color "amber" -}}
+  {{- $colorClasses = "bg-amber-400/20 text-amber-700" -}}
+{{- else if eq $color "yellow" -}}
+  {{- $colorClasses = "bg-yellow-400/20 text-yellow-700" -}}
+{{- else if eq $color "lime" -}}
+  {{- $colorClasses = "bg-lime-400/20 text-lime-700" -}}
+{{- else if eq $color "green" -}}
+  {{- $colorClasses = "bg-green-500/15 text-green-700" -}}
+{{- else if eq $color "emerald" -}}
+  {{- $colorClasses = "bg-emerald-500/15 text-emerald-700" -}}
+{{- else if eq $color "teal" -}}
+  {{- $colorClasses = "bg-teal-500/15 text-teal-700" -}}
+{{- else if eq $color "cyan" -}}
+  {{- $colorClasses = "bg-cyan-400/20 text-cyan-700" -}}
+{{- else if eq $color "sky" -}}
+  {{- $colorClasses = "bg-sky-500/15 text-sky-700" -}}
+{{- else if eq $color "blue" -}}
+  {{- $colorClasses = "bg-blue-500/15 text-blue-700" -}}
+{{- else if eq $color "indigo" -}}
+  {{- $colorClasses = "bg-indigo-500/15 text-indigo-700" -}}
+{{- else if eq $color "violet" -}}
+  {{- $colorClasses = "bg-violet-500/15 text-violet-700" -}}
+{{- else if eq $color "purple" -}}
+  {{- $colorClasses = "bg-purple-500/15 text-purple-700" -}}
+{{- else if eq $color "fuchsia" -}}
+  {{- $colorClasses = "bg-fuchsia-400/15 text-fuchsia-700" -}}
+{{- else if eq $color "pink" -}}
+  {{- $colorClasses = "bg-pink-400/15 text-pink-700" -}}
+{{- else if eq $color "rose" -}}
+  {{- $colorClasses = "bg-rose-400/15 text-rose-700" -}}
+{{- else -}}
+  {{- /* zinc (default) */ -}}
+  {{- $colorClasses = "bg-zinc-600/10 text-zinc-700" -}}
+{{- end -}}
+
+<span class="inline-flex items-center gap-x-1.5 rounded-md px-1.5 py-0.5 text-sm/5 font-medium sm:text-xs/5 {{$colorClasses}} {{.class}}">
+  {{.content}}
+</span>
+{{end}}
+
+{{/*
+  Badge with Icon
+
+  Badge with a leading icon.
+
+  Params:
+    content - Badge text (required)
+    icon    - Icon name (required)
+    color   - Color variant (default: "zinc")
+    class   - Additional CSS classes (optional)
+
+  Usage:
+    {{template "badge-icon" dict "content" "Verified" "icon" "check" "color" "green"}}
+*/}}
+{{define "badge-icon"}}
+{{- $color := or .color "zinc" -}}
+
+{{- /* Map semantic colors */ -}}
+{{- if eq $color "danger" -}}{{- $color = "red" -}}{{- end -}}
+{{- if eq $color "warning" -}}{{- $color = "amber" -}}{{- end -}}
+{{- if eq $color "success" -}}{{- $color = "green" -}}{{- end -}}
+{{- if eq $color "info" -}}{{- $color = "blue" -}}{{- end -}}
+
+{{- /* Color classes */ -}}
+{{- $colorClasses := "" -}}
+{{- if eq $color "red" -}}
+  {{- $colorClasses = "bg-red-500/15 text-red-700" -}}
+{{- else if eq $color "orange" -}}
+  {{- $colorClasses = "bg-orange-500/15 text-orange-700" -}}
+{{- else if eq $color "amber" -}}
+  {{- $colorClasses = "bg-amber-400/20 text-amber-700" -}}
+{{- else if eq $color "yellow" -}}
+  {{- $colorClasses = "bg-yellow-400/20 text-yellow-700" -}}
+{{- else if eq $color "lime" -}}
+  {{- $colorClasses = "bg-lime-400/20 text-lime-700" -}}
+{{- else if eq $color "green" -}}
+  {{- $colorClasses = "bg-green-500/15 text-green-700" -}}
+{{- else if eq $color "emerald" -}}
+  {{- $colorClasses = "bg-emerald-500/15 text-emerald-700" -}}
+{{- else if eq $color "teal" -}}
+  {{- $colorClasses = "bg-teal-500/15 text-teal-700" -}}
+{{- else if eq $color "cyan" -}}
+  {{- $colorClasses = "bg-cyan-400/20 text-cyan-700" -}}
+{{- else if eq $color "sky" -}}
+  {{- $colorClasses = "bg-sky-500/15 text-sky-700" -}}
+{{- else if eq $color "blue" -}}
+  {{- $colorClasses = "bg-blue-500/15 text-blue-700" -}}
+{{- else if eq $color "indigo" -}}
+  {{- $colorClasses = "bg-indigo-500/15 text-indigo-700" -}}
+{{- else if eq $color "violet" -}}
+  {{- $colorClasses = "bg-violet-500/15 text-violet-700" -}}
+{{- else if eq $color "purple" -}}
+  {{- $colorClasses = "bg-purple-500/15 text-purple-700" -}}
+{{- else if eq $color "fuchsia" -}}
+  {{- $colorClasses = "bg-fuchsia-400/15 text-fuchsia-700" -}}
+{{- else if eq $color "pink" -}}
+  {{- $colorClasses = "bg-pink-400/15 text-pink-700" -}}
+{{- else if eq $color "rose" -}}
+  {{- $colorClasses = "bg-rose-400/15 text-rose-700" -}}
+{{- else -}}
+  {{- $colorClasses = "bg-zinc-600/10 text-zinc-700" -}}
+{{- end -}}
+
+<span class="inline-flex items-center gap-x-1.5 rounded-md px-1.5 py-0.5 text-sm/5 font-medium sm:text-xs/5 {{$colorClasses}} {{.class}}">
+  {{template "icon" dict "name" .icon "size" "xs"}}
+  {{.content}}
+</span>
+{{end}}

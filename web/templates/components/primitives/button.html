@@ -1,0 +1,243 @@
+{{/*
+  Button Component
+
+  Versatile button supporting multiple variants, colors, and sizes.
+  Can render as <button> or <a> depending on whether href is provided.
+
+  Params:
+    text     - Button label (required)
+    variant  - "solid" (default), "outline", "plain"
+    color    - For solid: "primary" (default), "secondary", "danger", "accent", "neutral"
+               For outline/plain: color affects text/border on hover
+    size     - "sm", "md" (default), "lg"
+    type     - Button type: "button" (default), "submit", "reset"
+    href     - If provided, renders as anchor tag
+    disabled - Boolean, disables the button
+    class    - Additional CSS classes
+    icon     - Icon name to prepend
+    iconRight- Icon name to append
+
+    htmx attributes:
+    hxGet, hxPost, hxPut, hxDelete, hxPatch
+    hxTarget, hxSwap, hxTrigger, hxIndicator, hxConfirm, hxPushUrl
+
+  Usage:
+    {{template "button" dict "text" "Save Changes" "type" "submit"}}
+    {{template "button" dict "text" "Cancel" "variant" "outline" "href" "/back"}}
+    {{template "button" dict "text" "Delete" "color" "danger" "hxDelete" "/api/item/1" "hxConfirm" "Are you sure?"}}
+    {{template "button" dict "text" "New" "icon" "plus"}}
+*/}}
+
+{{define "button"}}
+{{- $variant := or .variant "solid" -}}
+{{- $color := or .color "primary" -}}
+{{- $size := or .size "md" -}}
+{{- $type := or .type "button" -}}
+{{- $disabled := or .disabled false -}}
+
+{{- /* Base classes - common to all buttons */ -}}
+{{- $base := "relative isolate inline-flex items-center justify-center gap-x-2 rounded-lg border font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" -}}
+
+{{- /* Size classes */ -}}
+{{- $sizeClasses := "" -}}
+{{- if eq $size "sm" -}}
+  {{- $sizeClasses = "px-2.5 py-1 text-sm" -}}
+{{- else if eq $size "lg" -}}
+  {{- $sizeClasses = "px-4 py-2.5 text-base" -}}
+{{- else -}}
+  {{- /* md (default) */ -}}
+  {{- $sizeClasses = "px-3.5 py-2 text-sm sm:px-3 sm:py-1.5" -}}
+{{- end -}}
+
+{{- /* Disabled classes */ -}}
+{{- $disabledClasses := "" -}}
+{{- if $disabled -}}
+  {{- $disabledClasses = "opacity-50 cursor-not-allowed" -}}
+{{- end -}}
+
+{{- /* Variant + Color classes */ -}}
+{{- $variantClasses := "" -}}
+
+{{- if eq $variant "outline" -}}
+  {{- /* Outline variant - transparent background with border */ -}}
+  {{- $variantClasses = "border-[var(--color-border)] bg-transparent text-[var(--color-text)] hover:bg-[var(--color-zinc-950-5)] focus-visible:ring-[var(--color-primary)]" -}}
+
+{{- else if eq $variant "plain" -}}
+  {{- /* Plain variant - no border, subtle hover */ -}}
+  {{- $variantClasses = "border-transparent bg-transparent text-[var(--color-text)] hover:bg-[var(--color-zinc-950-5)] focus-visible:ring-[var(--color-primary)]" -}}
+
+{{- else -}}
+  {{- /* Solid variant - filled background */ -}}
+  {{- if eq $color "danger" -}}
+    {{- $variantClasses = "border-transparent bg-[var(--color-danger)] text-white shadow-sm hover:bg-[var(--color-danger-hover)] focus-visible:ring-[var(--color-danger)]" -}}
+  {{- else if eq $color "secondary" -}}
+    {{- $variantClasses = "border-transparent bg-[var(--color-secondary)] text-white shadow-sm hover:bg-[var(--color-secondary-hover)] focus-visible:ring-[var(--color-secondary)]" -}}
+  {{- else if eq $color "accent" -}}
+    {{- $variantClasses = "border-transparent bg-[var(--color-accent)] text-[var(--color-accent-text)] shadow-sm hover:bg-[var(--color-accent-hover)] focus-visible:ring-[var(--color-accent)]" -}}
+  {{- else if eq $color "neutral" -}}
+    {{- $variantClasses = "border-[var(--color-border)] bg-white text-[var(--color-text)] shadow-sm hover:bg-zinc-50 focus-visible:ring-[var(--color-primary)]" -}}
+  {{- else -}}
+    {{- /* primary (default) */ -}}
+    {{- $variantClasses = "border-transparent bg-[var(--color-primary)] text-[var(--color-text-on-primary)] shadow-sm hover:bg-[var(--color-primary-hover)] focus-visible:ring-[var(--color-primary)]" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $allClasses := printf "%s %s %s %s %s" $base $sizeClasses $variantClasses $disabledClasses (or .class "") -}}
+
+{{- /* Icon size based on button size */ -}}
+{{- $iconSize := "sm" -}}
+{{- if eq $size "sm" -}}
+  {{- $iconSize = "xs" -}}
+{{- else if eq $size "lg" -}}
+  {{- $iconSize = "md" -}}
+{{- end -}}
+
+{{if .href}}
+{{- /* Render as anchor */ -}}
+<a href="{{.href}}"
+   class="{{$allClasses}}"
+   {{if $disabled}}aria-disabled="true" tabindex="-1"{{end}}>
+  {{if .icon}}{{template "icon" dict "name" .icon "size" $iconSize "class" "shrink-0"}}{{end}}
+  <span>{{.text}}</span>
+  {{if .iconRight}}{{template "icon" dict "name" .iconRight "size" $iconSize "class" "shrink-0"}}{{end}}
+</a>
+{{else}}
+{{- /* Render as button */ -}}
+<button type="{{$type}}"
+        class="{{$allClasses}}"
+        {{if $disabled}}disabled{{end}}
+        {{if .hxGet}}hx-get="{{.hxGet}}"{{end}}
+        {{if .hxPost}}hx-post="{{.hxPost}}"{{end}}
+        {{if .hxPut}}hx-put="{{.hxPut}}"{{end}}
+        {{if .hxDelete}}hx-delete="{{.hxDelete}}"{{end}}
+        {{if .hxPatch}}hx-patch="{{.hxPatch}}"{{end}}
+        {{if .hxTarget}}hx-target="{{.hxTarget}}"{{end}}
+        {{if .hxSwap}}hx-swap="{{.hxSwap}}"{{end}}
+        {{if .hxTrigger}}hx-trigger="{{.hxTrigger}}"{{end}}
+        {{if .hxIndicator}}hx-indicator="{{.hxIndicator}}"{{end}}
+        {{if .hxConfirm}}hx-confirm="{{.hxConfirm}}"{{end}}
+        {{if .hxPushUrl}}hx-push-url="{{.hxPushUrl}}"{{end}}>
+  {{if .icon}}{{template "icon" dict "name" .icon "size" $iconSize "class" "shrink-0"}}{{end}}
+  <span>{{.text}}</span>
+  {{if .iconRight}}{{template "icon" dict "name" .iconRight "size" $iconSize "class" "shrink-0"}}{{end}}
+</button>
+{{end}}
+{{end}}
+
+{{/*
+  Button Group
+
+  Container for grouping related buttons together.
+
+  Params:
+    class - Additional CSS classes (optional)
+
+  Usage:
+    {{template "button-group-start"}}
+      {{template "button" dict "text" "Save" "type" "submit"}}
+      {{template "button" dict "text" "Cancel" "variant" "outline" "href" "/back"}}
+    {{template "button-group-end"}}
+*/}}
+{{define "button-group-start"}}
+<div class="flex items-center gap-x-3 {{.class}}">
+{{end}}
+
+{{define "button-group-end"}}
+</div>
+{{end}}
+
+{{/*
+  Icon Button
+
+  Button with only an icon, no text.
+
+  Params:
+    icon     - Icon name (required)
+    label    - Accessible label for screen readers (required)
+    variant  - "solid" (default), "outline", "plain"
+    color    - Same as button color
+    size     - "sm", "md" (default), "lg"
+    type     - Button type
+    href     - If provided, renders as anchor
+    disabled - Boolean
+    class    - Additional CSS classes
+
+    htmx attributes supported
+
+  Usage:
+    {{template "icon-button" dict "icon" "pencil" "label" "Edit"}}
+    {{template "icon-button" dict "icon" "trash" "label" "Delete" "color" "danger"}}
+    {{template "icon-button" dict "icon" "plus" "label" "Add new" "variant" "outline"}}
+*/}}
+{{define "icon-button"}}
+{{- $variant := or .variant "solid" -}}
+{{- $color := or .color "primary" -}}
+{{- $size := or .size "md" -}}
+{{- $type := or .type "button" -}}
+{{- $disabled := or .disabled false -}}
+
+{{- /* Base classes */ -}}
+{{- $base := "relative isolate inline-flex items-center justify-center rounded-lg border font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" -}}
+
+{{- /* Size classes - square padding for icon-only */ -}}
+{{- $sizeClasses := "" -}}
+{{- $iconSize := "sm" -}}
+{{- if eq $size "sm" -}}
+  {{- $sizeClasses = "p-1.5" -}}
+  {{- $iconSize = "xs" -}}
+{{- else if eq $size "lg" -}}
+  {{- $sizeClasses = "p-3" -}}
+  {{- $iconSize = "md" -}}
+{{- else -}}
+  {{- $sizeClasses = "p-2" -}}
+  {{- $iconSize = "sm" -}}
+{{- end -}}
+
+{{- /* Disabled classes */ -}}
+{{- $disabledClasses := "" -}}
+{{- if $disabled -}}
+  {{- $disabledClasses = "opacity-50 cursor-not-allowed" -}}
+{{- end -}}
+
+{{- /* Variant + Color classes */ -}}
+{{- $variantClasses := "" -}}
+{{- if eq $variant "outline" -}}
+  {{- $variantClasses = "border-[var(--color-border)] bg-transparent text-[var(--color-text)] hover:bg-[var(--color-zinc-950-5)] focus-visible:ring-[var(--color-primary)]" -}}
+{{- else if eq $variant "plain" -}}
+  {{- $variantClasses = "border-transparent bg-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-zinc-950-5)] focus-visible:ring-[var(--color-primary)]" -}}
+{{- else -}}
+  {{- if eq $color "danger" -}}
+    {{- $variantClasses = "border-transparent bg-[var(--color-danger)] text-white shadow-sm hover:bg-[var(--color-danger-hover)] focus-visible:ring-[var(--color-danger)]" -}}
+  {{- else if eq $color "neutral" -}}
+    {{- $variantClasses = "border-[var(--color-border)] bg-white text-[var(--color-text)] shadow-sm hover:bg-zinc-50 focus-visible:ring-[var(--color-primary)]" -}}
+  {{- else -}}
+    {{- $variantClasses = "border-transparent bg-[var(--color-primary)] text-[var(--color-text-on-primary)] shadow-sm hover:bg-[var(--color-primary-hover)] focus-visible:ring-[var(--color-primary)]" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $allClasses := printf "%s %s %s %s %s" $base $sizeClasses $variantClasses $disabledClasses (or .class "") -}}
+
+{{if .href}}
+<a href="{{.href}}"
+   class="{{$allClasses}}"
+   aria-label="{{.label}}"
+   {{if $disabled}}aria-disabled="true" tabindex="-1"{{end}}>
+  {{template "icon" dict "name" .icon "size" $iconSize}}
+</a>
+{{else}}
+<button type="{{$type}}"
+        class="{{$allClasses}}"
+        aria-label="{{.label}}"
+        {{if $disabled}}disabled{{end}}
+        {{if .hxGet}}hx-get="{{.hxGet}}"{{end}}
+        {{if .hxPost}}hx-post="{{.hxPost}}"{{end}}
+        {{if .hxPut}}hx-put="{{.hxPut}}"{{end}}
+        {{if .hxDelete}}hx-delete="{{.hxDelete}}"{{end}}
+        {{if .hxPatch}}hx-patch="{{.hxPatch}}"{{end}}
+        {{if .hxTarget}}hx-target="{{.hxTarget}}"{{end}}
+        {{if .hxSwap}}hx-swap="{{.hxSwap}}"{{end}}
+        {{if .hxConfirm}}hx-confirm="{{.hxConfirm}}"{{end}}>
+  {{template "icon" dict "name" .icon "size" $iconSize}}
+</button>
+{{end}}
+{{end}}

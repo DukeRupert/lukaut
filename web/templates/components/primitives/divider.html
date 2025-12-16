@@ -1,0 +1,23 @@
+{{/*
+  Divider Component
+
+  Visual separator between sections of content.
+
+  Params:
+    soft  - Boolean, use lighter/softer border (default: false)
+    class - Additional CSS classes (optional)
+
+  Usage:
+    {{template "divider"}}
+    {{template "divider" dict "soft" true}}
+    {{template "divider" dict "class" "my-8"}}
+*/}}
+
+{{define "divider"}}
+{{- $soft := or .soft false -}}
+{{- $borderClass := "border-[var(--color-border)]" -}}
+{{- if $soft -}}
+  {{- $borderClass = "border-[var(--color-border)]/50" -}}
+{{- end -}}
+<hr role="presentation" class="w-full border-t {{$borderClass}} {{.class}}">
+{{end}}
