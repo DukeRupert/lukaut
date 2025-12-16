@@ -49,6 +49,9 @@ type InspectionShowPageData struct {
 	CurrentPath string              // Current URL path
 	User        interface{}         // Authenticated user
 	Inspection  *domain.Inspection  // Inspection details
+	InspectionID uuid.UUID          // Inspection ID for templates
+	CanUpload   bool                // Whether user can upload images
+	GalleryData ImageGalleryData    // Image gallery data
 	Flash       *Flash              // Flash message (if any)
 }
 
@@ -77,6 +80,7 @@ type SiteOption struct {
 // InspectionHandler handles inspection-related HTTP requests.
 type InspectionHandler struct {
 	inspectionService service.InspectionService
+	imageService      service.ImageService
 	queries           *repository.Queries
 	renderer          TemplateRenderer
 	logger            *slog.Logger
@@ -85,12 +89,14 @@ type InspectionHandler struct {
 // NewInspectionHandler creates a new InspectionHandler.
 func NewInspectionHandler(
 	inspectionService service.InspectionService,
+	imageService service.ImageService,
 	queries *repository.Queries,
 	renderer TemplateRenderer,
 	logger *slog.Logger,
 ) *InspectionHandler {
 	return &InspectionHandler{
 		inspectionService: inspectionService,
+		imageService:      imageService,
 		queries:           queries,
 		renderer:          renderer,
 		logger:            logger,
@@ -338,15 +344,49 @@ func (h *InspectionHandler) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Render template
-	data := InspectionShowPageData{
-		CurrentPath: r.URL.Path,
-		User:        user,
-		Inspection:  inspection,
-		Flash:       nil,
+	// Fetch images for this inspection
+	images, err := h.imageService.ListByInspection(r.Context(), id, user.ID)
+	if err != nil {
+		h.logger.Error("failed to fetch images", "error", err, "inspection_id", id)
+		// Continue with empty image list rather than failing
+		images = []domain.Image{}
 	}
 
-	h.renderer.RenderHTTP(w, "pages/inspections/show", data)
+	// Populate thumbnail URLs for gallery
+	imageDisplays := make([]ImageDisplay, 0, len(images))
+	for _, img := range images {
+		thumbnailURL, err := h.imageService.GetThumbnailURL(r.Context(), img.ID, user.ID)
+		if err != nil {
+			h.logger.Error("failed to generate thumbnail URL", "error", err, "image_id", img.ID)
+			thumbnailURL = "" // Show broken image
+		}
+
+		imageDisplays = append(imageDisplays, ImageDisplay{
+			ID:               img.ID,
+			ThumbnailURL:     thumbnailURL,
+			OriginalFilename: img.OriginalFilename,
+			AnalysisStatus:   string(img.AnalysisStatus),
+			SizeMB:           img.SizeMB(),
+		})
+	}
+
+	// Render template
+	data := InspectionShowPageData{
+		CurrentPath:  r.URL.Path,
+		User:         user,
+		Inspection:   inspection,
+		InspectionID: id,
+		CanUpload:    inspection.CanAddPhotos(),
+		GalleryData: ImageGalleryData{
+			InspectionID: id,
+			Images:       imageDisplays,
+			Errors:       []string{},
+			CanUpload:    inspection.CanAddPhotos(),
+		},
+		Flash: nil,
+	}
+
+	h.renderer.RenderHTTP(w, "inspections/show", data)
 }
 
 // =============================================================================

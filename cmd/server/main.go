@@ -64,29 +64,6 @@ func run() error {
 	}
 	logger.Info("Templates loaded", "count", len(renderer.ListTemplates()))
 
-	// Initialize services
-	userService := service.NewUserService(repo, logger)
-	inspectionService := service.NewInspectionService(repo, logger)
-
-	// Initialize email service
-	emailService, err := email.NewSMTPEmailService(
-		email.SMTPConfig{
-			Host:     cfg.SMTPHost,
-			Port:     cfg.SMTPPort,
-			Username: cfg.SMTPUsername,
-			Password: cfg.SMTPPassword,
-			From:     cfg.SMTPFrom,
-			FromName: cfg.SMTPFromName,
-		},
-		cfg.BaseURL,
-		"web/templates/email",
-		logger,
-	)
-	if err != nil {
-		return fmt.Errorf("email service initialization failed: %w", err)
-	}
-	logger.Info("Email service initialized", "host", cfg.SMTPHost, "port", cfg.SMTPPort)
-
 	// Initialize storage service
 	var storageService storage.Storage
 	if cfg.StorageProvider == storage.ProviderR2 {
@@ -112,8 +89,34 @@ func run() error {
 	}
 	logger.Info("Storage service initialized", "provider", cfg.StorageProvider)
 
-	// TODO: Pass storageService to handlers when implementing image upload
-	_ = storageService
+	// Initialize services
+	userService := service.NewUserService(repo, logger)
+	inspectionService := service.NewInspectionService(repo, logger)
+
+	// Initialize thumbnail processor
+	thumbnailProcessor := service.NewImagingProcessor()
+
+	// Initialize image service
+	imageService := service.NewImageService(repo, storageService, thumbnailProcessor, logger)
+
+	// Initialize email service
+	emailService, err := email.NewSMTPEmailService(
+		email.SMTPConfig{
+			Host:     cfg.SMTPHost,
+			Port:     cfg.SMTPPort,
+			Username: cfg.SMTPUsername,
+			Password: cfg.SMTPPassword,
+			From:     cfg.SMTPFrom,
+			FromName: cfg.SMTPFromName,
+		},
+		cfg.BaseURL,
+		"web/templates/email",
+		logger,
+	)
+	if err != nil {
+		return fmt.Errorf("email service initialization failed: %w", err)
+	}
+	logger.Info("Email service initialized", "host", cfg.SMTPHost, "port", cfg.SMTPPort)
 
 	// Initialize middleware
 	isSecure := cfg.Env != "development"
@@ -122,7 +125,8 @@ func run() error {
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userService, emailService, renderer, logger, isSecure)
 	dashboardHandler := handler.NewDashboardHandler(repo, renderer, logger)
-	inspectionHandler := handler.NewInspectionHandler(inspectionService, repo, renderer, logger)
+	inspectionHandler := handler.NewInspectionHandler(inspectionService, imageService, repo, renderer, logger)
+	imageHandler := handler.NewImageHandler(imageService, inspectionService, renderer, logger)
 
 	// ==========================================================================
 	// Create router and register routes
@@ -170,6 +174,9 @@ func run() error {
 
 	// Inspection routes (requires authentication)
 	inspectionHandler.RegisterRoutes(mux, requireUser)
+
+	// Image routes (requires authentication)
+	imageHandler.RegisterRoutes(mux, requireUser)
 
 	// ==========================================================================
 	// Start server

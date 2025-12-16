@@ -18,6 +18,12 @@ RETURNING *;
 SELECT * FROM images
 WHERE id = $1;
 
+-- name: GetImageByIDWithInspection :one
+SELECT i.*, ins.user_id
+FROM images i
+JOIN inspections ins ON ins.id = i.inspection_id
+WHERE i.id = $1;
+
 -- name: GetImageByIDAndInspectionID :one
 SELECT * FROM images
 WHERE id = $1 AND inspection_id = $2;
@@ -25,7 +31,7 @@ WHERE id = $1 AND inspection_id = $2;
 -- name: ListImagesByInspectionID :many
 SELECT * FROM images
 WHERE inspection_id = $1
-ORDER BY created_at ASC;
+ORDER BY created_at DESC;
 
 -- name: ListPendingImagesByInspectionID :many
 SELECT * FROM images
@@ -33,12 +39,16 @@ WHERE inspection_id = $1
 AND analysis_status = 'pending'
 ORDER BY created_at ASC;
 
+-- name: CountImagesByInspectionID :one
+SELECT COUNT(*) FROM images
+WHERE inspection_id = $1;
+
 -- name: UpdateImageAnalysisStatus :exec
 UPDATE images
 SET analysis_status = $2,
     analysis_completed_at = $3
 WHERE id = $1;
 
--- name: DeleteImage :exec
+-- name: DeleteImageByID :exec
 DELETE FROM images
 WHERE id = $1;

@@ -12,6 +12,18 @@ import (
 	"github.com/google/uuid"
 )
 
+const countImagesByInspectionID = `-- name: CountImagesByInspectionID :one
+SELECT COUNT(*) FROM images
+WHERE inspection_id = $1
+`
+
+func (q *Queries) CountImagesByInspectionID(ctx context.Context, inspectionID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countImagesByInspectionID, inspectionID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createImage = `-- name: CreateImage :one
 INSERT INTO images (
     inspection_id,
@@ -71,13 +83,13 @@ func (q *Queries) CreateImage(ctx context.Context, arg CreateImageParams) (Image
 	return i, err
 }
 
-const deleteImage = `-- name: DeleteImage :exec
+const deleteImageByID = `-- name: DeleteImageByID :exec
 DELETE FROM images
 WHERE id = $1
 `
 
-func (q *Queries) DeleteImage(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteImage, id)
+func (q *Queries) DeleteImageByID(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteImageByID, id)
 	return err
 }
 
@@ -136,10 +148,54 @@ func (q *Queries) GetImageByIDAndInspectionID(ctx context.Context, arg GetImageB
 	return i, err
 }
 
+const getImageByIDWithInspection = `-- name: GetImageByIDWithInspection :one
+SELECT i.id, i.inspection_id, i.storage_key, i.thumbnail_key, i.original_filename, i.content_type, i.size_bytes, i.width, i.height, i.analysis_status, i.analysis_completed_at, i.created_at, ins.user_id
+FROM images i
+JOIN inspections ins ON ins.id = i.inspection_id
+WHERE i.id = $1
+`
+
+type GetImageByIDWithInspectionRow struct {
+	ID                  uuid.UUID      `json:"id"`
+	InspectionID        uuid.UUID      `json:"inspection_id"`
+	StorageKey          string         `json:"storage_key"`
+	ThumbnailKey        sql.NullString `json:"thumbnail_key"`
+	OriginalFilename    sql.NullString `json:"original_filename"`
+	ContentType         string         `json:"content_type"`
+	SizeBytes           int32          `json:"size_bytes"`
+	Width               sql.NullInt32  `json:"width"`
+	Height              sql.NullInt32  `json:"height"`
+	AnalysisStatus      sql.NullString `json:"analysis_status"`
+	AnalysisCompletedAt sql.NullTime   `json:"analysis_completed_at"`
+	CreatedAt           sql.NullTime   `json:"created_at"`
+	UserID              uuid.UUID      `json:"user_id"`
+}
+
+func (q *Queries) GetImageByIDWithInspection(ctx context.Context, id uuid.UUID) (GetImageByIDWithInspectionRow, error) {
+	row := q.db.QueryRowContext(ctx, getImageByIDWithInspection, id)
+	var i GetImageByIDWithInspectionRow
+	err := row.Scan(
+		&i.ID,
+		&i.InspectionID,
+		&i.StorageKey,
+		&i.ThumbnailKey,
+		&i.OriginalFilename,
+		&i.ContentType,
+		&i.SizeBytes,
+		&i.Width,
+		&i.Height,
+		&i.AnalysisStatus,
+		&i.AnalysisCompletedAt,
+		&i.CreatedAt,
+		&i.UserID,
+	)
+	return i, err
+}
+
 const listImagesByInspectionID = `-- name: ListImagesByInspectionID :many
 SELECT id, inspection_id, storage_key, thumbnail_key, original_filename, content_type, size_bytes, width, height, analysis_status, analysis_completed_at, created_at FROM images
 WHERE inspection_id = $1
-ORDER BY created_at ASC
+ORDER BY created_at DESC
 `
 
 func (q *Queries) ListImagesByInspectionID(ctx context.Context, inspectionID uuid.UUID) ([]Image, error) {

@@ -50,6 +50,7 @@ const (
 // This interface allows for mocking in tests.
 type TemplateRenderer interface {
 	RenderHTTP(w http.ResponseWriter, name string, data interface{})
+	RenderPartial(w http.ResponseWriter, name string, data interface{})
 }
 
 // AuthHandler handles authentication-related HTTP requests.

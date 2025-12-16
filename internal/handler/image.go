@@ -1,0 +1,387 @@
+// Package handler contains HTTP handlers for the Lukaut application.
+//
+// This file implements image upload handlers for managing inspection photos.
+package handler
+
+import (
+	"fmt"
+	"log/slog"
+	"net/http"
+
+	"github.com/DukeRupert/lukaut/internal/domain"
+	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/google/uuid"
+)
+
+// =============================================================================
+// Template Data Types
+// =============================================================================
+
+// ImageGalleryData contains data for the image gallery partial.
+type ImageGalleryData struct {
+	InspectionID uuid.UUID      // Parent inspection ID
+	Images       []ImageDisplay // Images to display
+	Errors       []string       // Upload errors to display
+	CanUpload    bool           // Whether user can upload more images
+}
+
+// ImageDisplay represents an image for display in the gallery.
+type ImageDisplay struct {
+	ID               uuid.UUID // Image ID
+	ThumbnailURL     string    // URL for thumbnail
+	OriginalFilename string    // Original filename
+	AnalysisStatus   string    // Analysis status (pending, analyzing, completed, failed)
+	SizeMB           float64   // File size in megabytes
+}
+
+// =============================================================================
+// Handler Configuration
+// =============================================================================
+
+// ImageHandler handles image-related HTTP requests.
+type ImageHandler struct {
+	imageService      service.ImageService
+	inspectionService service.InspectionService
+	renderer          TemplateRenderer
+	logger            *slog.Logger
+}
+
+// NewImageHandler creates a new ImageHandler.
+func NewImageHandler(
+	imageService service.ImageService,
+	inspectionService service.InspectionService,
+	renderer TemplateRenderer,
+	logger *slog.Logger,
+) *ImageHandler {
+	return &ImageHandler{
+		imageService:      imageService,
+		inspectionService: inspectionService,
+		renderer:          renderer,
+		logger:            logger,
+	}
+}
+
+// =============================================================================
+// Route Registration
+// =============================================================================
+
+// RegisterRoutes registers all image routes with the provided mux.
+//
+// All routes require authentication via the requireUser middleware.
+//
+// Routes:
+// - POST   /inspections/{id}/images         -> Upload
+// - DELETE /inspections/{id}/images/{imageId} -> Delete
+// - GET    /images/{id}/thumbnail           -> ServeThumbnail
+// - GET    /images/{id}/original            -> ServeOriginal
+// - GET    /inspections/{id}/images         -> ListImages
+func (h *ImageHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(http.Handler) http.Handler) {
+	mux.Handle("POST /inspections/{id}/images", requireUser(http.HandlerFunc(h.Upload)))
+	mux.Handle("DELETE /inspections/{id}/images/{imageId}", requireUser(http.HandlerFunc(h.Delete)))
+	mux.Handle("GET /images/{id}/thumbnail", requireUser(http.HandlerFunc(h.ServeThumbnail)))
+	mux.Handle("GET /images/{id}/original", requireUser(http.HandlerFunc(h.ServeOriginal)))
+	mux.Handle("GET /inspections/{id}/images", requireUser(http.HandlerFunc(h.ListImages)))
+}
+
+// =============================================================================
+// POST /inspections/{id}/images - Upload Images
+// =============================================================================
+
+// Upload handles image upload for an inspection.
+func (h *ImageHandler) Upload(w http.ResponseWriter, r *http.Request) {
+	user := getUser(r)
+	if user == nil {
+		h.logger.Error("upload handler called without authenticated user")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse inspection ID
+	idStr := r.PathValue("id")
+	inspectionID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid inspection ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse multipart form (32MB memory limit)
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		h.logger.Error("failed to parse multipart form", "error", err)
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	// Get uploaded files
+	files := r.MultipartForm.File["images"]
+	if len(files) == 0 {
+		http.Error(w, "No images uploaded", http.StatusBadRequest)
+		return
+	}
+
+	// Track successes and errors
+	var uploadErrors []string
+	successCount := 0
+
+	// Process each file
+	for _, fileHeader := range files {
+		file, err := fileHeader.Open()
+		if err != nil {
+			h.logger.Error("failed to open uploaded file", "error", err, "filename", fileHeader.Filename)
+			uploadErrors = append(uploadErrors, fmt.Sprintf("%s: Failed to open file", fileHeader.Filename))
+			continue
+		}
+
+		// Upload image
+		_, err = h.imageService.Upload(r.Context(), file, fileHeader, inspectionID, user.ID)
+		file.Close()
+
+		if err != nil {
+			code := domain.ErrorCode(err)
+			msg := domain.ErrorMessage(err)
+			h.logger.Error("failed to upload image",
+				"error", err,
+				"filename", fileHeader.Filename,
+				"code", code,
+			)
+			uploadErrors = append(uploadErrors, fmt.Sprintf("%s: %s", fileHeader.Filename, msg))
+			continue
+		}
+
+		successCount++
+	}
+
+	h.logger.Info("image upload completed",
+		"inspection_id", inspectionID,
+		"success_count", successCount,
+		"error_count", len(uploadErrors),
+	)
+
+	// Fetch updated image list
+	images, err := h.imageService.ListByInspection(r.Context(), inspectionID, user.ID)
+	if err != nil {
+		h.logger.Error("failed to fetch images after upload", "error", err)
+		http.Error(w, "Upload completed but failed to refresh gallery", http.StatusInternalServerError)
+		return
+	}
+
+	// Get inspection to check if user can upload
+	inspection, err := h.inspectionService.GetByID(r.Context(), inspectionID, user.ID)
+	if err != nil {
+		h.logger.Error("failed to fetch inspection", "error", err)
+		http.Error(w, "Failed to fetch inspection", http.StatusInternalServerError)
+		return
+	}
+
+	// Populate thumbnail URLs
+	imageDisplays := make([]ImageDisplay, 0, len(images))
+	for _, img := range images {
+		thumbnailURL, err := h.imageService.GetThumbnailURL(r.Context(), img.ID, user.ID)
+		if err != nil {
+			h.logger.Error("failed to generate thumbnail URL", "error", err, "image_id", img.ID)
+			thumbnailURL = "" // Show broken image
+		}
+
+		imageDisplays = append(imageDisplays, ImageDisplay{
+			ID:               img.ID,
+			ThumbnailURL:     thumbnailURL,
+			OriginalFilename: img.OriginalFilename,
+			AnalysisStatus:   string(img.AnalysisStatus),
+			SizeMB:           img.SizeMB(),
+		})
+	}
+
+	// Render image gallery partial
+	data := ImageGalleryData{
+		InspectionID: inspectionID,
+		Images:       imageDisplays,
+		Errors:       uploadErrors,
+		CanUpload:    inspection.CanAddPhotos(),
+	}
+
+	h.renderer.RenderPartial(w, "image_gallery", data)
+}
+
+// =============================================================================
+// DELETE /inspections/{id}/images/{imageId} - Delete Image
+// =============================================================================
+
+// Delete handles image deletion.
+func (h *ImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	user := getUser(r)
+	if user == nil {
+		h.logger.Error("delete handler called without authenticated user")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse image ID
+	imageIDStr := r.PathValue("imageId")
+	imageID, err := uuid.Parse(imageIDStr)
+	if err != nil {
+		http.Error(w, "Invalid image ID", http.StatusBadRequest)
+		return
+	}
+
+	// Delete image
+	if err := h.imageService.Delete(r.Context(), imageID, user.ID); err != nil {
+		code := domain.ErrorCode(err)
+		if code == domain.ENOTFOUND {
+			http.Error(w, "Image not found", http.StatusNotFound)
+		} else {
+			h.logger.Error("failed to delete image", "error", err, "image_id", imageID)
+			http.Error(w, "Failed to delete image", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Return success with HX-Trigger to signal deletion
+	w.Header().Set("HX-Trigger", "imageDeleted")
+	w.WriteHeader(http.StatusOK)
+}
+
+// =============================================================================
+// GET /images/{id}/thumbnail - Serve Thumbnail
+// =============================================================================
+
+// ServeThumbnail redirects to the thumbnail URL.
+func (h *ImageHandler) ServeThumbnail(w http.ResponseWriter, r *http.Request) {
+	user := getUser(r)
+	if user == nil {
+		h.logger.Error("serve thumbnail handler called without authenticated user")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse image ID
+	idStr := r.PathValue("id")
+	imageID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid image ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get thumbnail URL
+	url, err := h.imageService.GetThumbnailURL(r.Context(), imageID, user.ID)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		if code == domain.ENOTFOUND {
+			http.Error(w, "Image not found", http.StatusNotFound)
+		} else {
+			h.logger.Error("failed to get thumbnail URL", "error", err, "image_id", imageID)
+			http.Error(w, "Failed to get thumbnail", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Redirect to URL
+	http.Redirect(w, r, url, http.StatusFound)
+}
+
+// =============================================================================
+// GET /images/{id}/original - Serve Original
+// =============================================================================
+
+// ServeOriginal redirects to the original image URL.
+func (h *ImageHandler) ServeOriginal(w http.ResponseWriter, r *http.Request) {
+	user := getUser(r)
+	if user == nil {
+		h.logger.Error("serve original handler called without authenticated user")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse image ID
+	idStr := r.PathValue("id")
+	imageID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid image ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get original URL
+	url, err := h.imageService.GetOriginalURL(r.Context(), imageID, user.ID)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		if code == domain.ENOTFOUND {
+			http.Error(w, "Image not found", http.StatusNotFound)
+		} else {
+			h.logger.Error("failed to get original URL", "error", err, "image_id", imageID)
+			http.Error(w, "Failed to get original", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Redirect to URL
+	http.Redirect(w, r, url, http.StatusFound)
+}
+
+// =============================================================================
+// GET /inspections/{id}/images - List Images (for htmx refresh)
+// =============================================================================
+
+// ListImages returns the image gallery partial for an inspection.
+func (h *ImageHandler) ListImages(w http.ResponseWriter, r *http.Request) {
+	user := getUser(r)
+	if user == nil {
+		h.logger.Error("list images handler called without authenticated user")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse inspection ID
+	idStr := r.PathValue("id")
+	inspectionID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid inspection ID", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch images
+	images, err := h.imageService.ListByInspection(r.Context(), inspectionID, user.ID)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		if code == domain.ENOTFOUND {
+			http.Error(w, "Inspection not found", http.StatusNotFound)
+		} else {
+			h.logger.Error("failed to fetch images", "error", err, "inspection_id", inspectionID)
+			http.Error(w, "Failed to fetch images", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Get inspection to check if user can upload
+	inspection, err := h.inspectionService.GetByID(r.Context(), inspectionID, user.ID)
+	if err != nil {
+		h.logger.Error("failed to fetch inspection", "error", err)
+		http.Error(w, "Failed to fetch inspection", http.StatusInternalServerError)
+		return
+	}
+
+	// Populate thumbnail URLs
+	imageDisplays := make([]ImageDisplay, 0, len(images))
+	for _, img := range images {
+		thumbnailURL, err := h.imageService.GetThumbnailURL(r.Context(), img.ID, user.ID)
+		if err != nil {
+			h.logger.Error("failed to generate thumbnail URL", "error", err, "image_id", img.ID)
+			thumbnailURL = "" // Show broken image
+		}
+
+		imageDisplays = append(imageDisplays, ImageDisplay{
+			ID:               img.ID,
+			ThumbnailURL:     thumbnailURL,
+			OriginalFilename: img.OriginalFilename,
+			AnalysisStatus:   string(img.AnalysisStatus),
+			SizeMB:           img.SizeMB(),
+		})
+	}
+
+	// Render image gallery partial
+	data := ImageGalleryData{
+		InspectionID: inspectionID,
+		Images:       imageDisplays,
+		Errors:       []string{},
+		CanUpload:    inspection.CanAddPhotos(),
+	}
+
+	h.renderer.RenderPartial(w, "image_gallery", data)
+}
