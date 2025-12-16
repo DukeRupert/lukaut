@@ -16,6 +16,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/DukeRupert/lukaut/internal/worker"
 	"github.com/google/uuid"
 )
 
@@ -46,13 +47,27 @@ type InspectionFormPageData struct {
 
 // InspectionShowPageData contains data for the inspection detail page.
 type InspectionShowPageData struct {
-	CurrentPath string              // Current URL path
-	User        interface{}         // Authenticated user
-	Inspection  *domain.Inspection  // Inspection details
-	InspectionID uuid.UUID          // Inspection ID for templates
-	CanUpload   bool                // Whether user can upload images
-	GalleryData ImageGalleryData    // Image gallery data
-	Flash       *Flash              // Flash message (if any)
+	CurrentPath    string              // Current URL path
+	User           interface{}         // Authenticated user
+	Inspection     *domain.Inspection  // Inspection details
+	InspectionID   uuid.UUID           // Inspection ID for templates
+	CanUpload      bool                // Whether user can upload images
+	GalleryData    ImageGalleryData    // Image gallery data
+	AnalysisStatus AnalysisStatusData  // Analysis status data
+	Flash          *Flash              // Flash message (if any)
+}
+
+// AnalysisStatusData contains data for the analysis status partial.
+type AnalysisStatusData struct {
+	InspectionID   uuid.UUID               // Inspection ID
+	Status         domain.InspectionStatus // Current inspection status
+	CanAnalyze     bool                    // Whether the analyze button should be enabled
+	IsAnalyzing    bool                    // Whether analysis is currently running
+	HasImages      bool                    // Whether inspection has any images
+	PendingImages  int64                   // Number of images pending analysis
+	ViolationCount int64                   // Number of violations found
+	Message        string                  // Status message to display
+	PollingEnabled bool                    // Whether to enable htmx polling
 }
 
 // PaginationData contains pagination information.
@@ -119,6 +134,8 @@ func NewInspectionHandler(
 // - GET  /inspections/{id}/edit -> Edit
 // - PUT  /inspections/{id}     -> Update
 // - DELETE /inspections/{id}   -> Delete
+// - POST /inspections/{id}/analyze -> TriggerAnalysis
+// - GET  /inspections/{id}/status  -> GetStatus
 func (h *InspectionHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(http.Handler) http.Handler) {
 	mux.Handle("GET /inspections", requireUser(http.HandlerFunc(h.Index)))
 	mux.Handle("GET /inspections/new", requireUser(http.HandlerFunc(h.New)))
@@ -127,6 +144,8 @@ func (h *InspectionHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(
 	mux.Handle("GET /inspections/{id}/edit", requireUser(http.HandlerFunc(h.Edit)))
 	mux.Handle("PUT /inspections/{id}", requireUser(http.HandlerFunc(h.Update)))
 	mux.Handle("DELETE /inspections/{id}", requireUser(http.HandlerFunc(h.Delete)))
+	mux.Handle("POST /inspections/{id}/analyze", requireUser(http.HandlerFunc(h.TriggerAnalysis)))
+	mux.Handle("GET /inspections/{id}/status", requireUser(http.HandlerFunc(h.GetStatus)))
 }
 
 // =============================================================================
@@ -370,6 +389,18 @@ func (h *InspectionHandler) Show(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Build analysis status data
+	analysisStatus, err := h.buildAnalysisStatusData(r.Context(), id, user.ID)
+	if err != nil {
+		h.logger.Error("failed to build analysis status", "error", err, "inspection_id", id)
+		// Continue with empty status rather than failing
+		analysisStatus = &AnalysisStatusData{
+			InspectionID: id,
+			Status:       inspection.Status,
+			Message:      "Unable to load analysis status",
+		}
+	}
+
 	// Render template
 	data := InspectionShowPageData{
 		CurrentPath:  r.URL.Path,
@@ -383,7 +414,8 @@ func (h *InspectionHandler) Show(w http.ResponseWriter, r *http.Request) {
 			Errors:       []string{},
 			CanUpload:    inspection.CanAddPhotos(),
 		},
-		Flash: nil,
+		AnalysisStatus: *analysisStatus,
+		Flash:          nil,
 	}
 
 	h.renderer.RenderHTTP(w, "inspections/show", data)
@@ -621,6 +653,130 @@ func (h *InspectionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // =============================================================================
+// POST /inspections/{id}/analyze - Trigger AI Analysis
+// =============================================================================
+
+// TriggerAnalysis enqueues a background job to analyze inspection images.
+func (h *InspectionHandler) TriggerAnalysis(w http.ResponseWriter, r *http.Request) {
+	user := getUser(r)
+	if user == nil {
+		h.logger.Error("trigger analysis handler called without authenticated user")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse inspection ID
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid inspection ID", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch inspection to verify ownership and status
+	inspection, err := h.inspectionService.GetByID(r.Context(), id, user.ID)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		if code == domain.ENOTFOUND {
+			http.Error(w, "Inspection not found", http.StatusNotFound)
+		} else {
+			h.logger.Error("failed to get inspection", "error", err, "inspection_id", id)
+			http.Error(w, "Failed to load inspection", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Check if inspection status allows analysis
+	if inspection.Status != domain.InspectionStatusDraft && inspection.Status != domain.InspectionStatusReview {
+		http.Error(w, "Inspection status does not allow analysis", http.StatusBadRequest)
+		return
+	}
+
+	// Check if there are pending images
+	pendingCount, err := h.queries.CountPendingImagesByInspectionID(r.Context(), id)
+	if err != nil {
+		h.logger.Error("failed to count pending images", "error", err, "inspection_id", id)
+		http.Error(w, "Failed to check images", http.StatusInternalServerError)
+		return
+	}
+
+	if pendingCount == 0 {
+		http.Error(w, "No images to analyze", http.StatusBadRequest)
+		return
+	}
+
+	// Check if there's already a pending or running job
+	hasPending, err := h.queries.HasPendingAnalysisJob(r.Context(), id.String())
+	if err != nil {
+		h.logger.Error("failed to check pending jobs", "error", err, "inspection_id", id)
+		http.Error(w, "Failed to check job status", http.StatusInternalServerError)
+		return
+	}
+
+	if hasPending {
+		http.Error(w, "Analysis is already in progress", http.StatusConflict)
+		return
+	}
+
+	// Enqueue the analysis job
+	_, err = worker.EnqueueAnalyzeInspection(r.Context(), h.queries, id, user.ID)
+	if err != nil {
+		h.logger.Error("failed to enqueue analysis job", "error", err, "inspection_id", id)
+		http.Error(w, "Failed to start analysis", http.StatusInternalServerError)
+		return
+	}
+
+	h.logger.Info("Analysis job enqueued", "inspection_id", id, "user_id", user.ID, "pending_images", pendingCount)
+
+	// Build and render the updated status
+	statusData, err := h.buildAnalysisStatusData(r.Context(), id, user.ID)
+	if err != nil {
+		h.logger.Error("failed to build status data", "error", err, "inspection_id", id)
+		http.Error(w, "Failed to load status", http.StatusInternalServerError)
+		return
+	}
+
+	h.renderer.RenderHTTP(w, "partials/analysis_status", statusData)
+}
+
+// =============================================================================
+// GET /inspections/{id}/status - Get Analysis Status
+// =============================================================================
+
+// GetStatus returns the current analysis status as an htmx partial.
+func (h *InspectionHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
+	user := getUser(r)
+	if user == nil {
+		h.logger.Error("get status handler called without authenticated user")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse inspection ID
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid inspection ID", http.StatusBadRequest)
+		return
+	}
+
+	// Build status data
+	statusData, err := h.buildAnalysisStatusData(r.Context(), id, user.ID)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		if code == domain.ENOTFOUND {
+			http.Error(w, "Inspection not found", http.StatusNotFound)
+		} else {
+			h.logger.Error("failed to build status data", "error", err, "inspection_id", id)
+			http.Error(w, "Failed to load status", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	h.renderer.RenderHTTP(w, "partials/analysis_status", statusData)
+}
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
@@ -723,4 +879,95 @@ func (h *InspectionHandler) renderFormError(
 	}
 
 	h.renderer.RenderHTTP(w, template, data)
+}
+
+// buildAnalysisStatusData builds the data needed for the analysis status partial.
+func (h *InspectionHandler) buildAnalysisStatusData(ctx context.Context, inspectionID uuid.UUID, userID uuid.UUID) (*AnalysisStatusData, error) {
+	// Fetch inspection
+	inspection, err := h.inspectionService.GetByID(ctx, inspectionID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get pending image count
+	pendingCount, err := h.queries.CountPendingImagesByInspectionID(ctx, inspectionID)
+	if err != nil {
+		return nil, fmt.Errorf("count pending images: %w", err)
+	}
+
+	// Get total image count
+	totalCount, err := h.queries.CountImagesByInspectionID(ctx, inspectionID)
+	if err != nil {
+		return nil, fmt.Errorf("count total images: %w", err)
+	}
+
+	// Get violation count
+	violationCount, err := h.queries.CountViolationsByInspectionID(ctx, inspectionID)
+	if err != nil {
+		return nil, fmt.Errorf("count violations: %w", err)
+	}
+
+	// Check for pending/running analysis job
+	hasPendingJob, err := h.queries.HasPendingAnalysisJob(ctx, inspectionID.String())
+	if err != nil {
+		return nil, fmt.Errorf("check pending job: %w", err)
+	}
+
+	// Build status data based on inspection state
+	data := &AnalysisStatusData{
+		InspectionID:   inspectionID,
+		Status:         inspection.Status,
+		HasImages:      totalCount > 0,
+		PendingImages:  pendingCount,
+		ViolationCount: violationCount,
+		IsAnalyzing:    hasPendingJob,
+		PollingEnabled: hasPendingJob,
+	}
+
+	// Determine if analysis can be triggered
+	canAnalyze := false
+	message := ""
+
+	switch inspection.Status {
+	case domain.InspectionStatusDraft:
+		if totalCount == 0 {
+			message = "Upload photos to begin analysis"
+		} else if pendingCount > 0 && !hasPendingJob {
+			canAnalyze = true
+			if pendingCount == 1 {
+				message = "Ready to analyze 1 image"
+			} else {
+				message = fmt.Sprintf("Ready to analyze %d images", pendingCount)
+			}
+		} else if hasPendingJob {
+			message = "Analyzing images..."
+		} else {
+			message = "All images have been analyzed"
+		}
+
+	case domain.InspectionStatusAnalyzing:
+		message = "Analyzing images..."
+
+	case domain.InspectionStatusReview:
+		if pendingCount > 0 && !hasPendingJob {
+			canAnalyze = true
+			if pendingCount == 1 {
+				message = "Ready to analyze 1 new image"
+			} else {
+				message = fmt.Sprintf("Ready to analyze %d new images", pendingCount)
+			}
+		} else if hasPendingJob {
+			message = "Analyzing new images..."
+		} else {
+			message = "Analysis complete"
+		}
+
+	case domain.InspectionStatusCompleted:
+		message = "Inspection finalized"
+	}
+
+	data.CanAnalyze = canAnalyze
+	data.Message = message
+
+	return data, nil
 }

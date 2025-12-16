@@ -126,6 +126,23 @@ func (q *Queries) GetJobByID(ctx context.Context, id uuid.UUID) (Job, error) {
 	return i, err
 }
 
+const hasPendingAnalysisJob = `-- name: HasPendingAnalysisJob :one
+SELECT EXISTS (
+    SELECT 1 FROM jobs
+    WHERE job_type = 'analyze_inspection'
+    AND status IN ('pending', 'running')
+    AND payload->>'inspection_id' = $1::text
+) AS has_pending
+`
+
+// Check if there's a pending or running analysis job for this inspection
+func (q *Queries) HasPendingAnalysisJob(ctx context.Context, dollar_1 string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasPendingAnalysisJob, dollar_1)
+	var has_pending bool
+	err := row.Scan(&has_pending)
+	return has_pending, err
+}
+
 const recoverStaleJobs = `-- name: RecoverStaleJobs :execrows
 UPDATE jobs
 SET status = 'pending',

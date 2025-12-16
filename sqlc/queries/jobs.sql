@@ -62,3 +62,12 @@ SET status = 'pending',
     error_message = 'Job timed out - worker may have crashed'
 WHERE status = 'running'
 AND started_at < NOW() - make_interval(secs => $1);
+
+-- name: HasPendingAnalysisJob :one
+-- Check if there's a pending or running analysis job for this inspection
+SELECT EXISTS (
+    SELECT 1 FROM jobs
+    WHERE job_type = 'analyze_inspection'
+    AND status IN ('pending', 'running')
+    AND payload->>'inspection_id' = $1::text
+) AS has_pending;

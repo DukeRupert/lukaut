@@ -52,3 +52,9 @@ WHERE id = $1;
 -- name: DeleteImageByID :exec
 DELETE FROM images
 WHERE id = $1;
+
+-- name: CountPendingImagesByInspectionID :one
+-- Count images that haven't been analyzed yet
+SELECT COUNT(*) FROM images
+WHERE inspection_id = $1
+AND (analysis_status IS NULL OR analysis_status = 'pending');

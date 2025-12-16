@@ -24,6 +24,20 @@ func (q *Queries) CountImagesByInspectionID(ctx context.Context, inspectionID uu
 	return count, err
 }
 
+const countPendingImagesByInspectionID = `-- name: CountPendingImagesByInspectionID :one
+SELECT COUNT(*) FROM images
+WHERE inspection_id = $1
+AND (analysis_status IS NULL OR analysis_status = 'pending')
+`
+
+// Count images that haven't been analyzed yet
+func (q *Queries) CountPendingImagesByInspectionID(ctx context.Context, inspectionID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPendingImagesByInspectionID, inspectionID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createImage = `-- name: CreateImage :one
 INSERT INTO images (
     inspection_id,
