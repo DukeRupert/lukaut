@@ -190,8 +190,8 @@ func (h *RegulationHandler) Index(w http.ResponseWriter, r *http.Request) {
 	pagination := PaginationData{
 		CurrentPage: page,
 		TotalPages:  totalPages,
-		PerPage:     perPage,
-		Total:       total,
+		PerPage:     int(perPage),
+		Total:       int(total),
 		HasPrevious: page > 1,
 		HasNext:     page < totalPages,
 		PrevPage:    page - 1,
@@ -212,7 +212,7 @@ func (h *RegulationHandler) Index(w http.ResponseWriter, r *http.Request) {
 		Flash:      nil,
 	}
 
-	h.renderer.RenderHTTP(w, "pages/regulations/index", data)
+	h.renderer.RenderHTTP(w, "regulations/index", data)
 }
 
 // =============================================================================
@@ -274,8 +274,8 @@ func (h *RegulationHandler) Search(w http.ResponseWriter, r *http.Request) {
 	pagination := PaginationData{
 		CurrentPage: page,
 		TotalPages:  totalPages,
-		PerPage:     perPage,
-		Total:       total,
+		PerPage:     int(perPage),
+		Total:       int(total),
 		HasPrevious: page > 1,
 		HasNext:     page < totalPages,
 		PrevPage:    page - 1,
@@ -691,5 +691,5 @@ func (h *RegulationHandler) renderError(w http.ResponseWriter, r *http.Request, 
 		"Filter":      RegulationFilter{},
 		"Pagination":  PaginationData{},
 	}
-	h.renderer.RenderHTTP(w, "pages/regulations/index", data)
+	h.renderer.RenderHTTP(w, "regulations/index", data)
 }

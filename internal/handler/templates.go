@@ -28,10 +28,10 @@ func TemplateFuncs() template.FuncMap {
 		"mul": func(a, b int) int {
 			return a * b
 		},
-		"mult": func(a, b int32) int64 {
-			return int64(a) * int64(b)
+		"mult": func(a, b int) int {
+			return a * b
 		},
-		"min": func(a, b int64) int64 {
+		"min": func(a, b int) int {
 			if a < b {
 				return a
 			}

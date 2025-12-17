@@ -945,8 +945,8 @@ func buildPaginationData(result *domain.ListInspectionsResult) PaginationData {
 	return PaginationData{
 		CurrentPage: currentPage,
 		TotalPages:  totalPages,
-		PerPage:     result.Limit,
-		Total:       result.Total,
+		PerPage:     int(result.Limit),
+		Total:       int(result.Total),
 		HasPrevious: result.HasPrevious(),
 		HasNext:     result.HasMore(),
 		PrevPage:    currentPage - 1,
