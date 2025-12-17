@@ -131,15 +131,15 @@
 
     {{/* Terms checkbox */}}
     <div class="grid grid-cols-[1.125rem_1fr] gap-x-3 sm:grid-cols-[1rem_1fr] items-start">
-        <span class="group inline-flex mt-0.5">
+        <label for="terms" class="group inline-flex mt-0.5 cursor-pointer">
             <input type="checkbox"
                    id="terms"
                    name="terms"
                    required
                    class="peer sr-only">
-            <span class="relative isolate flex size-[1.125rem] sm:size-4 items-center justify-center rounded-[0.3125rem] cursor-pointer
+            <span class="relative isolate flex size-[1.125rem] sm:size-4 items-center justify-center rounded-[0.3125rem]
                          before:absolute before:inset-0 before:-z-10 before:rounded-[calc(0.3125rem-1px)] before:bg-white before:shadow-sm
-                         border border-[var(--color-zinc-950)]/15 hover:border-[var(--color-zinc-950)]/30
+                         border border-[var(--color-zinc-950)]/15 group-hover:border-[var(--color-zinc-950)]/30
                          peer-checked:border-transparent peer-checked:before:bg-[var(--color-primary)] peer-checked:bg-[var(--color-primary-hover)]
                          peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-[var(--color-primary)]">
                 <svg class="size-4 sm:size-3.5 stroke-white opacity-0 peer-checked:group-[]:opacity-100"
@@ -147,7 +147,7 @@
                     <path d="M3 8L6 11L11 3.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </span>
-        </span>
+        </label>
         <label for="terms" class="text-sm/6 text-[var(--color-text-secondary)]">
             I agree to the
             <a href="/terms" class="font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]">Terms of Service</a>
