@@ -102,14 +102,14 @@ type ViolationCounts struct {
 
 // PaginationData contains pagination information.
 type PaginationData struct {
-	CurrentPage int    // Current page number (1-indexed)
-	TotalPages  int    // Total number of pages
-	PerPage     int32  // Results per page
-	Total       int64  // Total number of results
-	HasPrevious bool   // True if previous page exists
-	HasNext     bool   // True if next page exists
-	PrevPage    int    // Previous page number
-	NextPage    int    // Next page number
+	CurrentPage int  // Current page number (1-indexed)
+	TotalPages  int  // Total number of pages
+	PerPage     int  // Results per page
+	Total       int  // Total number of results
+	HasPrevious bool // True if previous page exists
+	HasNext     bool // True if next page exists
+	PrevPage    int  // Previous page number
+	NextPage    int  // Next page number
 }
 
 // SiteOption represents a site for the dropdown select.
@@ -231,7 +231,7 @@ func (h *InspectionHandler) Index(w http.ResponseWriter, r *http.Request) {
 		Flash:       nil,
 	}
 
-	h.renderer.RenderHTTP(w, "pages/inspections/index", data)
+	h.renderer.RenderHTTP(w, "inspections/index", data)
 }
 
 // =============================================================================
@@ -269,7 +269,7 @@ func (h *InspectionHandler) New(w http.ResponseWriter, r *http.Request) {
 		IsEdit: false,
 	}
 
-	h.renderer.RenderHTTP(w, "pages/inspections/new", data)
+	h.renderer.RenderHTTP(w, "inspections/new", data)
 }
 
 // =============================================================================
@@ -525,7 +525,7 @@ func (h *InspectionHandler) Edit(w http.ResponseWriter, r *http.Request) {
 		IsEdit:      true,
 	}
 
-	h.renderer.RenderHTTP(w, "pages/inspections/edit", data)
+	h.renderer.RenderHTTP(w, "inspections/edit", data)
 }
 
 // =============================================================================
@@ -912,7 +912,7 @@ func (h *InspectionHandler) Review(w http.ResponseWriter, r *http.Request) {
 		Flash:           nil,
 	}
 
-	h.renderer.RenderHTTP(w, "pages/inspections/review", data)
+	h.renderer.RenderHTTP(w, "inspections/review", data)
 }
 
 // =============================================================================
@@ -965,7 +965,7 @@ func (h *InspectionHandler) renderError(w http.ResponseWriter, r *http.Request, 
 			Message: message,
 		},
 	}
-	h.renderer.RenderHTTP(w, "pages/inspections/index", data)
+	h.renderer.RenderHTTP(w, "inspections/index", data)
 }
 
 // renderFormError re-renders the form with errors.
@@ -1001,9 +1001,9 @@ func (h *InspectionHandler) renderFormError(
 		}
 	}
 
-	template := "pages/inspections/new"
+	template := "inspections/new"
 	if isEdit {
-		template = "pages/inspections/edit"
+		template = "inspections/edit"
 	}
 
 	data := InspectionFormPageData{
