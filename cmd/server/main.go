@@ -193,6 +193,7 @@ func run() error {
 	imageHandler := handler.NewImageHandler(imageService, inspectionService, renderer, logger)
 	violationHandler := handler.NewViolationHandler(violationService, inspectionService, imageService, renderer, logger)
 	regulationHandler := handler.NewRegulationHandler(repo, renderer, logger)
+	settingsHandler := handler.NewSettingsHandler(userService, renderer, logger)
 
 	// ==========================================================================
 	// Create router and register routes
@@ -249,6 +250,9 @@ func run() error {
 
 	// Regulation routes (requires authentication)
 	regulationHandler.RegisterRoutes(mux, requireUser)
+
+	// Settings routes (requires authentication)
+	settingsHandler.RegisterRoutes(mux, requireUser)
 
 	// ==========================================================================
 	// Start server
