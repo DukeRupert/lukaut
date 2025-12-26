@@ -4,7 +4,7 @@
 # Builds and pushes Docker image to DockerHub, then deploys to VPS via SSH.
 #
 # Triggers:
-#   - Push to main branch (auto-deploy)
+#   - After CI workflow succeeds on main (auto-deploy)
 #   - Manual workflow dispatch
 #   - Release published (tagged deploy)
 #
@@ -25,12 +25,11 @@
 name: Deploy
 
 on:
-  push:
+  # Run after CI workflow completes successfully
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - ".github/workflows/ci.yml"
   release:
     types: [published]
   workflow_dispatch:
@@ -55,6 +54,8 @@ jobs:
   build-and-push:
     name: Build and Push
     runs-on: ubuntu-latest
+    # Only run if CI succeeded (or if triggered manually/by release)
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
 
     outputs:
       image-tag: ${{ steps.meta.outputs.version }}
@@ -62,6 +63,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # Use the commit from CI workflow when triggered by workflow_run
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
