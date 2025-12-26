@@ -11,7 +11,7 @@ RUN npm ci --production=false
 
 # Copy Tailwind config and source files
 COPY tailwind.config.js ./
-COPY web/static/css/input.css ./web/static/css/
+COPY web/static/css/ ./web/static/css/
 COPY web/templates/ ./web/templates/
 
 # Build production CSS
