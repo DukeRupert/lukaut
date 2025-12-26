@@ -2,7 +2,7 @@
 # =============================================================================
 # VPS Initial Setup Script for Lukaut
 # =============================================================================
-# Run this script on a fresh Ubuntu 22.04+ VPS to prepare it for deployment.
+# Run this script on a fresh Fedora 39+ VPS to prepare it for deployment.
 #
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/your-username/lukaut/main/scripts/vps-setup.sh | sudo bash
@@ -31,34 +31,33 @@ fi
 
 # Update system
 echo "[1/8] Updating system packages..."
-apt-get update
-apt-get upgrade -y
+dnf upgrade -y --refresh
 
 # Install required packages
 echo "[2/8] Installing required packages..."
-apt-get install -y \
-  apt-transport-https \
+dnf install -y \
   ca-certificates \
   curl \
-  gnupg \
-  lsb-release \
-  ufw \
+  gnupg2 \
+  firewalld \
   fail2ban \
-  unattended-upgrades
+  dnf-automatic
 
 # Install Docker
 echo "[3/8] Installing Docker..."
 if ! command -v docker &> /dev/null; then
-  curl -fsSL https://get.docker.com | sh
+  dnf -y install dnf-plugins-core
+  dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+  dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   systemctl enable docker
   systemctl start docker
 else
   echo "Docker already installed"
 fi
 
-# Install Docker Compose plugin
-echo "[4/8] Installing Docker Compose..."
-apt-get install -y docker-compose-plugin
+# Install Docker Compose plugin (included above, but ensure it's present)
+echo "[4/8] Verifying Docker Compose..."
+docker compose version
 
 # Create deploy user
 echo "[5/8] Creating deploy user..."
@@ -79,12 +78,12 @@ chown -R "$DEPLOY_USER:$DEPLOY_USER" "$DEPLOY_PATH"
 
 # Configure firewall
 echo "[7/8] Configuring firewall..."
-ufw default deny incoming
-ufw default allow outgoing
-ufw allow ssh
-ufw allow http
-ufw allow https
-ufw --force enable
+systemctl enable firewalld
+systemctl start firewalld
+firewall-cmd --permanent --add-service=ssh
+firewall-cmd --permanent --add-service=http
+firewall-cmd --permanent --add-service=https
+firewall-cmd --reload
 
 # Configure fail2ban
 echo "[8/8] Configuring fail2ban..."
@@ -98,7 +97,7 @@ maxretry = 5
 enabled = true
 port = ssh
 filter = sshd
-logpath = /var/log/auth.log
+backend = systemd
 maxretry = 3
 EOF
 
@@ -106,11 +105,24 @@ systemctl enable fail2ban
 systemctl restart fail2ban
 
 # Enable automatic security updates
-cat > /etc/apt/apt.conf.d/20auto-upgrades << 'EOF'
-APT::Periodic::Update-Package-Lists "1";
-APT::Periodic::Unattended-Upgrade "1";
-APT::Periodic::AutocleanInterval "7";
+cat > /etc/dnf/automatic.conf << 'EOF'
+[commands]
+upgrade_type = security
+random_sleep = 0
+download_updates = yes
+apply_updates = yes
+
+[emitters]
+emit_via = stdio
+
+[command]
+command_format = cat
+
+[base]
+debuglevel = 1
 EOF
+
+systemctl enable --now dnf-automatic.timer
 
 echo ""
 echo "=============================================="
@@ -130,10 +142,11 @@ echo "2. Copy production environment file:"
 echo "   scp .env.production $DEPLOY_USER@<your-vps>:$DEPLOY_PATH/.env.production"
 echo ""
 echo "3. Configure GitHub secrets:"
+echo "   - DOCKERHUB_USERNAME: Your DockerHub username"
+echo "   - DOCKERHUB_TOKEN: Your DockerHub access token"
 echo "   - VPS_HOST: Your VPS IP address"
 echo "   - VPS_USER: $DEPLOY_USER"
 echo "   - VPS_SSH_KEY: Your private SSH key"
-echo "   - VPS_DEPLOY_PATH: $DEPLOY_PATH"
 echo ""
 echo "4. Push to main branch to trigger deployment"
 echo ""

@@ -1,8 +1,7 @@
 # =============================================================================
 # Deployment Workflow
 # =============================================================================
-# Builds and pushes Docker image to GitHub Container Registry, then deploys
-# to VPS via SSH.
+# Builds and pushes Docker image to DockerHub, then deploys to VPS via SSH.
 #
 # Triggers:
 #   - Push to main branch (auto-deploy)
@@ -10,10 +9,11 @@
 #   - Release published (tagged deploy)
 #
 # Required Secrets:
+#   - DOCKERHUB_USERNAME: DockerHub username
+#   - DOCKERHUB_TOKEN: DockerHub access token
 #   - VPS_HOST: VPS IP address or hostname
-#   - VPS_USER: SSH username (typically 'deploy' or 'lukaut')
+#   - VPS_USER: SSH username (typically 'deploy')
 #   - VPS_SSH_KEY: Private SSH key for authentication
-#   - VPS_DEPLOY_PATH: Path to deployment directory (e.g., /opt/lukaut)
 # =============================================================================
 
 name: Deploy
@@ -39,8 +39,8 @@ on:
           - staging
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  REGISTRY: docker.io
+  IMAGE_NAME: dukerupert/lukaut
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -49,13 +49,9 @@ jobs:
   build-and-push:
     name: Build and Push
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
 
     outputs:
       image-tag: ${{ steps.meta.outputs.version }}
-      image-digest: ${{ steps.build.outputs.digest }}
 
     steps:
       - name: Checkout code
@@ -67,18 +63,17 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Container Registry
+      - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -102,13 +97,6 @@ jobs:
             VERSION=${{ github.ref_name }}
             COMMIT=${{ github.sha }}
 
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
-
   # ---------------------------------------------------------------------------
   # Deploy to VPS
   # ---------------------------------------------------------------------------
@@ -130,26 +118,24 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "docker-compose.prod.yml,Caddyfile"
-          target: ${{ secrets.VPS_DEPLOY_PATH }}
+          source: "docker-compose.prod.yml"
+          target: /opt/lukaut
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: IMAGE_TAG,GITHUB_REPOSITORY
+          envs: IMAGE_TAG
           script: |
             set -e
-            cd ${{ secrets.VPS_DEPLOY_PATH }}
+            cd /opt/lukaut
 
             # Export environment variables for docker-compose
             export IMAGE_TAG="${IMAGE_TAG}"
-            export GITHUB_REPOSITORY="${GITHUB_REPOSITORY}"
 
             # Source production environment
             if [ -f .env.production ]; then

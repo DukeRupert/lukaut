@@ -40,7 +40,7 @@ services:
   # Lukaut Application
   # ---------------------------------------------------------------------------
   app:
-    image: ghcr.io/${GITHUB_REPOSITORY:-dukerupert/lukaut}:${IMAGE_TAG:-latest}
+    image: dukerupert/lukaut:${IMAGE_TAG:-latest}
     container_name: lukaut-app
     restart: unless-stopped
     environment:
@@ -97,37 +97,10 @@ services:
       retries: 3
     networks:
       - lukaut-internal
-      - lukaut-external
+    ports:
+      - "127.0.0.1:8080:8080"
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
-
-  # ---------------------------------------------------------------------------
-  # Caddy Reverse Proxy
-  # ---------------------------------------------------------------------------
-  caddy:
-    image: caddy:2-alpine
-    container_name: lukaut-caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"  # HTTP/3
-    environment:
-      DOMAIN: ${DOMAIN:?Domain required}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      app:
-        condition: service_healthy
-    networks:
-      - lukaut-external
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
 
   # ---------------------------------------------------------------------------
   # Database Backup (runs daily at 2 AM)
@@ -160,10 +133,6 @@ networks:
   lukaut-internal:
     driver: bridge
     internal: true
-  lukaut-external:
-    driver: bridge
 
 volumes:
   postgres_data:
-  caddy_data:
-  caddy_config:
