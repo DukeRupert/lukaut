@@ -14,13 +14,13 @@ type Provider struct {
 	logger *slog.Logger
 
 	// Configurable responses for testing
-	AnalyzeImageResponse *ai.AnalysisResult
-	AnalyzeImageError    error
+	AnalyzeImageResponse     *ai.AnalysisResult
+	AnalyzeImageError        error
 	MatchRegulationsResponse []ai.RegulationMatch
 	MatchRegulationsError    error
 
 	// Call tracking for testing
-	AnalyzeImageCalls    int
+	AnalyzeImageCalls     int
 	MatchRegulationsCalls int
 }
 

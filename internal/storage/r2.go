@@ -24,11 +24,11 @@ import (
 // R2Storage implements the Storage interface using Cloudflare R2.
 // R2 is S3-compatible, so we use the AWS SDK v2 with custom configuration.
 type R2Storage struct {
-	client       *s3.Client
+	client        *s3.Client
 	presignClient *s3.PresignClient
-	bucketName   string
-	publicURL    string // Optional public URL (e.g., custom domain)
-	logger       *slog.Logger
+	bucketName    string
+	publicURL     string // Optional public URL (e.g., custom domain)
+	logger        *slog.Logger
 }
 
 // NewR2Storage creates a new R2Storage instance.
@@ -53,25 +53,12 @@ func NewR2Storage(cfg R2Config, logger *slog.Logger) (*R2Storage, error) {
 		"", // session token not needed for R2
 	)
 
-	// Create custom endpoint resolver
-	customResolver := aws.EndpointResolverWithOptionsFunc(
-		func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				URL:           endpoint,
-				SigningRegion: region,
-			}, nil
-		},
-	)
-
-	// Create AWS config
-	awsCfg := aws.Config{
-		Region:                      region,
-		Credentials:                 creds,
-		EndpointResolverWithOptions: customResolver,
-	}
-
-	// Create S3 client
-	client := s3.NewFromConfig(awsCfg)
+	// Create S3 client with custom endpoint for R2
+	client := s3.New(s3.Options{
+		Region:       region,
+		Credentials:  creds,
+		BaseEndpoint: aws.String(endpoint),
+	})
 
 	// Create presign client for generating signed URLs
 	presignClient := s3.NewPresignClient(client)

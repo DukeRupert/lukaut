@@ -111,14 +111,6 @@ func newTestAuthMiddleware(mock *mockUserService) *AuthMiddleware {
 	return NewAuthMiddleware(mock, newTestLogger(), false)
 }
 
-// testHandler is a simple handler that writes "OK" for testing.
-func testHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
-}
-
 // =============================================================================
 // WithUser Middleware Tests (P0)
 // =============================================================================

@@ -21,9 +21,9 @@ import (
 
 // ViolationCardData contains data for rendering a single violation card.
 type ViolationCardData struct {
-	Violation   *domain.Violation           // The violation
+	Violation   *domain.Violation            // The violation
 	Regulations []domain.ViolationRegulation // Linked regulations
-	CanEdit     bool                        // Whether user can edit this violation
+	CanEdit     bool                         // Whether user can edit this violation
 }
 
 // =============================================================================

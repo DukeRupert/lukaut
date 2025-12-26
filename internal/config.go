@@ -35,11 +35,11 @@ type Config struct {
 	LocalStorageURL  string // Base URL for accessing local files
 
 	// R2 Storage (production)
-	R2AccountID        string
-	R2AccessKeyID      string
-	R2SecretAccessKey  string
-	R2BucketName       string
-	R2PublicURL        string // Optional custom domain URL
+	R2AccountID       string
+	R2AccessKeyID     string
+	R2SecretAccessKey string
+	R2BucketName      string
+	R2PublicURL       string // Optional custom domain URL
 
 	// Worker Configuration
 	WorkerEnabled      bool
@@ -48,12 +48,12 @@ type Config struct {
 	WorkerJobTimeout   time.Duration
 
 	// AI Provider Configuration
-	AIProvider         string        // "anthropic" or "mock"
-	AnthropicAPIKey    string
-	AnthropicModel     string
-	AIMaxRetries       int
-	AIRetryBaseDelay   time.Duration
-	AIRequestTimeout   time.Duration
+	AIProvider       string // "anthropic" or "mock"
+	AnthropicAPIKey  string
+	AnthropicModel   string
+	AIMaxRetries     int
+	AIRetryBaseDelay time.Duration
+	AIRequestTimeout time.Duration
 
 	// Invite code system (MVP testing)
 	InviteCodesEnabled bool     // Enable/disable invite code requirement
@@ -99,12 +99,12 @@ func NewConfig() (*Config, error) {
 		WorkerJobTimeout:   getEnvDuration("WORKER_JOB_TIMEOUT", 5*time.Minute),
 
 		// AI provider defaults
-		AIProvider:         getEnv("AI_PROVIDER", "mock"),
-		AnthropicAPIKey:    getEnv("ANTHROPIC_API_KEY", ""),
-		AnthropicModel:     getEnv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
-		AIMaxRetries:       getEnvInt("AI_MAX_RETRIES", 3),
-		AIRetryBaseDelay:   getEnvDuration("AI_RETRY_BASE_DELAY", 1*time.Second),
-		AIRequestTimeout:   getEnvDuration("AI_REQUEST_TIMEOUT", 60*time.Second),
+		AIProvider:       getEnv("AI_PROVIDER", "mock"),
+		AnthropicAPIKey:  getEnv("ANTHROPIC_API_KEY", ""),
+		AnthropicModel:   getEnv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+		AIMaxRetries:     getEnvInt("AI_MAX_RETRIES", 3),
+		AIRetryBaseDelay: getEnvDuration("AI_RETRY_BASE_DELAY", 1*time.Second),
+		AIRequestTimeout: getEnvDuration("AI_REQUEST_TIMEOUT", 60*time.Second),
 
 		// Invite code defaults (enabled by default for MVP testing)
 		InviteCodesEnabled: getEnvBool("INVITE_CODES_ENABLED", true),

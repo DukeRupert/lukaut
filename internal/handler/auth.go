@@ -236,9 +236,9 @@ func (h *AuthHandler) ShowRegister(w http.ResponseWriter, r *http.Request) {
 //
 // Error Flow:
 // 1. Re-render form with:
-//    - Original form values (except password)
-//    - Validation error messages
-//    - Flash message for service errors (e.g., email already exists)
+//   - Original form values (except password)
+//   - Validation error messages
+//   - Flash message for service errors (e.g., email already exists)
 //
 // Implementation Notes:
 // - Never log passwords, even on error
@@ -511,8 +511,8 @@ func (h *AuthHandler) ShowLogin(w http.ResponseWriter, r *http.Request) {
 //
 // Error Flow:
 // 1. Re-render form with:
-//    - Email value preserved
-//    - Generic error message (don't reveal if email exists)
+//   - Email value preserved
+//   - Generic error message (don't reveal if email exists)
 //
 // Security Notes:
 // - Always use generic error message: "Invalid email or password"
@@ -799,11 +799,7 @@ func isValidEmail(email string) bool {
 
 	// Check for a dot in the domain part
 	domainPart := email[atIndex+1:]
-	if !strings.Contains(domainPart, ".") {
-		return false
-	}
-
-	return true
+	return strings.Contains(domainPart, ".")
 }
 
 // isSafeRedirectURL checks if a URL is safe to redirect to.

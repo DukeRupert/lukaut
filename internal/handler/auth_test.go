@@ -22,22 +22,22 @@ import (
 
 // mockUserService implements the service.UserService interface for testing.
 type mockUserService struct {
-	RegisterFunc                           func(ctx context.Context, params domain.RegisterParams) (*domain.User, error)
-	LoginFunc                              func(ctx context.Context, email, password string) (*domain.LoginResult, error)
-	LogoutFunc                             func(ctx context.Context, token string) error
-	GetByIDFunc                            func(ctx context.Context, id uuid.UUID) (*domain.User, error)
-	GetBySessionTokenFunc                  func(ctx context.Context, token string) (*domain.User, error)
-	UpdateProfileFunc                      func(ctx context.Context, params domain.ProfileUpdateParams) error
-	ChangePasswordFunc                     func(ctx context.Context, params domain.PasswordChangeParams) error
-	DeleteExpiredSessionsFunc              func(ctx context.Context) error
-	CreateEmailVerificationTokenFunc       func(ctx context.Context, userID uuid.UUID) (*domain.EmailVerificationResult, error)
-	VerifyEmailFunc                        func(ctx context.Context, token string) error
-	ResendVerificationEmailFunc            func(ctx context.Context, email string) (*domain.EmailVerificationResult, error)
+	RegisterFunc                             func(ctx context.Context, params domain.RegisterParams) (*domain.User, error)
+	LoginFunc                                func(ctx context.Context, email, password string) (*domain.LoginResult, error)
+	LogoutFunc                               func(ctx context.Context, token string) error
+	GetByIDFunc                              func(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	GetBySessionTokenFunc                    func(ctx context.Context, token string) (*domain.User, error)
+	UpdateProfileFunc                        func(ctx context.Context, params domain.ProfileUpdateParams) error
+	ChangePasswordFunc                       func(ctx context.Context, params domain.PasswordChangeParams) error
+	DeleteExpiredSessionsFunc                func(ctx context.Context) error
+	CreateEmailVerificationTokenFunc         func(ctx context.Context, userID uuid.UUID) (*domain.EmailVerificationResult, error)
+	VerifyEmailFunc                          func(ctx context.Context, token string) error
+	ResendVerificationEmailFunc              func(ctx context.Context, email string) (*domain.EmailVerificationResult, error)
 	DeleteExpiredEmailVerificationTokensFunc func(ctx context.Context) error
-	CreatePasswordResetTokenFunc           func(ctx context.Context, email string) (*domain.PasswordResetResult, error)
-	ValidatePasswordResetTokenFunc         func(ctx context.Context, token string) (uuid.UUID, error)
-	ResetPasswordFunc                      func(ctx context.Context, params domain.ResetPasswordParams) error
-	DeleteExpiredPasswordResetTokensFunc   func(ctx context.Context) error
+	CreatePasswordResetTokenFunc             func(ctx context.Context, email string) (*domain.PasswordResetResult, error)
+	ValidatePasswordResetTokenFunc           func(ctx context.Context, token string) (uuid.UUID, error)
+	ResetPasswordFunc                        func(ctx context.Context, params domain.ResetPasswordParams) error
+	DeleteExpiredPasswordResetTokensFunc     func(ctx context.Context) error
 }
 
 func (m *mockUserService) Register(ctx context.Context, params domain.RegisterParams) (*domain.User, error) {
@@ -168,7 +168,7 @@ func (m *mockRenderer) RenderHTTP(w http.ResponseWriter, templateName string, da
 	} else {
 		// Default: write template name and status 200
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(templateName))
+		_, _ = w.Write([]byte(templateName))
 	}
 }
 
@@ -178,7 +178,7 @@ func (m *mockRenderer) RenderHTTPWithToast(w http.ResponseWriter, templateName s
 		m.RenderHTTPFunc(w, templateName, data)
 	} else {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(templateName))
+		_, _ = w.Write([]byte(templateName))
 	}
 }
 
@@ -188,7 +188,7 @@ func (m *mockRenderer) RenderPartial(w http.ResponseWriter, templateName string,
 	} else {
 		// Default: write template name and status 200
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(templateName))
+		_, _ = w.Write([]byte(templateName))
 	}
 }
 

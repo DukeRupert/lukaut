@@ -151,7 +151,7 @@ func (p *Provider) MatchRegulations(ctx context.Context, params ai.MatchParams) 
 			Title:          result.Title,
 			Category:       result.Category,
 			RelevanceScore: float64(result.Rank),
-			Explanation:    "", // No explanation in MVP - could add AI-generated explanation later
+			Explanation:    "",     // No explanation in MVP - could add AI-generated explanation later
 			IsPrimary:      i == 0, // First result is primary
 		}
 		matches = append(matches, match)
@@ -490,13 +490,13 @@ type analysisOutput struct {
 }
 
 type outputViolation struct {
-	Description          string              `json:"description"`
-	Location             string              `json:"location"`
-	BoundingBox          *outputBoundingBox  `json:"bounding_box,omitempty"`
-	Confidence           string              `json:"confidence"`
-	Category             string              `json:"category"`
-	Severity             string              `json:"severity"`
-	SuggestedRegulations []string            `json:"suggested_regulations"`
+	Description          string             `json:"description"`
+	Location             string             `json:"location"`
+	BoundingBox          *outputBoundingBox `json:"bounding_box,omitempty"`
+	Confidence           string             `json:"confidence"`
+	Category             string             `json:"category"`
+	Severity             string             `json:"severity"`
+	SuggestedRegulations []string           `json:"suggested_regulations"`
 }
 
 type outputBoundingBox struct {

@@ -373,7 +373,7 @@ func (r *Renderer) RenderHTTP(w http.ResponseWriter, name string, data interface
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	buf.WriteTo(w)
+	_, _ = buf.WriteTo(w)
 }
 
 // RenderPartial renders a partial template (for htmx responses).
@@ -478,8 +478,8 @@ func (r *Renderer) RenderHTTPWithToast(w http.ResponseWriter, name string, data 
 	toastHTML := r.renderToastOOB(toast)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	buf.WriteTo(w)
-	w.Write([]byte(toastHTML))
+	_, _ = buf.WriteTo(w)
+	_, _ = w.Write([]byte(toastHTML))
 }
 
 // renderToastOOB generates the toast OOB HTML.

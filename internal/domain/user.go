@@ -16,12 +16,12 @@ import (
 type SubscriptionStatus string
 
 const (
-	SubscriptionStatusInactive  SubscriptionStatus = "inactive"
-	SubscriptionStatusTrialing  SubscriptionStatus = "trialing"
-	SubscriptionStatusActive    SubscriptionStatus = "active"
-	SubscriptionStatusPastDue   SubscriptionStatus = "past_due"
-	SubscriptionStatusCanceled  SubscriptionStatus = "canceled"
-	SubscriptionStatusUnpaid    SubscriptionStatus = "unpaid"
+	SubscriptionStatusInactive SubscriptionStatus = "inactive"
+	SubscriptionStatusTrialing SubscriptionStatus = "trialing"
+	SubscriptionStatusActive   SubscriptionStatus = "active"
+	SubscriptionStatusPastDue  SubscriptionStatus = "past_due"
+	SubscriptionStatusCanceled SubscriptionStatus = "canceled"
+	SubscriptionStatusUnpaid   SubscriptionStatus = "unpaid"
 )
 
 // SubscriptionTier represents the pricing tier of a subscription.
@@ -88,7 +88,7 @@ func (u *User) DisplayName() string {
 type Session struct {
 	ID        uuid.UUID
 	UserID    uuid.UUID
-	TokenHash string    // SHA-256 hash of the session token
+	TokenHash string // SHA-256 hash of the session token
 	ExpiresAt time.Time
 	CreatedAt time.Time
 }

@@ -506,7 +506,7 @@ func (h *RegulationHandler) AddToViolation(w http.ResponseWriter, r *http.Reques
 	// For htmx, we'll trigger a refresh of the regulation detail modal
 	w.Header().Set("HX-Trigger", "regulation-linked")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Regulation added successfully"))
+	_, _ = w.Write([]byte("Regulation added successfully"))
 }
 
 // =============================================================================
@@ -579,7 +579,7 @@ func (h *RegulationHandler) RemoveFromViolation(w http.ResponseWriter, r *http.R
 	// Return success response
 	w.Header().Set("HX-Trigger", "regulation-unlinked")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Regulation removed successfully"))
+	_, _ = w.Write([]byte("Regulation removed successfully"))
 }
 
 // =============================================================================

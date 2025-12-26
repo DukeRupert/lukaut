@@ -124,19 +124,19 @@ func (c ViolationConfidence) IsValid() bool {
 // - AI-detected: Created by analyzing inspection photos
 // - Manual: Created directly by the inspector
 type Violation struct {
-	ID              uuid.UUID           // Unique identifier
-	InspectionID    uuid.UUID           // Inspection this violation belongs to
-	ImageID         *uuid.UUID          // Optional: Image where violation was detected
-	Description     string              // Inspector-editable description
-	AIDescription   string              // Original AI-generated description
-	Confidence      ViolationConfidence // AI confidence level
-	BoundingBox     string              // Optional: JSON coordinates for image annotation
-	Status          ViolationStatus     // Review status (pending, confirmed, rejected)
-	Severity        ViolationSeverity   // Severity level
-	InspectorNotes  string              // Optional: Additional notes from inspector
-	SortOrder       int                 // Display order in reports
-	CreatedAt       time.Time           // When violation was created
-	UpdatedAt       time.Time           // When violation was last modified
+	ID             uuid.UUID           // Unique identifier
+	InspectionID   uuid.UUID           // Inspection this violation belongs to
+	ImageID        *uuid.UUID          // Optional: Image where violation was detected
+	Description    string              // Inspector-editable description
+	AIDescription  string              // Original AI-generated description
+	Confidence     ViolationConfidence // AI confidence level
+	BoundingBox    string              // Optional: JSON coordinates for image annotation
+	Status         ViolationStatus     // Review status (pending, confirmed, rejected)
+	Severity       ViolationSeverity   // Severity level
+	InspectorNotes string              // Optional: Additional notes from inspector
+	SortOrder      int                 // Display order in reports
+	CreatedAt      time.Time           // When violation was created
+	UpdatedAt      time.Time           // When violation was last modified
 
 	// Computed fields (not stored in database)
 	ThumbnailKey     string // Image thumbnail key (if linked to image)
@@ -164,13 +164,13 @@ func (v *Violation) HasImage() bool {
 
 // ViolationRegulation represents a link between a violation and an OSHA regulation.
 type ViolationRegulation struct {
-	ID              uuid.UUID // Unique identifier
-	ViolationID     uuid.UUID // Violation this regulation applies to
-	RegulationID    uuid.UUID // OSHA regulation
-	RelevanceScore  float64   // AI-assigned relevance score (0.0-1.0)
-	AIExplanation   string    // AI's explanation for why this regulation applies
-	IsPrimary       bool      // Whether this is the primary regulation for this violation
-	CreatedAt       time.Time // When link was created
+	ID             uuid.UUID // Unique identifier
+	ViolationID    uuid.UUID // Violation this regulation applies to
+	RegulationID   uuid.UUID // OSHA regulation
+	RelevanceScore float64   // AI-assigned relevance score (0.0-1.0)
+	AIExplanation  string    // AI's explanation for why this regulation applies
+	IsPrimary      bool      // Whether this is the primary regulation for this violation
+	CreatedAt      time.Time // When link was created
 
 	// Regulation details (joined from regulations table)
 	StandardNumber string // OSHA standard number (e.g., "1926.501(b)(1)")

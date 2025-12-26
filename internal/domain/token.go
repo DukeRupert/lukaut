@@ -50,7 +50,7 @@ const (
 type EmailVerificationToken struct {
 	ID        uuid.UUID
 	UserID    uuid.UUID
-	TokenHash string    // SHA-256 hash of raw token (64 char hex)
+	TokenHash string // SHA-256 hash of raw token (64 char hex)
 	ExpiresAt time.Time
 	CreatedAt time.Time
 }
@@ -87,7 +87,7 @@ func (t *EmailVerificationToken) IsValid() bool {
 type PasswordResetToken struct {
 	ID        uuid.UUID
 	UserID    uuid.UUID
-	TokenHash string     // SHA-256 hash of raw token (64 char hex)
+	TokenHash string // SHA-256 hash of raw token (64 char hex)
 	ExpiresAt time.Time
 	UsedAt    *time.Time // nil = unused, set when password is changed
 	CreatedAt time.Time

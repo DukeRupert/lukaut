@@ -143,7 +143,7 @@ func (w *Worker) processNextJob(ctx context.Context, logger *slog.Logger) error 
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	qtx := w.queries.WithTx(tx)
 

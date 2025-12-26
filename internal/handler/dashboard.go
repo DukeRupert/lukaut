@@ -79,12 +79,12 @@ type DashboardInspection struct {
 
 // DashboardPageData contains all data needed to render the dashboard page.
 type DashboardPageData struct {
-	CurrentPath       string                 // Current URL path for navigation highlighting
-	User              interface{}            // Authenticated user (from context)
-	Stats             DashboardStats         // Dashboard statistics
-	RecentInspections []DashboardInspection  // Recent inspections (up to 10)
-	Flash             *Flash                 // Flash message to display (if any)
-	CSRFToken         string                 // CSRF token for form protection
+	CurrentPath       string                // Current URL path for navigation highlighting
+	User              interface{}           // Authenticated user (from context)
+	Stats             DashboardStats        // Dashboard statistics
+	RecentInspections []DashboardInspection // Recent inspections (up to 10)
+	Flash             *Flash                // Flash message to display (if any)
+	CSRFToken         string                // CSRF token for form protection
 }
 
 // =============================================================================

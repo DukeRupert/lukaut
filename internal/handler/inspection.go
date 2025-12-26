@@ -27,18 +27,18 @@ import (
 
 // InspectionListPageData contains data for the inspection list page.
 type InspectionListPageData struct {
-	CurrentPath string                  // Current URL path
-	User        interface{}             // Authenticated user
-	Inspections []domain.Inspection     // List of inspections
-	Pagination  PaginationData          // Pagination information
-	Flash       *Flash                  // Flash message (if any)
-	CSRFToken   string                  // CSRF token for form protection
+	CurrentPath string              // Current URL path
+	User        interface{}         // Authenticated user
+	Inspections []domain.Inspection // List of inspections
+	Pagination  PaginationData      // Pagination information
+	Flash       *Flash              // Flash message (if any)
+	CSRFToken   string              // CSRF token for form protection
 }
 
 // InspectionFormPageData contains data for the inspection create/edit form.
 type InspectionFormPageData struct {
-	CurrentPath string            // Current URL path
-	User        interface{}       // Authenticated user
+	CurrentPath string             // Current URL path
+	User        interface{}        // Authenticated user
 	Inspection  *domain.Inspection // Inspection being edited (nil for create)
 	Sites       []SiteOption       // Available sites for dropdown
 	Form        map[string]string  // Form field values
@@ -50,15 +50,15 @@ type InspectionFormPageData struct {
 
 // InspectionShowPageData contains data for the inspection detail page.
 type InspectionShowPageData struct {
-	CurrentPath    string              // Current URL path
-	User           interface{}         // Authenticated user
-	Inspection     *domain.Inspection  // Inspection details
-	InspectionID   uuid.UUID           // Inspection ID for templates
-	CanUpload      bool                // Whether user can upload images
-	GalleryData    ImageGalleryData    // Image gallery data
-	AnalysisStatus AnalysisStatusData  // Analysis status data
-	Flash          *Flash              // Flash message (if any)
-	CSRFToken      string              // CSRF token for form protection
+	CurrentPath    string             // Current URL path
+	User           interface{}        // Authenticated user
+	Inspection     *domain.Inspection // Inspection details
+	InspectionID   uuid.UUID          // Inspection ID for templates
+	CanUpload      bool               // Whether user can upload images
+	GalleryData    ImageGalleryData   // Image gallery data
+	AnalysisStatus AnalysisStatusData // Analysis status data
+	Flash          *Flash             // Flash message (if any)
+	CSRFToken      string             // CSRF token for form protection
 }
 
 // AnalysisStatusData contains data for the analysis status partial.
@@ -76,13 +76,13 @@ type AnalysisStatusData struct {
 
 // InspectionReviewPageData contains data for the violation review page.
 type InspectionReviewPageData struct {
-	CurrentPath     string                   // Current URL path
-	User            interface{}              // Authenticated user
-	Inspection      *domain.Inspection       // Inspection details
-	Violations      []ViolationWithDetails   // Violations with details
-	ViolationCounts ViolationCounts          // Summary counts
-	Flash           *Flash                   // Flash message (if any)
-	CSRFToken       string                   // CSRF token for form protection
+	CurrentPath     string                 // Current URL path
+	User            interface{}            // Authenticated user
+	Inspection      *domain.Inspection     // Inspection details
+	Violations      []ViolationWithDetails // Violations with details
+	ViolationCounts ViolationCounts        // Summary counts
+	Flash           *Flash                 // Flash message (if any)
+	CSRFToken       string                 // CSRF token for form protection
 }
 
 // ViolationWithDetails contains a violation plus related data for display.

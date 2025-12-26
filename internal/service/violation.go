@@ -131,7 +131,7 @@ func (s *violationService) GetByIDWithRegulations(ctx context.Context, id, userI
 		relevanceScore := 0.0
 		if row.RelevanceScore.Valid {
 			// Try to parse the string as float, default to 0.0 on error
-			fmt.Sscanf(row.RelevanceScore.String, "%f", &relevanceScore)
+			_, _ = fmt.Sscanf(row.RelevanceScore.String, "%f", &relevanceScore)
 		}
 
 		regulations = append(regulations, domain.ViolationRegulation{
@@ -239,8 +239,8 @@ func (s *violationService) Create(ctx context.Context, params domain.CreateViola
 		InspectionID:   params.InspectionID,
 		ImageID:        domain.ToNullUUID(params.ImageID),
 		Description:    params.Description,
-		AiDescription:  sql.NullString{Valid: false}, // Manual violations have no AI description
-		Confidence:     sql.NullString{Valid: false}, // Manual violations have no confidence
+		AiDescription:  sql.NullString{Valid: false},        // Manual violations have no AI description
+		Confidence:     sql.NullString{Valid: false},        // Manual violations have no confidence
 		BoundingBox:    pqtype.NullRawMessage{Valid: false}, // No bounding box for manual
 		Status:         string(domain.ViolationStatusPending),
 		Severity:       domain.ToNullString(string(params.Severity)),

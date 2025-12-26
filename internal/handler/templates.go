@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // TemplateFuncs returns a FuncMap with custom template functions
@@ -116,7 +118,7 @@ func TemplateFuncs() template.FuncMap {
 			return strings.ToUpper(s)
 		},
 		"title": func(s string) string {
-			return strings.Title(s)
+			return cases.Title(language.English).String(s)
 		},
 		"truncate": func(s string, length int) string {
 			if len(s) <= length {

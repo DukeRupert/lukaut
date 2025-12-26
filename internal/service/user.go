@@ -365,8 +365,6 @@ func (s *userService) Login(ctx context.Context, email, password string) (*domai
 // This operation is idempotent - calling with an invalid or already-deleted
 // token simply does nothing and returns success.
 func (s *userService) Logout(ctx context.Context, token string) error {
-	const op = "UserService.Logout"
-
 	// Validate token format
 	if token == "" {
 		return nil // Idempotent - empty token is fine
@@ -639,10 +637,10 @@ func generateSessionToken() (string, error) {
 // hashSessionToken creates a SHA-256 hash of a session token.
 //
 // We hash session tokens before storing them because:
-// 1. If the database is compromised, attackers cannot use the hashes directly
-// 2. SHA-256 is fast enough for per-request validation
-// 3. Unlike passwords, session tokens are high-entropy random values,
-//    so SHA-256 is sufficient (bcrypt would be overkill and slow)
+//  1. If the database is compromised, attackers cannot use the hashes directly
+//  2. SHA-256 is fast enough for per-request validation
+//  3. Unlike passwords, session tokens are high-entropy random values,
+//     so SHA-256 is sufficient (bcrypt would be overkill and slow)
 //
 // Parameters:
 // - token: The raw session token (64-char hex string)
@@ -979,10 +977,10 @@ func (s *userService) DeleteExpiredEmailVerificationTokens(ctx context.Context) 
 // 5. Return raw token for email
 //
 // Security Considerations:
-// - Returns NotFound if email doesn't exist, but caller should NOT expose this
-//   to end user (always show "if account exists, we sent an email" message)
-// - Shorter expiration than email verification (1 hour vs 24 hours)
-// - Old tokens are deleted before creating new one
+//   - Returns NotFound if email doesn't exist, but caller should NOT expose this
+//     to end user (always show "if account exists, we sent an email" message)
+//   - Shorter expiration than email verification (1 hour vs 24 hours)
+//   - Old tokens are deleted before creating new one
 func (s *userService) CreatePasswordResetToken(ctx context.Context, email string) (*domain.PasswordResetResult, error) {
 	const op = "UserService.CreatePasswordResetToken"
 

@@ -7,17 +7,17 @@ import (
 
 // Application error codes
 const (
-	EINVALID      = "invalid"       // Invalid input or validation failure
-	EUNAUTHORIZED = "unauthorized"  // Authentication required
-	EFORBIDDEN    = "forbidden"     // Permission denied
-	ENOTFOUND     = "not_found"     // Resource not found
-	ECONFLICT     = "conflict"      // Resource conflict (e.g., duplicate)
-	EGONE         = "gone"          // Resource no longer available
-	ETOOLARGE     = "too_large"     // Request entity too large
-	ERATELIMIT    = "rate_limit"    // Rate limit exceeded
-	EINTERNAL     = "internal"      // Internal server error
-	ENOTIMPL      = "not_impl"      // Not implemented
-	EPAYMENT      = "payment"       // Payment required
+	EINVALID      = "invalid"      // Invalid input or validation failure
+	EUNAUTHORIZED = "unauthorized" // Authentication required
+	EFORBIDDEN    = "forbidden"    // Permission denied
+	ENOTFOUND     = "not_found"    // Resource not found
+	ECONFLICT     = "conflict"     // Resource conflict (e.g., duplicate)
+	EGONE         = "gone"         // Resource no longer available
+	ETOOLARGE     = "too_large"    // Request entity too large
+	ERATELIMIT    = "rate_limit"   // Rate limit exceeded
+	EINTERNAL     = "internal"     // Internal server error
+	ENOTIMPL      = "not_impl"     // Not implemented
+	EPAYMENT      = "payment"      // Payment required
 )
 
 // Error represents an application error with structured information.

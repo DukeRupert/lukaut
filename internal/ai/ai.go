@@ -47,13 +47,13 @@ type AnalysisResult struct {
 
 // PotentialViolation represents a single identified safety concern
 type PotentialViolation struct {
-	Description           string              // What the violation is
-	Location              string              // Where in the image (human-readable)
-	BoundingBox           *BoundingBox        // Optional coordinates in image
-	Confidence            Confidence          // How confident the AI is
-	Category              string              // OSHA category (e.g., "Fall Protection")
-	Severity              Severity            // Estimated severity level
-	SuggestedRegulations  []string            // Suggested OSHA regulation numbers
+	Description          string       // What the violation is
+	Location             string       // Where in the image (human-readable)
+	BoundingBox          *BoundingBox // Optional coordinates in image
+	Confidence           Confidence   // How confident the AI is
+	Category             string       // OSHA category (e.g., "Fall Protection")
+	Severity             Severity     // Estimated severity level
+	SuggestedRegulations []string     // Suggested OSHA regulation numbers
 }
 
 // BoundingBox represents coordinates in an image (normalized 0-1)
@@ -125,9 +125,9 @@ func (s Severity) Valid() bool {
 
 // ProviderConfig contains common configuration for AI providers
 type ProviderConfig struct {
-	MaxRetries      int           // Maximum retry attempts for transient errors
-	RetryBaseDelay  time.Duration // Base delay for exponential backoff
-	RequestTimeout  time.Duration // Timeout for individual requests
+	MaxRetries     int           // Maximum retry attempts for transient errors
+	RetryBaseDelay time.Duration // Base delay for exponential backoff
+	RequestTimeout time.Duration // Timeout for individual requests
 }
 
 // Error codes for AI provider operations
