@@ -8,6 +8,12 @@
 #   - Manual workflow dispatch
 #   - Release published (tagged deploy)
 #
+# VPS Setup (one-time):
+#   1. mkdir -p /opt/lukaut/backups
+#   2. scp docker-compose.prod.yml user@vps:/opt/lukaut/
+#   3. scp .env.production.example user@vps:/opt/lukaut/.env
+#   4. Edit /opt/lukaut/.env with production values
+#
 # Required Secrets:
 #   - DOCKERHUB_USERNAME: DockerHub username
 #   - DOCKERHUB_TOKEN: DockerHub access token
@@ -109,18 +115,6 @@ jobs:
       url: ${{ vars.APP_URL }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Copy deployment files
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          source: "docker-compose.prod.yml"
-          target: /opt/lukaut
-
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -138,8 +132,8 @@ jobs:
             export IMAGE_TAG="${IMAGE_TAG}"
 
             # Source production environment
-            if [ -f .env.production ]; then
-              export $(cat .env.production | grep -v '^#' | xargs)
+            if [ -f .env ]; then
+              export $(cat .env | grep -v '^#' | xargs)
             fi
 
             # Pull latest images
