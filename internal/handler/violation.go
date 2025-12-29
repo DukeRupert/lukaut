@@ -5,6 +5,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -225,7 +226,22 @@ func (h *ViolationHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Render the updated violation card with success toast
+	// Check if JSON response is requested (for queue review)
+	if r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":             violation.ID,
+			"status":         string(violation.Status),
+			"severity":       string(violation.Severity),
+			"description":    violation.Description,
+			"inspectorNotes": violation.InspectorNotes,
+		}); err != nil {
+			h.logger.Error("failed to encode JSON response", "error", err)
+		}
+		return
+	}
+
+	// Render the updated violation card with success toast (htmx response)
 	data := ViolationCardData{
 		Violation:   violation,
 		Regulations: regulations,
@@ -304,7 +320,22 @@ func (h *ViolationHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Render the updated violation card
+	// Check if JSON response is requested (for queue review)
+	if r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":             violation.ID,
+			"status":         string(violation.Status),
+			"severity":       string(violation.Severity),
+			"description":    violation.Description,
+			"inspectorNotes": violation.InspectorNotes,
+		}); err != nil {
+			h.logger.Error("failed to encode JSON response", "error", err)
+		}
+		return
+	}
+
+	// Render the updated violation card (htmx response)
 	data := ViolationCardData{
 		Violation:   violation,
 		Regulations: regulations,

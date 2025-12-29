@@ -184,6 +184,7 @@ func (h *InspectionHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(
 	mux.Handle("POST /inspections/{id}/analyze", requireUser(http.HandlerFunc(h.TriggerAnalysis)))
 	mux.Handle("GET /inspections/{id}/status", requireUser(http.HandlerFunc(h.GetStatus)))
 	mux.Handle("GET /inspections/{id}/review", requireUser(http.HandlerFunc(h.Review)))
+	mux.Handle("GET /inspections/{id}/review/queue", requireUser(http.HandlerFunc(h.ReviewQueue)))
 	mux.Handle("GET /inspections/{id}/violations-summary", requireUser(http.HandlerFunc(h.ViolationsSummary)))
 }
 
@@ -1035,6 +1036,109 @@ func (h *InspectionHandler) ViolationsSummary(w http.ResponseWriter, r *http.Req
 	}
 
 	h.renderer.RenderPartial(w, "partials/violations_summary", data)
+}
+
+// =============================================================================
+// GET /inspections/{id}/review/queue - Queue-Based Violation Review
+// =============================================================================
+
+// ReviewQueue renders the keyboard-focused queue-based violation review page.
+func (h *InspectionHandler) ReviewQueue(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromRequest(r)
+	if user == nil {
+		h.logger.Error("review queue handler called without authenticated user")
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	// Parse inspection ID
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		NotFoundResponse(w, r, h.logger)
+		return
+	}
+
+	// Fetch inspection
+	inspection, err := h.inspectionService.GetByID(r.Context(), id, user.ID)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		if code == domain.ENOTFOUND {
+			NotFoundResponse(w, r, h.logger)
+		} else {
+			h.logger.Error("failed to fetch inspection", "error", err, "inspection_id", id)
+			h.renderError(w, r, "Failed to load inspection. Please try again.")
+		}
+		return
+	}
+
+	// Fetch violations
+	violations, err := h.violationService.ListByInspection(r.Context(), id, user.ID)
+	if err != nil {
+		h.logger.Error("failed to list violations", "error", err, "inspection_id", id)
+		h.renderError(w, r, "Failed to load violations. Please try again.")
+		return
+	}
+
+	// Build violation details with regulations and thumbnail URLs
+	violationDetails := make([]ViolationWithDetails, 0, len(violations))
+	for _, v := range violations {
+		// Get regulations for this violation
+		_, regulations, err := h.violationService.GetByIDWithRegulations(r.Context(), v.ID, user.ID)
+		if err != nil {
+			h.logger.Warn("failed to get regulations for violation",
+				"error", err,
+				"violation_id", v.ID,
+			)
+			regulations = []domain.ViolationRegulation{} // Continue with empty list
+		}
+
+		// Get thumbnail URL if violation has an image
+		thumbnailURL := ""
+		if v.ImageID != nil {
+			thumbnailURL, err = h.imageService.GetThumbnailURL(r.Context(), *v.ImageID, user.ID)
+			if err != nil {
+				h.logger.Warn("failed to generate thumbnail URL",
+					"error", err,
+					"image_id", *v.ImageID,
+				)
+				// Continue with empty thumbnail URL
+			}
+		}
+
+		violationDetails = append(violationDetails, ViolationWithDetails{
+			Violation:    &v,
+			Regulations:  regulations,
+			ThumbnailURL: thumbnailURL,
+		})
+	}
+
+	// Calculate violation counts by status
+	counts := ViolationCounts{
+		Total: len(violations),
+	}
+	for _, v := range violations {
+		switch v.Status {
+		case domain.ViolationStatusPending:
+			counts.Pending++
+		case domain.ViolationStatusConfirmed:
+			counts.Confirmed++
+		case domain.ViolationStatusRejected:
+			counts.Rejected++
+		}
+	}
+
+	// Render review queue page
+	data := InspectionReviewPageData{
+		CurrentPath:     r.URL.Path,
+		User:            user,
+		Inspection:      inspection,
+		Violations:      violationDetails,
+		ViolationCounts: counts,
+		Flash:           nil,
+	}
+
+	h.renderer.RenderHTTP(w, "inspections/review_queue", data)
 }
 
 // =============================================================================

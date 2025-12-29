@@ -24,7 +24,7 @@
 
 {{define "content"}}
 <div x-data
-     @keydown.v.window="if (!['INPUT','TEXTAREA','SELECT'].includes($event.target.tagName) && !$event.metaKey && !$event.ctrlKey && !$event.altKey && {{gt .ViolationCounts.Total 0}}) { window.location.href = '/inspections/{{.InspectionID}}/review'; $event.preventDefault(); }">
+     @keydown.v.window="if (!['INPUT','TEXTAREA','SELECT'].includes($event.target.tagName) && !$event.metaKey && !$event.ctrlKey && !$event.altKey && {{gt .ViolationCounts.Total 0}}) { window.location.href = '/inspections/{{.InspectionID}}/review/queue'; $event.preventDefault(); }">
 
 <!-- Header with actions -->
 <div class="md:flex md:items-center md:justify-between mb-6">
