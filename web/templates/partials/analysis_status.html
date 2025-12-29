@@ -1,7 +1,7 @@
-{{define "analysis_status.html"}}
+{{define "partials/analysis_status"}}
 <div id="analysis-status"
      hx-get="/inspections/{{.InspectionID}}/status"
-     {{if .PollingEnabled}}hx-trigger="every 5s"{{end}}
+     hx-trigger="{{if .PollingEnabled}}every 5s, {{end}}galleryUpdated from:body"
      hx-swap="outerHTML">
 
     <div class="bg-white shadow sm:rounded-lg">

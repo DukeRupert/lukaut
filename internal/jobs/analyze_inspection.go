@@ -77,14 +77,14 @@ func (h *AnalyzeInspectionHandler) Handle(ctx context.Context, payload []byte) e
 		return worker.NewPermanentError(fmt.Errorf("inspection does not belong to user"))
 	}
 
-	// Check valid status (draft or analyzing)
+	// Check valid status (draft, analyzing, or review - review allows re-analysis with new images)
 	status := domain.InspectionStatus(inspection.Status)
-	if status != domain.InspectionStatusDraft && status != domain.InspectionStatusAnalyzing {
-		return worker.NewPermanentError(fmt.Errorf("invalid inspection status: %s (expected draft or analyzing)", status))
+	if status != domain.InspectionStatusDraft && status != domain.InspectionStatusAnalyzing && status != domain.InspectionStatusReview {
+		return worker.NewPermanentError(fmt.Errorf("invalid inspection status: %s (expected draft, analyzing, or review)", status))
 	}
 
 	// 2. Update inspection status to "analyzing"
-	if status == domain.InspectionStatusDraft {
+	if status == domain.InspectionStatusDraft || status == domain.InspectionStatusReview {
 		err = h.queries.UpdateInspectionStatus(ctx, repository.UpdateInspectionStatusParams{
 			ID:     p.InspectionID,
 			Status: domain.InspectionStatusAnalyzing.String(),

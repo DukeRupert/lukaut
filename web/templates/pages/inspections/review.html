@@ -127,7 +127,7 @@
 {{else}}
 <div id="violation-list" class="space-y-4">
     {{range .Violations}}
-        {{template "violation_card.html" .}}
+        {{template "partials/violation_card" .}}
     {{end}}
 </div>
 {{end}}

@@ -117,7 +117,8 @@ func TemplateFuncs() template.FuncMap {
 		"upper": func(s string) string {
 			return strings.ToUpper(s)
 		},
-		"title": func(s string) string {
+		"title": func(v interface{}) string {
+			s := fmt.Sprint(v)
 			return cases.Title(language.English).String(s)
 		},
 		"truncate": func(s string, length int) string {
@@ -232,8 +233,10 @@ func TemplateFuncs() template.FuncMap {
 		},
 
 		// Status/badge helpers for inspections
-		"statusColor": func(status string) string {
-			switch status {
+		// These functions accept interface{} to handle custom string types like domain.InspectionStatus
+		"statusColor": func(status interface{}) string {
+			s := fmt.Sprint(status)
+			switch s {
 			case "draft":
 				return "bg-clay/20 text-clay"
 			case "analyzing":
@@ -246,8 +249,9 @@ func TemplateFuncs() template.FuncMap {
 				return "bg-gray-100 text-gray-600"
 			}
 		},
-		"severityColor": func(severity string) string {
-			switch severity {
+		"severityColor": func(severity interface{}) string {
+			s := fmt.Sprint(severity)
+			switch s {
 			case "critical":
 				return "bg-red-100 text-red-800"
 			case "serious":
@@ -260,8 +264,9 @@ func TemplateFuncs() template.FuncMap {
 				return "bg-gray-100 text-gray-600"
 			}
 		},
-		"confidenceColor": func(confidence string) string {
-			switch confidence {
+		"confidenceColor": func(confidence interface{}) string {
+			s := fmt.Sprint(confidence)
+			switch s {
 			case "high":
 				return "text-forest"
 			case "medium":

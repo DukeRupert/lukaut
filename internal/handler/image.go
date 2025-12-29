@@ -10,7 +10,9 @@ import (
 
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
+	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/DukeRupert/lukaut/internal/worker"
 	"github.com/google/uuid"
 )
 
@@ -24,6 +26,7 @@ type ImageGalleryData struct {
 	Images       []ImageDisplay // Images to display
 	Errors       []string       // Upload errors to display
 	CanUpload    bool           // Whether user can upload more images
+	IsAnalyzing  bool           // Whether analysis is currently running (for polling)
 }
 
 // ImageDisplay represents an image for display in the gallery.
@@ -43,6 +46,7 @@ type ImageDisplay struct {
 type ImageHandler struct {
 	imageService      service.ImageService
 	inspectionService service.InspectionService
+	queries           *repository.Queries
 	renderer          TemplateRenderer
 	logger            *slog.Logger
 }
@@ -51,12 +55,14 @@ type ImageHandler struct {
 func NewImageHandler(
 	imageService service.ImageService,
 	inspectionService service.InspectionService,
+	queries *repository.Queries,
 	renderer TemplateRenderer,
 	logger *slog.Logger,
 ) *ImageHandler {
 	return &ImageHandler{
 		imageService:      imageService,
 		inspectionService: inspectionService,
+		queries:           queries,
 		renderer:          renderer,
 		logger:            logger,
 	}
@@ -157,6 +163,25 @@ func (h *ImageHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		"error_count", len(uploadErrors),
 	)
 
+	// Auto-trigger analysis if images were uploaded successfully
+	if successCount > 0 {
+		// Check if there's already a pending or running analysis job
+		hasPending, err := h.queries.HasPendingAnalysisJob(r.Context(), inspectionID.String())
+		if err != nil {
+			h.logger.Warn("failed to check pending analysis jobs", "error", err, "inspection_id", inspectionID)
+			// Continue anyway - don't fail the upload response
+		} else if !hasPending {
+			// Enqueue the analysis job
+			_, err = worker.EnqueueAnalyzeInspection(r.Context(), h.queries, inspectionID, user.ID)
+			if err != nil {
+				h.logger.Warn("failed to enqueue auto-analysis job", "error", err, "inspection_id", inspectionID)
+				// Continue anyway - don't fail the upload response
+			} else {
+				h.logger.Info("Auto-analysis job enqueued", "inspection_id", inspectionID, "user_id", user.ID)
+			}
+		}
+	}
+
 	// Fetch updated image list
 	images, err := h.imageService.ListByInspection(r.Context(), inspectionID, user.ID)
 	if err != nil {
@@ -199,6 +224,9 @@ func (h *ImageHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		CanUpload:    inspection.CanAddPhotos(),
 	}
 
+	// Trigger analysis status refresh
+	w.Header().Set("HX-Trigger", "galleryUpdated")
+
 	h.renderer.RenderPartial(w, "image_gallery", data)
 }
 
@@ -212,6 +240,14 @@ func (h *ImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if user == nil {
 		h.logger.Error("delete handler called without authenticated user")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse inspection ID
+	inspectionIDStr := r.PathValue("id")
+	inspectionID, err := uuid.Parse(inspectionIDStr)
+	if err != nil {
+		http.Error(w, "Invalid inspection ID", http.StatusBadRequest)
 		return
 	}
 
@@ -235,9 +271,52 @@ func (h *ImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return success with HX-Trigger to signal deletion
-	w.Header().Set("HX-Trigger", "imageDeleted")
-	w.WriteHeader(http.StatusOK)
+	// Fetch updated image list
+	images, err := h.imageService.ListByInspection(r.Context(), inspectionID, user.ID)
+	if err != nil {
+		h.logger.Error("failed to fetch images after delete", "error", err)
+		http.Error(w, "Delete completed but failed to refresh gallery", http.StatusInternalServerError)
+		return
+	}
+
+	// Get inspection to check if user can upload
+	inspection, err := h.inspectionService.GetByID(r.Context(), inspectionID, user.ID)
+	if err != nil {
+		h.logger.Error("failed to fetch inspection", "error", err)
+		http.Error(w, "Failed to fetch inspection", http.StatusInternalServerError)
+		return
+	}
+
+	// Populate thumbnail URLs
+	imageDisplays := make([]ImageDisplay, 0, len(images))
+	for _, img := range images {
+		thumbnailURL, err := h.imageService.GetThumbnailURL(r.Context(), img.ID, user.ID)
+		if err != nil {
+			h.logger.Error("failed to generate thumbnail URL", "error", err, "image_id", img.ID)
+			thumbnailURL = "" // Show broken image
+		}
+
+		imageDisplays = append(imageDisplays, ImageDisplay{
+			ID:               img.ID,
+			ThumbnailURL:     thumbnailURL,
+			OriginalFilename: img.OriginalFilename,
+			AnalysisStatus:   string(img.AnalysisStatus),
+			SizeMB:           img.SizeMB(),
+		})
+	}
+
+	// Render updated image gallery partial
+	data := ImageGalleryData{
+		InspectionID: inspectionID,
+		Images:       imageDisplays,
+		Errors:       []string{},
+		CanUpload:    inspection.CanAddPhotos(),
+	}
+
+	// Trigger analysis status refresh
+	w.Header().Set("HX-Trigger", "galleryUpdated")
+
+	h.renderer.RenderPartial(w, "image_gallery", data)
 }
 
 // =============================================================================
@@ -358,13 +437,19 @@ func (h *ImageHandler) ListImages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Populate thumbnail URLs
+	// Populate thumbnail URLs and check for analyzing images
 	imageDisplays := make([]ImageDisplay, 0, len(images))
+	isAnalyzing := false
 	for _, img := range images {
 		thumbnailURL, err := h.imageService.GetThumbnailURL(r.Context(), img.ID, user.ID)
 		if err != nil {
 			h.logger.Error("failed to generate thumbnail URL", "error", err, "image_id", img.ID)
 			thumbnailURL = "" // Show broken image
+		}
+
+		// Check if any image is being analyzed
+		if img.AnalysisStatus == domain.ImageAnalysisStatusAnalyzing {
+			isAnalyzing = true
 		}
 
 		imageDisplays = append(imageDisplays, ImageDisplay{
@@ -376,12 +461,18 @@ func (h *ImageHandler) ListImages(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Also check if inspection is in analyzing state
+	if inspection.Status == domain.InspectionStatusAnalyzing {
+		isAnalyzing = true
+	}
+
 	// Render image gallery partial
 	data := ImageGalleryData{
 		InspectionID: inspectionID,
 		Images:       imageDisplays,
 		Errors:       []string{},
 		CanUpload:    inspection.CanAddPhotos(),
+		IsAnalyzing:  isAnalyzing,
 	}
 
 	h.renderer.RenderPartial(w, "image_gallery", data)

@@ -50,15 +50,18 @@ type InspectionFormPageData struct {
 
 // InspectionShowPageData contains data for the inspection detail page.
 type InspectionShowPageData struct {
-	CurrentPath    string             // Current URL path
-	User           interface{}        // Authenticated user
-	Inspection     *domain.Inspection // Inspection details
-	InspectionID   uuid.UUID          // Inspection ID for templates
-	CanUpload      bool               // Whether user can upload images
-	GalleryData    ImageGalleryData   // Image gallery data
-	AnalysisStatus AnalysisStatusData // Analysis status data
-	Flash          *Flash             // Flash message (if any)
-	CSRFToken      string             // CSRF token for form protection
+	CurrentPath     string                 // Current URL path
+	User            interface{}            // Authenticated user
+	Inspection      *domain.Inspection     // Inspection details
+	InspectionID    uuid.UUID              // Inspection ID for templates
+	CanUpload       bool                   // Whether user can upload images
+	IsAnalyzing     bool                   // Whether analysis is currently running
+	GalleryData     ImageGalleryData       // Image gallery data
+	AnalysisStatus  AnalysisStatusData     // Analysis status data
+	Violations      []ViolationWithDetails // Violations with details
+	ViolationCounts ViolationCounts        // Summary counts
+	Flash           *Flash                 // Flash message (if any)
+	CSRFToken       string                 // CSRF token for form protection
 }
 
 // AnalysisStatusData contains data for the analysis status partial.
@@ -436,6 +439,51 @@ func (h *InspectionHandler) Show(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Fetch violations
+	violations, err := h.violationService.ListByInspection(r.Context(), id, user.ID)
+	if err != nil {
+		h.logger.Error("failed to list violations", "error", err, "inspection_id", id)
+		violations = []domain.Violation{} // Continue with empty list
+	}
+
+	// Build violation details with thumbnail URLs
+	violationDetails := make([]ViolationWithDetails, 0, len(violations))
+	for _, v := range violations {
+		// Get thumbnail URL if violation has an image
+		thumbnailURL := ""
+		if v.ImageID != nil {
+			thumbnailURL, err = h.imageService.GetThumbnailURL(r.Context(), *v.ImageID, user.ID)
+			if err != nil {
+				h.logger.Warn("failed to generate thumbnail URL",
+					"error", err,
+					"image_id", *v.ImageID,
+				)
+				// Continue with empty thumbnail URL
+			}
+		}
+
+		violationDetails = append(violationDetails, ViolationWithDetails{
+			Violation:    &v,
+			Regulations:  []domain.ViolationRegulation{}, // Skip regulations for show page
+			ThumbnailURL: thumbnailURL,
+		})
+	}
+
+	// Calculate violation counts by status
+	counts := ViolationCounts{
+		Total: len(violations),
+	}
+	for _, v := range violations {
+		switch v.Status {
+		case domain.ViolationStatusPending:
+			counts.Pending++
+		case domain.ViolationStatusConfirmed:
+			counts.Confirmed++
+		case domain.ViolationStatusRejected:
+			counts.Rejected++
+		}
+	}
+
 	// Render template
 	data := InspectionShowPageData{
 		CurrentPath:  r.URL.Path,
@@ -443,14 +491,18 @@ func (h *InspectionHandler) Show(w http.ResponseWriter, r *http.Request) {
 		Inspection:   inspection,
 		InspectionID: id,
 		CanUpload:    inspection.CanAddPhotos(),
+		IsAnalyzing:  analysisStatus.IsAnalyzing,
 		GalleryData: ImageGalleryData{
 			InspectionID: id,
 			Images:       imageDisplays,
 			Errors:       []string{},
 			CanUpload:    inspection.CanAddPhotos(),
+			IsAnalyzing:  analysisStatus.IsAnalyzing,
 		},
-		AnalysisStatus: *analysisStatus,
-		Flash:          nil,
+		AnalysisStatus:  *analysisStatus,
+		Violations:      violationDetails,
+		ViolationCounts: counts,
+		Flash:           nil,
 	}
 
 	h.renderer.RenderHTTP(w, "inspections/show", data)
