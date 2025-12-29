@@ -44,7 +44,6 @@ uploads/
 storage/
 
 # Air hot reload
-.air.toml
 tmp/
 
 # Build artifacts
