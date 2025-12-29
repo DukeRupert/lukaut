@@ -1,0 +1,171 @@
+{{define "title"}}New Client{{end}}
+
+{{define "breadcrumb"}}
+<nav class="flex" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-4">
+        <li>
+            <div>
+                <a href="/clients" class="text-gray-400 hover:text-gray-500">
+                    <span class="sr-only">Clients</span>
+                    Clients
+                </a>
+            </div>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <svg class="h-5 w-5 flex-shrink-0 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                </svg>
+                <span class="ml-4 text-sm font-medium text-gray-500">New</span>
+            </div>
+        </li>
+    </ol>
+</nav>
+{{end}}
+
+{{define "content"}}
+{{if .Flash}}
+<div class="rounded-md bg-red-50 p-4 mb-6">
+    <div class="flex">
+        <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+            </svg>
+        </div>
+        <div class="ml-3">
+            <p class="text-sm font-medium text-red-800">{{.Flash.Message}}</p>
+        </div>
+    </div>
+</div>
+{{end}}
+
+<div class="bg-white shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-base font-semibold leading-6 text-gray-900 mb-6">Create New Client</h3>
+
+        <form method="POST" action="/clients" class="space-y-6">
+            <!-- Name -->
+            <div>
+                <label for="name" class="block text-sm font-medium leading-6 text-gray-900">Company Name <span class="text-red-500">*</span></label>
+                <div class="mt-2">
+                    <input type="text" name="name" id="name" value="{{.Form.name}}" required
+                           placeholder="e.g., Greystar South Florida"
+                           class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6 {{if .Errors.name}}ring-red-500{{end}}">
+                </div>
+                {{if .Errors.name}}
+                <p class="mt-2 text-sm text-red-600">{{.Errors.name}}</p>
+                {{end}}
+            </div>
+
+            <!-- Contact Information -->
+            <div class="border-t border-gray-200 pt-6">
+                <h4 class="text-sm font-medium text-gray-900 mb-4">Contact Information</h4>
+
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <!-- Email -->
+                    <div>
+                        <label for="email" class="block text-sm font-medium leading-6 text-gray-900">Email</label>
+                        <div class="mt-2">
+                            <input type="email" name="email" id="email" value="{{.Form.email}}"
+                                   placeholder="contact@company.com"
+                                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6 {{if .Errors.email}}ring-red-500{{end}}">
+                        </div>
+                        {{if .Errors.email}}
+                        <p class="mt-2 text-sm text-red-600">{{.Errors.email}}</p>
+                        {{end}}
+                    </div>
+
+                    <!-- Phone -->
+                    <div>
+                        <label for="phone" class="block text-sm font-medium leading-6 text-gray-900">Phone</label>
+                        <div class="mt-2">
+                            <input type="tel" name="phone" id="phone" value="{{.Form.phone}}"
+                                   placeholder="(555) 123-4567"
+                                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Corporate Address -->
+            <div class="border-t border-gray-200 pt-6">
+                <h4 class="text-sm font-medium text-gray-900 mb-4">Corporate Address</h4>
+
+                <!-- Address Line 1 -->
+                <div class="mb-4">
+                    <label for="address_line1" class="block text-sm font-medium leading-6 text-gray-900">Street Address</label>
+                    <div class="mt-2">
+                        <input type="text" name="address_line1" id="address_line1" value="{{.Form.address_line1}}"
+                               placeholder="1012 NE 3rd Ave"
+                               class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6">
+                    </div>
+                </div>
+
+                <!-- Address Line 2 -->
+                <div class="mb-4">
+                    <label for="address_line2" class="block text-sm font-medium leading-6 text-gray-900">Suite / Floor</label>
+                    <div class="mt-2">
+                        <input type="text" name="address_line2" id="address_line2" value="{{.Form.address_line2}}"
+                               placeholder="Suite 1810"
+                               class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-3">
+                    <!-- City -->
+                    <div>
+                        <label for="city" class="block text-sm font-medium leading-6 text-gray-900">City</label>
+                        <div class="mt-2">
+                            <input type="text" name="city" id="city" value="{{.Form.city}}"
+                                   placeholder="Fort Lauderdale"
+                                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6">
+                        </div>
+                    </div>
+
+                    <!-- State -->
+                    <div>
+                        <label for="state" class="block text-sm font-medium leading-6 text-gray-900">State</label>
+                        <div class="mt-2">
+                            <input type="text" name="state" id="state" value="{{.Form.state}}"
+                                   placeholder="Florida"
+                                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6">
+                        </div>
+                    </div>
+
+                    <!-- Postal Code -->
+                    <div>
+                        <label for="postal_code" class="block text-sm font-medium leading-6 text-gray-900">ZIP Code</label>
+                        <div class="mt-2">
+                            <input type="text" name="postal_code" id="postal_code" value="{{.Form.postal_code}}"
+                                   placeholder="33301"
+                                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="border-t border-gray-200 pt-6">
+                <label for="notes" class="block text-sm font-medium leading-6 text-gray-900">Notes</label>
+                <div class="mt-2">
+                    <textarea name="notes" id="notes" rows="3"
+                              placeholder="Any additional information about this client..."
+                              class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6">{{.Form.notes}}</textarea>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center justify-end gap-x-3 pt-6 border-t border-gray-200">
+                <a href="/clients"
+                   class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                    Cancel
+                </a>
+                <button type="submit"
+                        class="rounded-md bg-safety-orange px-3 py-2 text-sm font-semibold text-navy shadow-sm hover:bg-safety-orange/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold">
+                    Create Client
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}

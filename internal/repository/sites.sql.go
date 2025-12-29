@@ -28,7 +28,7 @@ INSERT INTO sites (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 )
-RETURNING id, user_id, name, address_line1, address_line2, city, state, postal_code, client_name, client_email, client_phone, notes, created_at, updated_at
+RETURNING id, user_id, name, address_line1, address_line2, city, state, postal_code, client_name, client_email, client_phone, notes, created_at, updated_at, client_id
 `
 
 type CreateSiteParams struct {
@@ -75,6 +75,69 @@ func (q *Queries) CreateSite(ctx context.Context, arg CreateSiteParams) (Site, e
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ClientID,
+	)
+	return i, err
+}
+
+const createSiteWithClient = `-- name: CreateSiteWithClient :one
+INSERT INTO sites (
+    user_id,
+    name,
+    address_line1,
+    address_line2,
+    city,
+    state,
+    postal_code,
+    client_id,
+    notes
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+)
+RETURNING id, user_id, name, address_line1, address_line2, city, state, postal_code, client_name, client_email, client_phone, notes, created_at, updated_at, client_id
+`
+
+type CreateSiteWithClientParams struct {
+	UserID       uuid.UUID      `json:"user_id"`
+	Name         string         `json:"name"`
+	AddressLine1 string         `json:"address_line1"`
+	AddressLine2 sql.NullString `json:"address_line2"`
+	City         string         `json:"city"`
+	State        string         `json:"state"`
+	PostalCode   string         `json:"postal_code"`
+	ClientID     uuid.NullUUID  `json:"client_id"`
+	Notes        sql.NullString `json:"notes"`
+}
+
+func (q *Queries) CreateSiteWithClient(ctx context.Context, arg CreateSiteWithClientParams) (Site, error) {
+	row := q.db.QueryRowContext(ctx, createSiteWithClient,
+		arg.UserID,
+		arg.Name,
+		arg.AddressLine1,
+		arg.AddressLine2,
+		arg.City,
+		arg.State,
+		arg.PostalCode,
+		arg.ClientID,
+		arg.Notes,
+	)
+	var i Site
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.City,
+		&i.State,
+		&i.PostalCode,
+		&i.ClientName,
+		&i.ClientEmail,
+		&i.ClientPhone,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ClientID,
 	)
 	return i, err
 }
@@ -90,7 +153,7 @@ func (q *Queries) DeleteSite(ctx context.Context, id uuid.UUID) error {
 }
 
 const getSiteByID = `-- name: GetSiteByID :one
-SELECT id, user_id, name, address_line1, address_line2, city, state, postal_code, client_name, client_email, client_phone, notes, created_at, updated_at FROM sites
+SELECT id, user_id, name, address_line1, address_line2, city, state, postal_code, client_name, client_email, client_phone, notes, created_at, updated_at, client_id FROM sites
 WHERE id = $1
 `
 
@@ -112,12 +175,13 @@ func (q *Queries) GetSiteByID(ctx context.Context, id uuid.UUID) (Site, error) {
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ClientID,
 	)
 	return i, err
 }
 
 const getSiteByIDAndUserID = `-- name: GetSiteByIDAndUserID :one
-SELECT id, user_id, name, address_line1, address_line2, city, state, postal_code, client_name, client_email, client_phone, notes, created_at, updated_at FROM sites
+SELECT id, user_id, name, address_line1, address_line2, city, state, postal_code, client_name, client_email, client_phone, notes, created_at, updated_at, client_id FROM sites
 WHERE id = $1 AND user_id = $2
 `
 
@@ -144,12 +208,140 @@ func (q *Queries) GetSiteByIDAndUserID(ctx context.Context, arg GetSiteByIDAndUs
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ClientID,
 	)
 	return i, err
 }
 
+const getSiteWithClientByIDAndUserID = `-- name: GetSiteWithClientByIDAndUserID :one
+SELECT
+    s.id,
+    s.user_id,
+    s.name,
+    s.address_line1,
+    s.address_line2,
+    s.city,
+    s.state,
+    s.postal_code,
+    s.client_id,
+    s.client_name,
+    s.client_email,
+    s.client_phone,
+    s.notes,
+    s.created_at,
+    s.updated_at,
+    COALESCE(c.name, '') AS client_name_resolved,
+    COALESCE(c.email, '') AS client_email_resolved,
+    COALESCE(c.phone, '') AS client_phone_resolved
+FROM sites s
+LEFT JOIN clients c ON c.id = s.client_id
+WHERE s.id = $1 AND s.user_id = $2
+`
+
+type GetSiteWithClientByIDAndUserIDParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+type GetSiteWithClientByIDAndUserIDRow struct {
+	ID                  uuid.UUID      `json:"id"`
+	UserID              uuid.UUID      `json:"user_id"`
+	Name                string         `json:"name"`
+	AddressLine1        string         `json:"address_line1"`
+	AddressLine2        sql.NullString `json:"address_line2"`
+	City                string         `json:"city"`
+	State               string         `json:"state"`
+	PostalCode          string         `json:"postal_code"`
+	ClientID            uuid.NullUUID  `json:"client_id"`
+	ClientName          sql.NullString `json:"client_name"`
+	ClientEmail         sql.NullString `json:"client_email"`
+	ClientPhone         sql.NullString `json:"client_phone"`
+	Notes               sql.NullString `json:"notes"`
+	CreatedAt           sql.NullTime   `json:"created_at"`
+	UpdatedAt           sql.NullTime   `json:"updated_at"`
+	ClientNameResolved  string         `json:"client_name_resolved"`
+	ClientEmailResolved string         `json:"client_email_resolved"`
+	ClientPhoneResolved string         `json:"client_phone_resolved"`
+}
+
+func (q *Queries) GetSiteWithClientByIDAndUserID(ctx context.Context, arg GetSiteWithClientByIDAndUserIDParams) (GetSiteWithClientByIDAndUserIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getSiteWithClientByIDAndUserID, arg.ID, arg.UserID)
+	var i GetSiteWithClientByIDAndUserIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.City,
+		&i.State,
+		&i.PostalCode,
+		&i.ClientID,
+		&i.ClientName,
+		&i.ClientEmail,
+		&i.ClientPhone,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ClientNameResolved,
+		&i.ClientEmailResolved,
+		&i.ClientPhoneResolved,
+	)
+	return i, err
+}
+
+const listSitesByClientID = `-- name: ListSitesByClientID :many
+SELECT id, user_id, name, address_line1, address_line2, city, state, postal_code, client_name, client_email, client_phone, notes, created_at, updated_at, client_id FROM sites
+WHERE client_id = $1 AND user_id = $2
+ORDER BY name ASC
+`
+
+type ListSitesByClientIDParams struct {
+	ClientID uuid.NullUUID `json:"client_id"`
+	UserID   uuid.UUID     `json:"user_id"`
+}
+
+func (q *Queries) ListSitesByClientID(ctx context.Context, arg ListSitesByClientIDParams) ([]Site, error) {
+	rows, err := q.db.QueryContext(ctx, listSitesByClientID, arg.ClientID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Site{}
+	for rows.Next() {
+		var i Site
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.AddressLine1,
+			&i.AddressLine2,
+			&i.City,
+			&i.State,
+			&i.PostalCode,
+			&i.ClientName,
+			&i.ClientEmail,
+			&i.ClientPhone,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ClientID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSitesByUserID = `-- name: ListSitesByUserID :many
-SELECT id, user_id, name, address_line1, address_line2, city, state, postal_code, client_name, client_email, client_phone, notes, created_at, updated_at FROM sites
+SELECT id, user_id, name, address_line1, address_line2, city, state, postal_code, client_name, client_email, client_phone, notes, created_at, updated_at, client_id FROM sites
 WHERE user_id = $1
 ORDER BY name ASC
 `
@@ -178,6 +370,90 @@ func (q *Queries) ListSitesByUserID(ctx context.Context, userID uuid.UUID) ([]Si
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ClientID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSitesWithClientByUserID = `-- name: ListSitesWithClientByUserID :many
+SELECT
+    s.id,
+    s.user_id,
+    s.name,
+    s.address_line1,
+    s.address_line2,
+    s.city,
+    s.state,
+    s.postal_code,
+    s.client_id,
+    s.client_name,
+    s.client_email,
+    s.client_phone,
+    s.notes,
+    s.created_at,
+    s.updated_at,
+    COALESCE(c.name, '') AS client_name_resolved
+FROM sites s
+LEFT JOIN clients c ON c.id = s.client_id
+WHERE s.user_id = $1
+ORDER BY s.name ASC
+`
+
+type ListSitesWithClientByUserIDRow struct {
+	ID                 uuid.UUID      `json:"id"`
+	UserID             uuid.UUID      `json:"user_id"`
+	Name               string         `json:"name"`
+	AddressLine1       string         `json:"address_line1"`
+	AddressLine2       sql.NullString `json:"address_line2"`
+	City               string         `json:"city"`
+	State              string         `json:"state"`
+	PostalCode         string         `json:"postal_code"`
+	ClientID           uuid.NullUUID  `json:"client_id"`
+	ClientName         sql.NullString `json:"client_name"`
+	ClientEmail        sql.NullString `json:"client_email"`
+	ClientPhone        sql.NullString `json:"client_phone"`
+	Notes              sql.NullString `json:"notes"`
+	CreatedAt          sql.NullTime   `json:"created_at"`
+	UpdatedAt          sql.NullTime   `json:"updated_at"`
+	ClientNameResolved string         `json:"client_name_resolved"`
+}
+
+func (q *Queries) ListSitesWithClientByUserID(ctx context.Context, userID uuid.UUID) ([]ListSitesWithClientByUserIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSitesWithClientByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSitesWithClientByUserIDRow{}
+	for rows.Next() {
+		var i ListSitesWithClientByUserIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.AddressLine1,
+			&i.AddressLine2,
+			&i.City,
+			&i.State,
+			&i.PostalCode,
+			&i.ClientID,
+			&i.ClientName,
+			&i.ClientEmail,
+			&i.ClientPhone,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ClientNameResolved,
 		); err != nil {
 			return nil, err
 		}
@@ -234,6 +510,90 @@ func (q *Queries) UpdateSite(ctx context.Context, arg UpdateSiteParams) error {
 		arg.ClientName,
 		arg.ClientEmail,
 		arg.ClientPhone,
+		arg.Notes,
+	)
+	return err
+}
+
+const updateSiteWithClient = `-- name: UpdateSiteWithClient :exec
+UPDATE sites
+SET name = $2,
+    address_line1 = $3,
+    address_line2 = $4,
+    city = $5,
+    state = $6,
+    postal_code = $7,
+    client_id = $8,
+    notes = $9,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateSiteWithClientParams struct {
+	ID           uuid.UUID      `json:"id"`
+	Name         string         `json:"name"`
+	AddressLine1 string         `json:"address_line1"`
+	AddressLine2 sql.NullString `json:"address_line2"`
+	City         string         `json:"city"`
+	State        string         `json:"state"`
+	PostalCode   string         `json:"postal_code"`
+	ClientID     uuid.NullUUID  `json:"client_id"`
+	Notes        sql.NullString `json:"notes"`
+}
+
+func (q *Queries) UpdateSiteWithClient(ctx context.Context, arg UpdateSiteWithClientParams) error {
+	_, err := q.db.ExecContext(ctx, updateSiteWithClient,
+		arg.ID,
+		arg.Name,
+		arg.AddressLine1,
+		arg.AddressLine2,
+		arg.City,
+		arg.State,
+		arg.PostalCode,
+		arg.ClientID,
+		arg.Notes,
+	)
+	return err
+}
+
+const updateSiteWithClientByIDAndUserID = `-- name: UpdateSiteWithClientByIDAndUserID :exec
+UPDATE sites
+SET name = $3,
+    address_line1 = $4,
+    address_line2 = $5,
+    city = $6,
+    state = $7,
+    postal_code = $8,
+    client_id = $9,
+    notes = $10,
+    updated_at = NOW()
+WHERE id = $1 AND user_id = $2
+`
+
+type UpdateSiteWithClientByIDAndUserIDParams struct {
+	ID           uuid.UUID      `json:"id"`
+	UserID       uuid.UUID      `json:"user_id"`
+	Name         string         `json:"name"`
+	AddressLine1 string         `json:"address_line1"`
+	AddressLine2 sql.NullString `json:"address_line2"`
+	City         string         `json:"city"`
+	State        string         `json:"state"`
+	PostalCode   string         `json:"postal_code"`
+	ClientID     uuid.NullUUID  `json:"client_id"`
+	Notes        sql.NullString `json:"notes"`
+}
+
+func (q *Queries) UpdateSiteWithClientByIDAndUserID(ctx context.Context, arg UpdateSiteWithClientByIDAndUserIDParams) error {
+	_, err := q.db.ExecContext(ctx, updateSiteWithClientByIDAndUserID,
+		arg.ID,
+		arg.UserID,
+		arg.Name,
+		arg.AddressLine1,
+		arg.AddressLine2,
+		arg.City,
+		arg.State,
+		arg.PostalCode,
+		arg.ClientID,
 		arg.Notes,
 	)
 	return err

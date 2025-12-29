@@ -99,6 +99,7 @@ func run() error {
 	userService := service.NewUserService(repo, logger)
 	inspectionService := service.NewInspectionService(repo, logger)
 	violationService := service.NewViolationService(repo, logger)
+	clientService := service.NewClientService(repo, logger)
 
 	// Initialize thumbnail processor
 	thumbnailProcessor := service.NewImagingProcessor()
@@ -194,6 +195,7 @@ func run() error {
 	violationHandler := handler.NewViolationHandler(violationService, inspectionService, imageService, renderer, logger)
 	regulationHandler := handler.NewRegulationHandler(repo, renderer, logger)
 	settingsHandler := handler.NewSettingsHandler(userService, renderer, logger)
+	clientHandler := handler.NewClientHandler(clientService, renderer, logger)
 
 	// ==========================================================================
 	// Create router and register routes
@@ -253,6 +255,9 @@ func run() error {
 
 	// Settings routes (requires authentication)
 	settingsHandler.RegisterRoutes(mux, requireUser)
+
+	// Client routes (requires authentication)
+	clientHandler.RegisterRoutes(mux, requireUser)
 
 	// ==========================================================================
 	// Start server

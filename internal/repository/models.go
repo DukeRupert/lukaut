@@ -25,6 +25,22 @@ type AiUsage struct {
 	CreatedAt    sql.NullTime  `json:"created_at"`
 }
 
+type Client struct {
+	ID           uuid.UUID      `json:"id"`
+	UserID       uuid.UUID      `json:"user_id"`
+	Name         string         `json:"name"`
+	Email        sql.NullString `json:"email"`
+	Phone        sql.NullString `json:"phone"`
+	AddressLine1 sql.NullString `json:"address_line1"`
+	AddressLine2 sql.NullString `json:"address_line2"`
+	City         sql.NullString `json:"city"`
+	State        sql.NullString `json:"state"`
+	PostalCode   sql.NullString `json:"postal_code"`
+	Notes        sql.NullString `json:"notes"`
+	CreatedAt    sql.NullTime   `json:"created_at"`
+	UpdatedAt    sql.NullTime   `json:"updated_at"`
+}
+
 type EmailVerificationToken struct {
 	ID        uuid.UUID    `json:"id"`
 	UserID    uuid.UUID    `json:"user_id"`
@@ -136,6 +152,7 @@ type Site struct {
 	Notes        sql.NullString `json:"notes"`
 	CreatedAt    sql.NullTime   `json:"created_at"`
 	UpdatedAt    sql.NullTime   `json:"updated_at"`
+	ClientID     uuid.NullUUID  `json:"client_id"`
 }
 
 type User struct {
