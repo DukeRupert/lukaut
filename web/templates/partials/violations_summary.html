@@ -1,0 +1,35 @@
+{{define "partials/violations_summary"}}
+<div id="violations-summary"
+     {{if .IsAnalyzing}}
+     hx-get="/inspections/{{.InspectionID}}/violations-summary"
+     hx-trigger="every 3s"
+     hx-swap="outerHTML"
+     {{end}}
+     class="bg-white shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-base font-semibold leading-6 text-gray-900">Violations</h3>
+                {{if gt .ViolationCounts.Total 0}}
+                <p class="mt-1 text-sm text-gray-500">
+                    {{.ViolationCounts.Total}} potential violation{{if ne .ViolationCounts.Total 1}}s{{end}} identified
+                    {{if gt .ViolationCounts.Pending 0}}({{.ViolationCounts.Pending}} pending review){{end}}
+                </p>
+                {{else}}
+                <p class="mt-1 text-sm text-gray-500">No violations identified yet</p>
+                {{end}}
+            </div>
+            {{if gt .ViolationCounts.Total 0}}
+            <a href="/inspections/{{.InspectionID}}/review"
+               class="inline-flex items-center rounded-md bg-navy px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-navy/90">
+                <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+                    <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                </svg>
+                Review Violations
+            </a>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

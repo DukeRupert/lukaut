@@ -184,6 +184,7 @@ func (h *InspectionHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(
 	mux.Handle("POST /inspections/{id}/analyze", requireUser(http.HandlerFunc(h.TriggerAnalysis)))
 	mux.Handle("GET /inspections/{id}/status", requireUser(http.HandlerFunc(h.GetStatus)))
 	mux.Handle("GET /inspections/{id}/review", requireUser(http.HandlerFunc(h.Review)))
+	mux.Handle("GET /inspections/{id}/violations-summary", requireUser(http.HandlerFunc(h.ViolationsSummary)))
 }
 
 // =============================================================================
@@ -965,6 +966,75 @@ func (h *InspectionHandler) Review(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.renderer.RenderHTTP(w, "inspections/review", data)
+}
+
+// =============================================================================
+// GET /inspections/{id}/violations-summary - Violations Summary Partial
+// =============================================================================
+
+// ViolationsSummary returns the violations summary partial for htmx polling.
+func (h *InspectionHandler) ViolationsSummary(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromRequest(r)
+	if user == nil {
+		h.logger.Error("violations summary handler called without authenticated user")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse inspection ID
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid inspection ID", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch inspection to get status
+	inspection, err := h.inspectionService.GetByID(r.Context(), id, user.ID)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		if code == domain.ENOTFOUND {
+			http.Error(w, "Inspection not found", http.StatusNotFound)
+		} else {
+			h.logger.Error("failed to fetch inspection", "error", err)
+			http.Error(w, "Failed to fetch inspection", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Fetch violations
+	violations, err := h.violationService.ListByInspection(r.Context(), id, user.ID)
+	if err != nil {
+		h.logger.Error("failed to list violations", "error", err, "inspection_id", id)
+		violations = []domain.Violation{} // Continue with empty list
+	}
+
+	// Calculate violation counts by status
+	counts := ViolationCounts{
+		Total: len(violations),
+	}
+	for _, v := range violations {
+		switch v.Status {
+		case domain.ViolationStatusPending:
+			counts.Pending++
+		case domain.ViolationStatusConfirmed:
+			counts.Confirmed++
+		case domain.ViolationStatusRejected:
+			counts.Rejected++
+		}
+	}
+
+	// Check if analysis is running
+	isAnalyzing := inspection.Status == domain.InspectionStatusAnalyzing
+
+	// Render violations summary partial
+	data := InspectionShowPageData{
+		InspectionID:    id,
+		IsAnalyzing:     isAnalyzing,
+		ViolationCounts: counts,
+	}
+
+	h.renderer.RenderPartial(w, "partials/violations_summary", data)
 }
 
 // =============================================================================
