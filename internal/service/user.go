@@ -95,6 +95,10 @@ type UserService interface {
 	// Returns domain.ENOTFOUND if user does not exist.
 	UpdateProfile(ctx context.Context, params domain.ProfileUpdateParams) error
 
+	// UpdateBusinessProfile updates a user's business profile information.
+	// Returns domain.ENOTFOUND if user does not exist.
+	UpdateBusinessProfile(ctx context.Context, params domain.BusinessProfileUpdateParams) error
+
 	// ChangePassword changes a user's password.
 	// Validates the current password before allowing the change.
 	// Invalidates all existing sessions after password change.
@@ -525,6 +529,58 @@ func (s *userService) UpdateProfile(ctx context.Context, params domain.ProfileUp
 }
 
 // =============================================================================
+// UpdateBusinessProfile Implementation
+// =============================================================================
+
+// UpdateBusinessProfile updates a user's business profile information.
+func (s *userService) UpdateBusinessProfile(ctx context.Context, params domain.BusinessProfileUpdateParams) error {
+	const op = "UserService.UpdateBusinessProfile"
+
+	// Normalize input
+	params.BusinessName = strings.TrimSpace(params.BusinessName)
+	params.BusinessEmail = strings.TrimSpace(params.BusinessEmail)
+	params.BusinessPhone = strings.TrimSpace(params.BusinessPhone)
+	params.AddressLine1 = strings.TrimSpace(params.AddressLine1)
+	params.AddressLine2 = strings.TrimSpace(params.AddressLine2)
+	params.City = strings.TrimSpace(params.City)
+	params.State = strings.TrimSpace(params.State)
+	params.PostalCode = strings.TrimSpace(params.PostalCode)
+	params.LicenseNumber = strings.TrimSpace(params.LicenseNumber)
+
+	// Verify user exists
+	_, err := s.queries.GetUserByID(ctx, params.UserID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.NotFound(op, "user", params.UserID.String())
+		}
+		return domain.Internal(err, op, "Failed to retrieve user")
+	}
+
+	// Update user business profile
+	err = s.queries.UpdateUserBusinessProfile(ctx, repository.UpdateUserBusinessProfileParams{
+		ID:                    params.UserID,
+		BusinessName:          domain.ToNullString(params.BusinessName),
+		BusinessEmail:         domain.ToNullString(params.BusinessEmail),
+		BusinessPhone:         domain.ToNullString(params.BusinessPhone),
+		BusinessAddressLine1:  domain.ToNullString(params.AddressLine1),
+		BusinessAddressLine2:  domain.ToNullString(params.AddressLine2),
+		BusinessCity:          domain.ToNullString(params.City),
+		BusinessState:         domain.ToNullString(params.State),
+		BusinessPostalCode:    domain.ToNullString(params.PostalCode),
+		BusinessLicenseNumber: domain.ToNullString(params.LicenseNumber),
+		BusinessLogoUrl:       domain.ToNullString(params.LogoURL),
+	})
+	if err != nil {
+		return domain.Internal(err, op, "Failed to update business profile")
+	}
+
+	// Log update
+	s.logger.Info("user business profile updated", "user_id", params.UserID)
+
+	return nil
+}
+
+// =============================================================================
 // ChangePassword Implementation
 // =============================================================================
 
@@ -687,6 +743,18 @@ func repoUserToDomain(u repository.User) *domain.User {
 		EmailVerifiedAt:    emailVerifiedAt,
 		CreatedAt:          createdAt,
 		UpdatedAt:          updatedAt,
+
+		// Business profile fields
+		BusinessName:          domain.NullStringValue(u.BusinessName),
+		BusinessEmail:         domain.NullStringValue(u.BusinessEmail),
+		BusinessPhone:         domain.NullStringValue(u.BusinessPhone),
+		BusinessAddressLine1:  domain.NullStringValue(u.BusinessAddressLine1),
+		BusinessAddressLine2:  domain.NullStringValue(u.BusinessAddressLine2),
+		BusinessCity:          domain.NullStringValue(u.BusinessCity),
+		BusinessState:         domain.NullStringValue(u.BusinessState),
+		BusinessPostalCode:    domain.NullStringValue(u.BusinessPostalCode),
+		BusinessLicenseNumber: domain.NullStringValue(u.BusinessLicenseNumber),
+		BusinessLogoURL:       domain.NullStringValue(u.BusinessLogoUrl),
 	}
 }
 

@@ -170,6 +170,26 @@ type User struct {
 	EmailVerifiedAt    sql.NullTime   `json:"email_verified_at"`
 	CreatedAt          sql.NullTime   `json:"created_at"`
 	UpdatedAt          sql.NullTime   `json:"updated_at"`
+	// Business/company name for report headers
+	BusinessName sql.NullString `json:"business_name"`
+	// Business contact email for reports
+	BusinessEmail sql.NullString `json:"business_email"`
+	// Business phone number for reports
+	BusinessPhone sql.NullString `json:"business_phone"`
+	// Business street address
+	BusinessAddressLine1 sql.NullString `json:"business_address_line1"`
+	// Business suite/unit number
+	BusinessAddressLine2 sql.NullString `json:"business_address_line2"`
+	// Business city
+	BusinessCity sql.NullString `json:"business_city"`
+	// Business state
+	BusinessState sql.NullString `json:"business_state"`
+	// Business ZIP/postal code
+	BusinessPostalCode sql.NullString `json:"business_postal_code"`
+	// Professional license or certification number
+	BusinessLicenseNumber sql.NullString `json:"business_license_number"`
+	// URL to uploaded business logo image
+	BusinessLogoUrl sql.NullString `json:"business_logo_url"`
 }
 
 type Violation struct {

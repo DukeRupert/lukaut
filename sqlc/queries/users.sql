@@ -56,3 +56,18 @@ WHERE id = $1;
 -- name: GetUserByStripeCustomerID :one
 SELECT * FROM users
 WHERE stripe_customer_id = $1;
+
+-- name: UpdateUserBusinessProfile :exec
+UPDATE users
+SET business_name = $2,
+    business_email = $3,
+    business_phone = $4,
+    business_address_line1 = $5,
+    business_address_line2 = $6,
+    business_city = $7,
+    business_state = $8,
+    business_postal_code = $9,
+    business_license_number = $10,
+    business_logo_url = $11,
+    updated_at = NOW()
+WHERE id = $1;

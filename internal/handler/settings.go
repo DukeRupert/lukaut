@@ -356,6 +356,206 @@ func (h *SettingsHandler) renderPasswordError(
 }
 
 // =============================================================================
+// GET /settings/business - Show Business Form
+// =============================================================================
+
+// ShowBusiness renders the business settings form.
+func (h *SettingsHandler) ShowBusiness(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUser(r.Context())
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	// Check for success flash from query param
+	var flash *Flash
+	if r.URL.Query().Get("updated") == "1" {
+		flash = &Flash{
+			Type:    "success",
+			Message: "Business information updated successfully.",
+		}
+	}
+
+	data := SettingsPageData{
+		CurrentPath: r.URL.Path,
+		User:        user,
+		CSRFToken:   "",
+		Form: map[string]string{
+			"BusinessName":          user.BusinessName,
+			"BusinessEmail":         user.BusinessEmail,
+			"BusinessPhone":         user.BusinessPhone,
+			"BusinessAddressLine1":  user.BusinessAddressLine1,
+			"BusinessAddressLine2":  user.BusinessAddressLine2,
+			"BusinessCity":          user.BusinessCity,
+			"BusinessState":         user.BusinessState,
+			"BusinessPostalCode":    user.BusinessPostalCode,
+			"BusinessLicenseNumber": user.BusinessLicenseNumber,
+			"BusinessLogoURL":       user.BusinessLogoURL,
+		},
+		Errors:    make(map[string]string),
+		Flash:     flash,
+		ActiveTab: "business",
+	}
+
+	h.renderer.RenderHTTP(w, "settings/business", data)
+}
+
+// =============================================================================
+// POST /settings/business - Update Business
+// =============================================================================
+
+// UpdateBusiness processes the business settings form submission.
+func (h *SettingsHandler) UpdateBusiness(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUser(r.Context())
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error("failed to parse form", "error", err)
+		h.renderBusinessError(w, r, user, nil, nil, &Flash{
+			Type:    "error",
+			Message: "Invalid form submission. Please try again.",
+		})
+		return
+	}
+
+	// Extract and normalize form values
+	businessName := strings.TrimSpace(r.FormValue("business_name"))
+	businessEmail := strings.TrimSpace(r.FormValue("business_email"))
+	businessPhone := strings.TrimSpace(r.FormValue("business_phone"))
+	addressLine1 := strings.TrimSpace(r.FormValue("address_line1"))
+	addressLine2 := strings.TrimSpace(r.FormValue("address_line2"))
+	city := strings.TrimSpace(r.FormValue("city"))
+	state := strings.TrimSpace(r.FormValue("state"))
+	postalCode := strings.TrimSpace(r.FormValue("postal_code"))
+	licenseNumber := strings.TrimSpace(r.FormValue("license_number"))
+
+	// Store form values for re-rendering
+	formValues := map[string]string{
+		"BusinessName":          businessName,
+		"BusinessEmail":         businessEmail,
+		"BusinessPhone":         businessPhone,
+		"BusinessAddressLine1":  addressLine1,
+		"BusinessAddressLine2":  addressLine2,
+		"BusinessCity":          city,
+		"BusinessState":         state,
+		"BusinessPostalCode":    postalCode,
+		"BusinessLicenseNumber": licenseNumber,
+		"BusinessLogoURL":       user.BusinessLogoURL, // Preserve existing logo
+	}
+
+	// Validate form fields
+	errors := make(map[string]string)
+
+	if len(businessName) > 255 {
+		errors["business_name"] = "Business name must be 255 characters or less"
+	}
+
+	if len(businessEmail) > 255 {
+		errors["business_email"] = "Business email must be 255 characters or less"
+	}
+
+	if len(businessPhone) > 50 {
+		errors["business_phone"] = "Business phone must be 50 characters or less"
+	}
+
+	if len(addressLine1) > 255 {
+		errors["address_line1"] = "Street address must be 255 characters or less"
+	}
+
+	if len(licenseNumber) > 100 {
+		errors["license_number"] = "License number must be 100 characters or less"
+	}
+
+	// If validation errors, re-render form
+	if len(errors) > 0 {
+		h.renderBusinessError(w, r, user, formValues, errors, nil)
+		return
+	}
+
+	// Call UserService.UpdateBusinessProfile
+	err := h.userService.UpdateBusinessProfile(r.Context(), domain.BusinessProfileUpdateParams{
+		UserID:        user.ID,
+		BusinessName:  businessName,
+		BusinessEmail: businessEmail,
+		BusinessPhone: businessPhone,
+		AddressLine1:  addressLine1,
+		AddressLine2:  addressLine2,
+		City:          city,
+		State:         state,
+		PostalCode:    postalCode,
+		LicenseNumber: licenseNumber,
+		LogoURL:       user.BusinessLogoURL, // Preserve existing logo
+	})
+	if err != nil {
+		code := domain.ErrorCode(err)
+		switch code {
+		case domain.EINVALID:
+			h.renderBusinessError(w, r, user, formValues, nil, &Flash{
+				Type:    "error",
+				Message: domain.ErrorMessage(err),
+			})
+		default:
+			h.logger.Error("business profile update failed", "error", err, "user_id", user.ID)
+			h.renderBusinessError(w, r, user, formValues, nil, &Flash{
+				Type:    "error",
+				Message: "Failed to update business information. Please try again later.",
+			})
+		}
+		return
+	}
+
+	// Log successful update
+	h.logger.Info("user business profile updated", "user_id", user.ID)
+
+	// Redirect with success message
+	http.Redirect(w, r, "/settings/business?updated=1", http.StatusSeeOther)
+}
+
+// renderBusinessError re-renders the business form with errors.
+func (h *SettingsHandler) renderBusinessError(
+	w http.ResponseWriter,
+	r *http.Request,
+	user *domain.User,
+	formValues map[string]string,
+	errors map[string]string,
+	flash *Flash,
+) {
+	if formValues == nil {
+		formValues = map[string]string{
+			"BusinessName":          user.BusinessName,
+			"BusinessEmail":         user.BusinessEmail,
+			"BusinessPhone":         user.BusinessPhone,
+			"BusinessAddressLine1":  user.BusinessAddressLine1,
+			"BusinessAddressLine2":  user.BusinessAddressLine2,
+			"BusinessCity":          user.BusinessCity,
+			"BusinessState":         user.BusinessState,
+			"BusinessPostalCode":    user.BusinessPostalCode,
+			"BusinessLicenseNumber": user.BusinessLicenseNumber,
+			"BusinessLogoURL":       user.BusinessLogoURL,
+		}
+	}
+	if errors == nil {
+		errors = make(map[string]string)
+	}
+
+	data := SettingsPageData{
+		CurrentPath: "/settings/business",
+		User:        user,
+		CSRFToken:   "",
+		Form:        formValues,
+		Errors:      errors,
+		Flash:       flash,
+		ActiveTab:   "business",
+	}
+
+	h.renderer.RenderHTTP(w, "settings/business", data)
+}
+
+// =============================================================================
 // Route Registration Helper
 // =============================================================================
 
@@ -365,4 +565,6 @@ func (h *SettingsHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(ht
 	mux.Handle("POST /settings/profile", requireUser(http.HandlerFunc(h.UpdateProfile)))
 	mux.Handle("GET /settings/password", requireUser(http.HandlerFunc(h.ShowPassword)))
 	mux.Handle("POST /settings/password", requireUser(http.HandlerFunc(h.ChangePassword)))
+	mux.Handle("GET /settings/business", requireUser(http.HandlerFunc(h.ShowBusiness)))
+	mux.Handle("POST /settings/business", requireUser(http.HandlerFunc(h.UpdateBusiness)))
 }

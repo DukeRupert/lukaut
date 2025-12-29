@@ -54,6 +54,18 @@ type User struct {
 	EmailVerifiedAt    *time.Time
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+
+	// Business profile fields for report generation
+	BusinessName          string
+	BusinessEmail         string
+	BusinessPhone         string
+	BusinessAddressLine1  string
+	BusinessAddressLine2  string
+	BusinessCity          string
+	BusinessState         string
+	BusinessPostalCode    string
+	BusinessLicenseNumber string
+	BusinessLogoURL       string
 }
 
 // IsActive returns true if the user has an active subscription or is trialing.
@@ -79,6 +91,16 @@ func (u *User) DisplayName() string {
 		return u.Name
 	}
 	return u.Email
+}
+
+// HasBusinessAddress returns true if any business address fields are populated.
+func (u *User) HasBusinessAddress() bool {
+	return u.BusinessAddressLine1 != "" || u.BusinessCity != "" || u.BusinessState != "" || u.BusinessPostalCode != ""
+}
+
+// HasBusinessProfile returns true if basic business info is populated.
+func (u *User) HasBusinessProfile() bool {
+	return u.BusinessName != "" || u.HasBusinessAddress()
 }
 
 // Session represents an authenticated session.
@@ -126,6 +148,21 @@ type ProfileUpdateParams struct {
 	Name        string
 	CompanyName string
 	Phone       string
+}
+
+// BusinessProfileUpdateParams contains parameters for updating a user's business profile.
+type BusinessProfileUpdateParams struct {
+	UserID        uuid.UUID
+	BusinessName  string
+	BusinessEmail string
+	BusinessPhone string
+	AddressLine1  string
+	AddressLine2  string
+	City          string
+	State         string
+	PostalCode    string
+	LicenseNumber string
+	LogoURL       string
 }
 
 // =============================================================================

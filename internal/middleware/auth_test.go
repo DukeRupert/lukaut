@@ -55,6 +55,10 @@ func (m *mockUserService) UpdateProfile(ctx context.Context, params domain.Profi
 	return errors.New("not implemented")
 }
 
+func (m *mockUserService) UpdateBusinessProfile(ctx context.Context, params domain.BusinessProfileUpdateParams) error {
+	return errors.New("not implemented")
+}
+
 func (m *mockUserService) ChangePassword(ctx context.Context, params domain.PasswordChangeParams) error {
 	return errors.New("not implemented")
 }

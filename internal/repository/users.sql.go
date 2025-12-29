@@ -22,7 +22,7 @@ INSERT INTO users (
 ) VALUES (
     $1, $2, $3, $4, $5
 )
-RETURNING id, email, password_hash, name, company_name, phone, stripe_customer_id, subscription_status, subscription_tier, subscription_id, email_verified, email_verified_at, created_at, updated_at
+RETURNING id, email, password_hash, name, company_name, phone, stripe_customer_id, subscription_status, subscription_tier, subscription_id, email_verified, email_verified_at, created_at, updated_at, business_name, business_email, business_phone, business_address_line1, business_address_line2, business_city, business_state, business_postal_code, business_license_number, business_logo_url
 `
 
 type CreateUserParams struct {
@@ -57,12 +57,22 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BusinessName,
+		&i.BusinessEmail,
+		&i.BusinessPhone,
+		&i.BusinessAddressLine1,
+		&i.BusinessAddressLine2,
+		&i.BusinessCity,
+		&i.BusinessState,
+		&i.BusinessPostalCode,
+		&i.BusinessLicenseNumber,
+		&i.BusinessLogoUrl,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, name, company_name, phone, stripe_customer_id, subscription_status, subscription_tier, subscription_id, email_verified, email_verified_at, created_at, updated_at FROM users
+SELECT id, email, password_hash, name, company_name, phone, stripe_customer_id, subscription_status, subscription_tier, subscription_id, email_verified, email_verified_at, created_at, updated_at, business_name, business_email, business_phone, business_address_line1, business_address_line2, business_city, business_state, business_postal_code, business_license_number, business_logo_url FROM users
 WHERE email = $1
 `
 
@@ -84,12 +94,22 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BusinessName,
+		&i.BusinessEmail,
+		&i.BusinessPhone,
+		&i.BusinessAddressLine1,
+		&i.BusinessAddressLine2,
+		&i.BusinessCity,
+		&i.BusinessState,
+		&i.BusinessPostalCode,
+		&i.BusinessLicenseNumber,
+		&i.BusinessLogoUrl,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, name, company_name, phone, stripe_customer_id, subscription_status, subscription_tier, subscription_id, email_verified, email_verified_at, created_at, updated_at FROM users
+SELECT id, email, password_hash, name, company_name, phone, stripe_customer_id, subscription_status, subscription_tier, subscription_id, email_verified, email_verified_at, created_at, updated_at, business_name, business_email, business_phone, business_address_line1, business_address_line2, business_city, business_state, business_postal_code, business_license_number, business_logo_url FROM users
 WHERE id = $1
 `
 
@@ -111,12 +131,22 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BusinessName,
+		&i.BusinessEmail,
+		&i.BusinessPhone,
+		&i.BusinessAddressLine1,
+		&i.BusinessAddressLine2,
+		&i.BusinessCity,
+		&i.BusinessState,
+		&i.BusinessPostalCode,
+		&i.BusinessLicenseNumber,
+		&i.BusinessLogoUrl,
 	)
 	return i, err
 }
 
 const getUserByStripeCustomerID = `-- name: GetUserByStripeCustomerID :one
-SELECT id, email, password_hash, name, company_name, phone, stripe_customer_id, subscription_status, subscription_tier, subscription_id, email_verified, email_verified_at, created_at, updated_at FROM users
+SELECT id, email, password_hash, name, company_name, phone, stripe_customer_id, subscription_status, subscription_tier, subscription_id, email_verified, email_verified_at, created_at, updated_at, business_name, business_email, business_phone, business_address_line1, business_address_line2, business_city, business_state, business_postal_code, business_license_number, business_logo_url FROM users
 WHERE stripe_customer_id = $1
 `
 
@@ -138,8 +168,65 @@ func (q *Queries) GetUserByStripeCustomerID(ctx context.Context, stripeCustomerI
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BusinessName,
+		&i.BusinessEmail,
+		&i.BusinessPhone,
+		&i.BusinessAddressLine1,
+		&i.BusinessAddressLine2,
+		&i.BusinessCity,
+		&i.BusinessState,
+		&i.BusinessPostalCode,
+		&i.BusinessLicenseNumber,
+		&i.BusinessLogoUrl,
 	)
 	return i, err
+}
+
+const updateUserBusinessProfile = `-- name: UpdateUserBusinessProfile :exec
+UPDATE users
+SET business_name = $2,
+    business_email = $3,
+    business_phone = $4,
+    business_address_line1 = $5,
+    business_address_line2 = $6,
+    business_city = $7,
+    business_state = $8,
+    business_postal_code = $9,
+    business_license_number = $10,
+    business_logo_url = $11,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateUserBusinessProfileParams struct {
+	ID                    uuid.UUID      `json:"id"`
+	BusinessName          sql.NullString `json:"business_name"`
+	BusinessEmail         sql.NullString `json:"business_email"`
+	BusinessPhone         sql.NullString `json:"business_phone"`
+	BusinessAddressLine1  sql.NullString `json:"business_address_line1"`
+	BusinessAddressLine2  sql.NullString `json:"business_address_line2"`
+	BusinessCity          sql.NullString `json:"business_city"`
+	BusinessState         sql.NullString `json:"business_state"`
+	BusinessPostalCode    sql.NullString `json:"business_postal_code"`
+	BusinessLicenseNumber sql.NullString `json:"business_license_number"`
+	BusinessLogoUrl       sql.NullString `json:"business_logo_url"`
+}
+
+func (q *Queries) UpdateUserBusinessProfile(ctx context.Context, arg UpdateUserBusinessProfileParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserBusinessProfile,
+		arg.ID,
+		arg.BusinessName,
+		arg.BusinessEmail,
+		arg.BusinessPhone,
+		arg.BusinessAddressLine1,
+		arg.BusinessAddressLine2,
+		arg.BusinessCity,
+		arg.BusinessState,
+		arg.BusinessPostalCode,
+		arg.BusinessLicenseNumber,
+		arg.BusinessLogoUrl,
+	)
+	return err
 }
 
 const updateUserEmailVerification = `-- name: UpdateUserEmailVerification :exec

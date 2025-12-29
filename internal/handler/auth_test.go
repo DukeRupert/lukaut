@@ -28,6 +28,7 @@ type mockUserService struct {
 	GetByIDFunc                              func(ctx context.Context, id uuid.UUID) (*domain.User, error)
 	GetBySessionTokenFunc                    func(ctx context.Context, token string) (*domain.User, error)
 	UpdateProfileFunc                        func(ctx context.Context, params domain.ProfileUpdateParams) error
+	UpdateBusinessProfileFunc                func(ctx context.Context, params domain.BusinessProfileUpdateParams) error
 	ChangePasswordFunc                       func(ctx context.Context, params domain.PasswordChangeParams) error
 	DeleteExpiredSessionsFunc                func(ctx context.Context) error
 	CreateEmailVerificationTokenFunc         func(ctx context.Context, userID uuid.UUID) (*domain.EmailVerificationResult, error)
@@ -80,6 +81,13 @@ func (m *mockUserService) UpdateProfile(ctx context.Context, params domain.Profi
 		return m.UpdateProfileFunc(ctx, params)
 	}
 	return errors.New("UpdateProfileFunc not implemented")
+}
+
+func (m *mockUserService) UpdateBusinessProfile(ctx context.Context, params domain.BusinessProfileUpdateParams) error {
+	if m.UpdateBusinessProfileFunc != nil {
+		return m.UpdateBusinessProfileFunc(ctx, params)
+	}
+	return errors.New("UpdateBusinessProfileFunc not implemented")
 }
 
 func (m *mockUserService) ChangePassword(ctx context.Context, params domain.PasswordChangeParams) error {
