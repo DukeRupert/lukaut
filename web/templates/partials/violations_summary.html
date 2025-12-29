@@ -14,6 +14,7 @@
                 <p class="mt-1 text-sm text-gray-500">
                     {{.ViolationCounts.Total}} potential violation{{if ne .ViolationCounts.Total 1}}s{{end}} identified
                     {{if gt .ViolationCounts.Pending 0}}({{.ViolationCounts.Pending}} pending review){{end}}
+                    — Press <kbd class="px-1.5 py-0.5 text-xs font-semibold bg-gray-100 border border-gray-200 rounded">V</kbd> to review
                 </p>
                 {{else}}
                 <p class="mt-1 text-sm text-gray-500">No violations identified yet</p>
