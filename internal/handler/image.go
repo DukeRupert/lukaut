@@ -164,6 +164,7 @@ func (h *ImageHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// Auto-trigger analysis if images were uploaded successfully
+	analysisEnqueued := false
 	if successCount > 0 {
 		// Check if there's already a pending or running analysis job
 		hasPending, err := h.queries.HasPendingAnalysisJob(r.Context(), inspectionID.String())
@@ -178,7 +179,11 @@ func (h *ImageHandler) Upload(w http.ResponseWriter, r *http.Request) {
 				// Continue anyway - don't fail the upload response
 			} else {
 				h.logger.Info("Auto-analysis job enqueued", "inspection_id", inspectionID, "user_id", user.ID)
+				analysisEnqueued = true
 			}
+		} else {
+			// There's already a pending job, so analysis is in progress
+			analysisEnqueued = true
 		}
 	}
 
@@ -222,9 +227,10 @@ func (h *ImageHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		Images:       imageDisplays,
 		Errors:       uploadErrors,
 		CanUpload:    inspection.CanAddPhotos(),
+		IsAnalyzing:  analysisEnqueued,
 	}
 
-	// Trigger analysis status refresh
+	// Trigger analysis status refresh and violations summary refresh
 	w.Header().Set("HX-Trigger", "galleryUpdated")
 
 	h.renderer.RenderPartial(w, "image_gallery", data)
