@@ -12,10 +12,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DukeRupert/lukaut/internal/csrf"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/email"
 	"github.com/DukeRupert/lukaut/internal/invite"
 	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/DukeRupert/lukaut/internal/templ/pages/auth"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
 	"github.com/google/uuid"
 )
 
@@ -1478,6 +1481,866 @@ Note: SameSite=Lax on the session cookie already provides significant CSRF
 protection for modern browsers. The explicit CSRF token is defense-in-depth
 and supports older browsers.
 */
+
+// =============================================================================
+// Templ-based Auth Routes with CSRF Protection
+// =============================================================================
+
+// RegisterTemplRoutes registers all auth routes using templ components with CSRF protection.
+//
+// Routes registered:
+// - GET  /register            -> ShowRegisterTempl
+// - POST /register            -> RegisterTempl
+// - GET  /login               -> ShowLoginTempl
+// - POST /login               -> LoginTempl
+// - POST /logout              -> Logout (same as before)
+// - GET  /verify-email        -> ShowVerifyEmailTempl
+// - GET  /resend-verification -> ShowResendVerificationTempl
+// - POST /resend-verification -> ResendVerificationTempl
+// - GET  /forgot-password     -> ShowForgotPasswordTempl
+// - POST /forgot-password     -> ForgotPasswordTempl
+// - GET  /reset-password      -> ShowResetPasswordTempl
+// - POST /reset-password      -> ResetPasswordTempl
+func (h *AuthHandler) RegisterTemplRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /register", h.ShowRegisterTempl)
+	mux.HandleFunc("POST /register", h.RegisterTempl)
+	mux.HandleFunc("GET /login", h.ShowLoginTempl)
+	mux.HandleFunc("POST /login", h.LoginTempl)
+	mux.HandleFunc("POST /logout", h.Logout)
+
+	// Email verification routes
+	mux.HandleFunc("GET /verify-email", h.ShowVerifyEmailTempl)
+	mux.HandleFunc("GET /resend-verification", h.ShowResendVerificationTempl)
+	mux.HandleFunc("POST /resend-verification", h.ResendVerificationTempl)
+
+	// Password reset routes
+	mux.HandleFunc("GET /forgot-password", h.ShowForgotPasswordTempl)
+	mux.HandleFunc("POST /forgot-password", h.ForgotPasswordTempl)
+	mux.HandleFunc("GET /reset-password", h.ShowResetPasswordTempl)
+	mux.HandleFunc("POST /reset-password", h.ResetPasswordTempl)
+}
+
+// =============================================================================
+// GET /login (Templ) - Show Login Form
+// =============================================================================
+
+// ShowLoginTempl renders the login form using templ components with CSRF protection.
+func (h *AuthHandler) ShowLoginTempl(w http.ResponseWriter, r *http.Request) {
+	// Generate CSRF token
+	csrfToken := csrf.EnsureToken(w, r, h.isSecure)
+
+	// Check for success query params
+	var flash *shared.Flash
+	if r.URL.Query().Get("registered") == "1" {
+		flash = &shared.Flash{
+			Type:    shared.FlashSuccess,
+			Message: "Account created successfully! Please sign in.",
+		}
+	} else if r.URL.Query().Get("reset") == "1" {
+		flash = &shared.Flash{
+			Type:    shared.FlashSuccess,
+			Message: "Password reset successfully! Please sign in with your new password.",
+		}
+	} else if r.URL.Query().Get("logout") == "1" {
+		flash = &shared.Flash{
+			Type:    shared.FlashSuccess,
+			Message: "You have been signed out.",
+		}
+	}
+
+	// Get return_to from query params
+	returnTo := r.URL.Query().Get("return_to")
+
+	data := auth.LoginPageData{
+		CSRFToken: csrfToken,
+		Form:      auth.FormData{},
+		Errors:    make(map[string]string),
+		Flash:     flash,
+		ReturnTo:  returnTo,
+	}
+
+	if err := auth.LoginPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render login page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// =============================================================================
+// POST /login (Templ) - Process Login
+// =============================================================================
+
+// LoginTempl processes the login form submission with CSRF validation.
+func (h *AuthHandler) LoginTempl(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("login attempt", "method", r.Method, "path", r.URL.Path)
+
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error("failed to parse form", "error", err)
+		h.renderLoginTemplError(w, r, auth.FormData{}, nil, &shared.Flash{
+			Type:    shared.FlashError,
+			Message: "Invalid form submission. Please try again.",
+		})
+		return
+	}
+
+	// Validate CSRF token
+	if !csrf.ValidateRequest(r) {
+		h.logger.Warn("CSRF validation failed")
+		h.renderLoginTemplError(w, r, auth.FormData{}, nil, &shared.Flash{
+			Type:    shared.FlashError,
+			Message: "Invalid security token. Please try again.",
+		})
+		return
+	}
+
+	// Extract form values
+	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+	password := r.FormValue("password")
+	returnTo := r.FormValue("return_to")
+
+	// Store form values for re-rendering (except password)
+	formValues := auth.FormData{
+		Email: email,
+	}
+
+	// Basic validation
+	errors := make(map[string]string)
+
+	if email == "" {
+		errors["email"] = "Email is required"
+	}
+
+	if password == "" {
+		errors["password"] = "Password is required"
+	}
+
+	if len(errors) > 0 {
+		h.renderLoginTemplError(w, r, formValues, errors, nil)
+		return
+	}
+
+	// Call UserService.Login
+	loginResult, err := h.userService.Login(r.Context(), email, password)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		switch code {
+		case domain.EUNAUTHORIZED:
+			h.logger.Info("login failed: invalid credentials", "email", email)
+			h.renderLoginTemplError(w, r, formValues, nil, &shared.Flash{
+				Type:    shared.FlashError,
+				Message: "Invalid email or password",
+			})
+		default:
+			h.logger.Error("login failed", "error", err, "email", email)
+			h.renderLoginTemplError(w, r, formValues, nil, &shared.Flash{
+				Type:    shared.FlashError,
+				Message: "Login failed. Please try again later.",
+			})
+		}
+		return
+	}
+
+	// Set session cookie
+	setSessionCookie(w, loginResult.Token, h.isSecure)
+
+	// Refresh CSRF token after successful login
+	csrf.RefreshToken(w, h.isSecure)
+
+	// Log successful login
+	h.logger.Info("user logged in",
+		"user_id", loginResult.User.ID,
+		"email", loginResult.User.Email,
+	)
+
+	// Redirect to return_to URL or dashboard
+	redirectURL := "/dashboard"
+	if returnTo != "" && isSafeRedirectURL(returnTo) {
+		redirectURL = returnTo
+	}
+
+	// For htmx requests, use HX-Redirect header
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", redirectURL)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
+// renderLoginTemplError re-renders the login form with errors using templ.
+func (h *AuthHandler) renderLoginTemplError(
+	w http.ResponseWriter,
+	r *http.Request,
+	formValues auth.FormData,
+	errors map[string]string,
+	flash *shared.Flash,
+) {
+	if errors == nil {
+		errors = make(map[string]string)
+	}
+
+	// Generate new CSRF token for re-render
+	csrfToken := csrf.EnsureToken(w, r, h.isSecure)
+
+	data := auth.LoginPageData{
+		CSRFToken: csrfToken,
+		Form:      formValues,
+		Errors:    errors,
+		Flash:     flash,
+		ReturnTo:  r.FormValue("return_to"),
+	}
+
+	// For htmx requests, return just the form partial
+	if r.Header.Get("HX-Request") == "true" {
+		if err := auth.LoginForm(data).Render(r.Context(), w); err != nil {
+			h.logger.Error("failed to render login form", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	if err := auth.LoginPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render login page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// =============================================================================
+// GET /register (Templ) - Show Registration Form
+// =============================================================================
+
+// ShowRegisterTempl renders the registration form using templ components with CSRF protection.
+func (h *AuthHandler) ShowRegisterTempl(w http.ResponseWriter, r *http.Request) {
+	// Generate CSRF token
+	csrfToken := csrf.EnsureToken(w, r, h.isSecure)
+
+	// Get return_to from query params
+	returnTo := r.URL.Query().Get("return_to")
+
+	data := auth.RegisterPageData{
+		CSRFToken:          csrfToken,
+		Form:               auth.FormData{},
+		Errors:             make(map[string]string),
+		Flash:              nil,
+		ReturnTo:           returnTo,
+		InviteCodesEnabled: h.inviteValidator.IsEnabled(),
+	}
+
+	if err := auth.RegisterPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render register page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// =============================================================================
+// POST /register (Templ) - Process Registration
+// =============================================================================
+
+// RegisterTempl processes the registration form submission with CSRF validation.
+func (h *AuthHandler) RegisterTempl(w http.ResponseWriter, r *http.Request) {
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error("failed to parse form", "error", err)
+		h.renderRegisterTemplError(w, r, auth.FormData{}, nil, &shared.Flash{
+			Type:    shared.FlashError,
+			Message: "Invalid form submission. Please try again.",
+		})
+		return
+	}
+
+	// Validate CSRF token
+	if !csrf.ValidateRequest(r) {
+		h.logger.Warn("CSRF validation failed")
+		h.renderRegisterTemplError(w, r, auth.FormData{}, nil, &shared.Flash{
+			Type:    shared.FlashError,
+			Message: "Invalid security token. Please try again.",
+		})
+		return
+	}
+
+	// Extract and normalize form values
+	name := strings.TrimSpace(r.FormValue("name"))
+	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+	password := r.FormValue("password")
+	passwordConfirmation := r.FormValue("password_confirmation")
+	terms := r.FormValue("terms")
+	inviteCode := strings.TrimSpace(r.FormValue("invite_code"))
+	returnTo := r.FormValue("return_to")
+
+	// Store form values for re-rendering (except passwords)
+	formValues := auth.FormData{
+		Name:       name,
+		Email:      email,
+		InviteCode: inviteCode,
+	}
+
+	// Validate form fields
+	errors := make(map[string]string)
+
+	if name == "" {
+		errors["name"] = "Name is required"
+	}
+
+	if email == "" {
+		errors["email"] = "Email is required"
+	} else if !isValidEmail(email) {
+		errors["email"] = "Please enter a valid email address"
+	}
+
+	if password == "" {
+		errors["password"] = "Password is required"
+	} else if len(password) < 8 {
+		errors["password"] = "Password must be at least 8 characters"
+	}
+
+	if passwordConfirmation == "" {
+		errors["password_confirmation"] = "Please confirm your password"
+	} else if password != passwordConfirmation {
+		errors["password_confirmation"] = "Passwords do not match"
+	}
+
+	if terms != "on" {
+		errors["terms"] = "You must accept the Terms of Service"
+	}
+
+	// Validate invite code if enabled
+	if h.inviteValidator.IsEnabled() {
+		if inviteCode == "" {
+			errors["invite_code"] = "Invite code is required"
+		} else if !h.inviteValidator.ValidateCode(inviteCode) {
+			errors["invite_code"] = "Invalid invite code"
+		}
+	}
+
+	// If validation errors, re-render form
+	if len(errors) > 0 {
+		h.renderRegisterTemplError(w, r, formValues, errors, nil)
+		return
+	}
+
+	// Call UserService.Register
+	user, err := h.userService.Register(r.Context(), domain.RegisterParams{
+		Email:    email,
+		Password: password,
+		Name:     name,
+	})
+	if err != nil {
+		code := domain.ErrorCode(err)
+		switch code {
+		case domain.ECONFLICT:
+			errors["email"] = "An account with this email already exists"
+			h.renderRegisterTemplError(w, r, formValues, errors, nil)
+		case domain.EINVALID:
+			h.renderRegisterTemplError(w, r, formValues, nil, &shared.Flash{
+				Type:    shared.FlashError,
+				Message: domain.ErrorMessage(err),
+			})
+		default:
+			h.logger.Error("registration failed", "error", err, "email", email)
+			h.renderRegisterTemplError(w, r, formValues, nil, &shared.Flash{
+				Type:    shared.FlashError,
+				Message: "Registration failed. Please try again later.",
+			})
+		}
+		return
+	}
+
+	// Create verification token and send email
+	go h.sendVerificationEmail(r.Context(), user.ID, user.Email, user.Name)
+
+	// Registration successful - log the user in automatically
+	loginResult, err := h.userService.Login(r.Context(), email, password)
+	if err != nil {
+		h.logger.Error("auto-login after registration failed", "error", err, "email", email)
+		http.Redirect(w, r, "/login?registered=1", http.StatusSeeOther)
+		return
+	}
+
+	// Set session cookie
+	setSessionCookie(w, loginResult.Token, h.isSecure)
+
+	// Refresh CSRF token after successful registration/login
+	csrf.RefreshToken(w, h.isSecure)
+
+	// Log successful registration
+	h.logger.Info("user registered and logged in",
+		"user_id", loginResult.User.ID,
+		"email", loginResult.User.Email,
+	)
+
+	// Redirect to return_to URL or dashboard
+	redirectURL := "/dashboard"
+	if returnTo != "" && isSafeRedirectURL(returnTo) {
+		redirectURL = returnTo
+	}
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
+// renderRegisterTemplError re-renders the registration form with errors using templ.
+func (h *AuthHandler) renderRegisterTemplError(
+	w http.ResponseWriter,
+	r *http.Request,
+	formValues auth.FormData,
+	errors map[string]string,
+	flash *shared.Flash,
+) {
+	if errors == nil {
+		errors = make(map[string]string)
+	}
+
+	// Generate new CSRF token for re-render
+	csrfToken := csrf.EnsureToken(w, r, h.isSecure)
+
+	data := auth.RegisterPageData{
+		CSRFToken:          csrfToken,
+		Form:               formValues,
+		Errors:             errors,
+		Flash:              flash,
+		ReturnTo:           r.FormValue("return_to"),
+		InviteCodesEnabled: h.inviteValidator.IsEnabled(),
+	}
+
+	if err := auth.RegisterPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render register page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// =============================================================================
+// GET /verify-email (Templ) - Verify Email Token
+// =============================================================================
+
+// ShowVerifyEmailTempl handles the email verification link click using templ.
+func (h *AuthHandler) ShowVerifyEmailTempl(w http.ResponseWriter, r *http.Request) {
+	// Get token from query string
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		h.renderVerifyEmailTemplError(w, r, "Invalid verification link. Please check your email for the correct link.")
+		return
+	}
+
+	// Call UserService.VerifyEmail
+	err := h.userService.VerifyEmail(r.Context(), token)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		switch code {
+		case domain.ENOTFOUND:
+			h.renderVerifyEmailTemplError(w, r, "This verification link has expired or is invalid. Please request a new verification email.")
+		case domain.ECONFLICT:
+			h.renderVerifyEmailTemplSuccess(w, r, "Your email is already verified. You can sign in to your account.")
+		default:
+			h.logger.Error("email verification failed", "error", err)
+			h.renderVerifyEmailTemplError(w, r, "Verification failed. Please try again later.")
+		}
+		return
+	}
+
+	// Success
+	h.renderVerifyEmailTemplSuccess(w, r, "Your email has been verified! You can now sign in to your account.")
+}
+
+func (h *AuthHandler) renderVerifyEmailTemplSuccess(w http.ResponseWriter, r *http.Request, message string) {
+	data := auth.VerifyEmailPageData{
+		Success: true,
+		Message: message,
+	}
+	if err := auth.VerifyEmailPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render verify email page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func (h *AuthHandler) renderVerifyEmailTemplError(w http.ResponseWriter, r *http.Request, message string) {
+	data := auth.VerifyEmailPageData{
+		Success: false,
+		Message: message,
+	}
+	if err := auth.VerifyEmailPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render verify email page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// =============================================================================
+// GET /resend-verification (Templ) - Show Resend Verification Form
+// =============================================================================
+
+// ShowResendVerificationTempl renders the resend verification form using templ.
+func (h *AuthHandler) ShowResendVerificationTempl(w http.ResponseWriter, r *http.Request) {
+	csrfToken := csrf.EnsureToken(w, r, h.isSecure)
+
+	data := auth.ResendVerificationPageData{
+		CSRFToken: csrfToken,
+		Form:      auth.FormData{},
+		Errors:    make(map[string]string),
+		Flash:     nil,
+	}
+
+	if err := auth.ResendVerificationPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render resend verification page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// =============================================================================
+// POST /resend-verification (Templ) - Request New Verification Email
+// =============================================================================
+
+// ResendVerificationTempl handles requests to resend the verification email with CSRF validation.
+func (h *AuthHandler) ResendVerificationTempl(w http.ResponseWriter, r *http.Request) {
+	// Parse form
+	if err := r.ParseForm(); err != nil {
+		h.renderResendVerificationTemplError(w, r, "Invalid form submission")
+		return
+	}
+
+	// Validate CSRF token
+	if !csrf.ValidateRequest(r) {
+		h.logger.Warn("CSRF validation failed")
+		h.renderResendVerificationTemplError(w, r, "Invalid security token. Please try again.")
+		return
+	}
+
+	// Get email
+	emailAddr := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+	if emailAddr == "" {
+		h.renderResendVerificationTemplError(w, r, "Email is required")
+		return
+	}
+
+	// Call UserService.ResendVerificationEmail
+	result, err := h.userService.ResendVerificationEmail(r.Context(), emailAddr)
+	if err != nil {
+		// Log error but show generic success (prevents enumeration)
+		h.logger.Debug("resend verification failed", "error", err, "email", emailAddr)
+	} else {
+		// Get user name for the email
+		user, err := h.userService.GetByID(r.Context(), result.UserID)
+		if err != nil {
+			h.logger.Error("failed to get user for resend verification", "error", err, "user_id", result.UserID)
+		} else {
+			// Send the email asynchronously
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+
+				if err := h.emailService.SendVerificationEmail(ctx, emailAddr, user.Name, result.Token); err != nil {
+					h.logger.Error("failed to send verification email", "error", err, "email", emailAddr)
+				} else {
+					h.logger.Info("verification email sent", "email", emailAddr)
+				}
+			}()
+		}
+	}
+
+	// Always show success (don't reveal if email exists)
+	if err := auth.ResendVerificationSentPage().Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render resend verification sent page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func (h *AuthHandler) renderResendVerificationTemplError(w http.ResponseWriter, r *http.Request, message string) {
+	csrfToken := csrf.EnsureToken(w, r, h.isSecure)
+
+	data := auth.ResendVerificationPageData{
+		CSRFToken: csrfToken,
+		Form:      auth.FormData{},
+		Errors:    make(map[string]string),
+		Flash: &shared.Flash{
+			Type:    shared.FlashError,
+			Message: message,
+		},
+	}
+
+	if err := auth.ResendVerificationPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render resend verification page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// =============================================================================
+// GET /forgot-password (Templ) - Show Forgot Password Form
+// =============================================================================
+
+// ShowForgotPasswordTempl renders the forgot password form using templ.
+func (h *AuthHandler) ShowForgotPasswordTempl(w http.ResponseWriter, r *http.Request) {
+	csrfToken := csrf.EnsureToken(w, r, h.isSecure)
+
+	data := auth.ForgotPasswordPageData{
+		CSRFToken: csrfToken,
+		Form:      auth.FormData{},
+		Errors:    make(map[string]string),
+		Flash:     nil,
+	}
+
+	if err := auth.ForgotPasswordPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render forgot password page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// =============================================================================
+// POST /forgot-password (Templ) - Process Forgot Password Request
+// =============================================================================
+
+// ForgotPasswordTempl processes the forgot password form submission with CSRF validation.
+func (h *AuthHandler) ForgotPasswordTempl(w http.ResponseWriter, r *http.Request) {
+	// Parse form
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error("failed to parse form", "error", err)
+		h.renderForgotPasswordTemplError(w, r, auth.FormData{}, nil, &shared.Flash{
+			Type:    shared.FlashError,
+			Message: "Invalid form submission. Please try again.",
+		})
+		return
+	}
+
+	// Validate CSRF token
+	if !csrf.ValidateRequest(r) {
+		h.logger.Warn("CSRF validation failed")
+		h.renderForgotPasswordTemplError(w, r, auth.FormData{}, nil, &shared.Flash{
+			Type:    shared.FlashError,
+			Message: "Invalid security token. Please try again.",
+		})
+		return
+	}
+
+	// Get email
+	emailAddr := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+
+	// Store form values for re-rendering
+	formValues := auth.FormData{
+		Email: emailAddr,
+	}
+
+	// Basic validation
+	if emailAddr == "" {
+		h.renderForgotPasswordTemplError(w, r, formValues, map[string]string{
+			"email": "Email is required",
+		}, nil)
+		return
+	}
+
+	if !isValidEmail(emailAddr) {
+		h.renderForgotPasswordTemplError(w, r, formValues, map[string]string{
+			"email": "Please enter a valid email address",
+		}, nil)
+		return
+	}
+
+	// Create password reset token (if user exists)
+	result, err := h.userService.CreatePasswordResetToken(r.Context(), emailAddr)
+	if err != nil {
+		// Log error but show generic success (prevents enumeration)
+		h.logger.Debug("password reset token creation failed", "error", err, "email", emailAddr)
+	} else {
+		// Get user name for the email
+		user, err := h.userService.GetByID(r.Context(), result.UserID)
+		if err != nil {
+			h.logger.Error("failed to get user for password reset", "error", err, "user_id", result.UserID)
+		} else {
+			// Send the email asynchronously
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+
+				if err := h.emailService.SendPasswordResetEmail(ctx, emailAddr, user.Name, result.Token); err != nil {
+					h.logger.Error("failed to send password reset email", "error", err, "email", emailAddr)
+				} else {
+					h.logger.Info("password reset email sent", "email", emailAddr)
+				}
+			}()
+		}
+	}
+
+	// Always show success (don't reveal if email exists)
+	if err := auth.ForgotPasswordSentPage().Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render forgot password sent page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func (h *AuthHandler) renderForgotPasswordTemplError(
+	w http.ResponseWriter,
+	r *http.Request,
+	formValues auth.FormData,
+	errors map[string]string,
+	flash *shared.Flash,
+) {
+	if errors == nil {
+		errors = make(map[string]string)
+	}
+
+	csrfToken := csrf.EnsureToken(w, r, h.isSecure)
+
+	data := auth.ForgotPasswordPageData{
+		CSRFToken: csrfToken,
+		Form:      formValues,
+		Errors:    errors,
+		Flash:     flash,
+	}
+
+	if err := auth.ForgotPasswordPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render forgot password page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// =============================================================================
+// GET /reset-password (Templ) - Show Reset Password Form
+// =============================================================================
+
+// ShowResetPasswordTempl renders the reset password form using templ.
+func (h *AuthHandler) ShowResetPasswordTempl(w http.ResponseWriter, r *http.Request) {
+	// Get token from query string
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		h.renderResetPasswordTemplInvalid(w, r, "Invalid reset link. Please check your email for the correct link.")
+		return
+	}
+
+	// Validate the token
+	_, err := h.userService.ValidatePasswordResetToken(r.Context(), token)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		switch code {
+		case domain.ENOTFOUND:
+			h.renderResetPasswordTemplInvalid(w, r, "This reset link has expired or is invalid. Please request a new password reset.")
+		case domain.EINVALID:
+			h.renderResetPasswordTemplInvalid(w, r, "This reset link is invalid. Please request a new password reset.")
+		default:
+			h.logger.Error("password reset token validation failed", "error", err)
+			h.renderResetPasswordTemplInvalid(w, r, "Something went wrong. Please request a new password reset.")
+		}
+		return
+	}
+
+	// Token is valid - show reset form
+	csrfToken := csrf.EnsureToken(w, r, h.isSecure)
+
+	data := auth.ResetPasswordPageData{
+		CSRFToken: csrfToken,
+		Token:     token,
+		Form:      auth.FormData{},
+		Errors:    make(map[string]string),
+		Flash:     nil,
+	}
+
+	if err := auth.ResetPasswordPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render reset password page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func (h *AuthHandler) renderResetPasswordTemplInvalid(w http.ResponseWriter, r *http.Request, message string) {
+	if err := auth.ResetPasswordInvalidPage(message).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render reset password invalid page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// =============================================================================
+// POST /reset-password (Templ) - Process Password Reset
+// =============================================================================
+
+// ResetPasswordTempl processes the password reset form submission with CSRF validation.
+func (h *AuthHandler) ResetPasswordTempl(w http.ResponseWriter, r *http.Request) {
+	// Parse form
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error("failed to parse form", "error", err)
+		h.renderResetPasswordTemplInvalid(w, r, "Invalid form submission. Please try again.")
+		return
+	}
+
+	// Validate CSRF token
+	if !csrf.ValidateRequest(r) {
+		h.logger.Warn("CSRF validation failed")
+		h.renderResetPasswordTemplInvalid(w, r, "Invalid security token. Please try again.")
+		return
+	}
+
+	// Get form values
+	token := r.FormValue("token")
+	password := r.FormValue("password")
+	passwordConfirmation := r.FormValue("password_confirmation")
+
+	// Validate token is present
+	if token == "" {
+		h.renderResetPasswordTemplInvalid(w, r, "Invalid reset link. Please request a new password reset.")
+		return
+	}
+
+	// Validate passwords
+	errors := make(map[string]string)
+
+	if password == "" {
+		errors["password"] = "Password is required"
+	} else if len(password) < 8 {
+		errors["password"] = "Password must be at least 8 characters"
+	}
+
+	if passwordConfirmation == "" {
+		errors["password_confirmation"] = "Please confirm your password"
+	} else if password != passwordConfirmation {
+		errors["password_confirmation"] = "Passwords do not match"
+	}
+
+	// If validation errors, re-render form
+	if len(errors) > 0 {
+		csrfToken := csrf.EnsureToken(w, r, h.isSecure)
+		data := auth.ResetPasswordPageData{
+			CSRFToken: csrfToken,
+			Token:     token,
+			Form:      auth.FormData{},
+			Errors:    errors,
+			Flash:     nil,
+		}
+		if err := auth.ResetPasswordPage(data).Render(r.Context(), w); err != nil {
+			h.logger.Error("failed to render reset password page", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Call UserService.ResetPassword
+	err := h.userService.ResetPassword(r.Context(), domain.ResetPasswordParams{
+		Token:       token,
+		NewPassword: password,
+	})
+	if err != nil {
+		code := domain.ErrorCode(err)
+		switch code {
+		case domain.ENOTFOUND:
+			h.renderResetPasswordTemplInvalid(w, r, "This reset link has expired or is invalid. Please request a new password reset.")
+		case domain.EINVALID:
+			csrfToken := csrf.EnsureToken(w, r, h.isSecure)
+			data := auth.ResetPasswordPageData{
+				CSRFToken: csrfToken,
+				Token:     token,
+				Form:      auth.FormData{},
+				Errors:    make(map[string]string),
+				Flash: &shared.Flash{
+					Type:    shared.FlashError,
+					Message: domain.ErrorMessage(err),
+				},
+			}
+			if err := auth.ResetPasswordPage(data).Render(r.Context(), w); err != nil {
+				h.logger.Error("failed to render reset password page", "error", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+		default:
+			h.logger.Error("password reset failed", "error", err)
+			h.renderResetPasswordTemplInvalid(w, r, "Something went wrong. Please try again.")
+		}
+		return
+	}
+
+	// Success - redirect to login with success message
+	h.logger.Info("password reset completed")
+	http.Redirect(w, r, "/login?reset=1", http.StatusSeeOther)
+}
 
 // =============================================================================
 // Integration Notes for main.go

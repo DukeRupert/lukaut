@@ -235,9 +235,7 @@ func run() error {
 	})
 
 	// Auth routes (public - no auth required)
-	authHandler.RegisterRoutes(mux)
-
-	// Templ auth routes (parallel routes for testing templ migration)
+	// Using templ-based routes with CSRF protection
 	authHandler.RegisterTemplRoutes(mux)
 
 	// Create middleware stacks for protected routes
