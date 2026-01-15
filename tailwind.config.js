@@ -3,6 +3,8 @@ module.exports = {
   content: [
     "./web/templates/**/*.html",
     "./web/static/js/**/*.js",
+    "./internal/templ/**/*.templ",
+    "./internal/templ/**/*.go",
   ],
   darkMode: 'class',
   theme: {

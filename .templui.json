@@ -1,0 +1,7 @@
+{
+  "componentsDir": "internal/templ/components",
+  "utilsDir": "internal/templ/utils",
+  "moduleName": "github.com/DukeRupert/lukaut",
+  "jsDir": "web/static/js/templui",
+  "jsPublicPath": "/static/js/templui"
+}

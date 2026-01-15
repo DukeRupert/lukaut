@@ -1,4 +1,4 @@
-.PHONY: run build dev deps sqlc migrate\:up migrate\:down migrate\:create \
+.PHONY: run build dev deps sqlc templ templ\:watch migrate\:up migrate\:down migrate\:create \
         docker\:up docker\:down docker\:build docker\:push docker\:logs \
         test test\:v test\:cover css css\:watch
 
@@ -23,11 +23,21 @@ deps:
 	@go install github.com/pressly/goose/v3/cmd/goose@latest
 	@go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 	@go install github.com/air-verse/air@latest
+	@go install github.com/a-h/templ/cmd/templ@latest
+	@go install github.com/templui/templui/cmd/templui@latest
 	@npm install
 
 # Generate sqlc code
 sqlc:
 	@sqlc generate
+
+# Generate templ code
+templ:
+	@templ generate
+
+# Watch templ files for changes
+templ\:watch:
+	@templ generate --watch
 
 # ==============================================================================
 # Database Commands

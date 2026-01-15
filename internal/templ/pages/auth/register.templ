@@ -1,0 +1,176 @@
+package auth
+
+import (
+	"github.com/DukeRupert/lukaut/internal/templ/layouts"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
+)
+
+// RegisterPage renders the full registration page with layout
+templ RegisterPage(data RegisterPageData) {
+	@layouts.AuthLayoutWithFooter("Create an account", "Create your account") {
+		<p class="mt-2 text-center text-sm text-muted-foreground -mt-4 mb-6">
+			Start your 14-day free trial. No credit card required.
+		</p>
+		<div class="bg-white px-6 py-12 shadow-sm ring-1 ring-zinc-950/5 sm:rounded-xl sm:px-12">
+			@shared.FlashMessage(data.Flash)
+			@RegisterForm(data)
+		</div>
+		@registerFooter()
+	}
+}
+
+// RegisterForm renders just the registration form
+templ RegisterForm(data RegisterPageData) {
+	<form class="space-y-6" action="/register" method="POST">
+		if data.CSRFToken != "" {
+			<input type="hidden" name="csrf_token" value={ data.CSRFToken }/>
+		}
+		if data.ReturnTo != "" {
+			<input type="hidden" name="return_to" value={ data.ReturnTo }/>
+		}
+		// Full name field
+		<div data-slot="field">
+			<label for="name" data-slot="label" class="block text-sm/6 font-medium text-foreground">
+				Full name
+			</label>
+			<div class="mt-2">
+				<input
+					type="text"
+					name="name"
+					id="name"
+					autocomplete="name"
+					required
+					value={ data.Form.Name }
+					class={ inputClasses(data.Errors["name"]) }
+				/>
+			</div>
+			if data.Errors["name"] != "" {
+				<p data-slot="error" class="mt-2 text-sm/6 text-destructive" role="alert">
+					{ data.Errors["name"] }
+				</p>
+			}
+		</div>
+		// Email field
+		<div data-slot="field">
+			<label for="email" data-slot="label" class="block text-sm/6 font-medium text-foreground">
+				Email address
+			</label>
+			<div class="mt-2">
+				<input
+					type="email"
+					name="email"
+					id="email"
+					autocomplete="email"
+					required
+					value={ data.Form.Email }
+					class={ inputClasses(data.Errors["email"]) }
+				/>
+			</div>
+			if data.Errors["email"] != "" {
+				<p data-slot="error" class="mt-2 text-sm/6 text-destructive" role="alert">
+					{ data.Errors["email"] }
+				</p>
+			}
+		</div>
+		// Password field
+		<div data-slot="field">
+			<label for="password" data-slot="label" class="block text-sm/6 font-medium text-foreground">
+				Password
+			</label>
+			<div class="mt-2">
+				<input
+					type="password"
+					name="password"
+					id="password"
+					autocomplete="new-password"
+					required
+					class={ inputClasses(data.Errors["password"]) }
+				/>
+			</div>
+			<p data-slot="description" class="mt-1 text-xs text-muted-foreground">Must be at least 8 characters</p>
+			if data.Errors["password"] != "" {
+				<p data-slot="error" class="mt-2 text-sm/6 text-destructive" role="alert">
+					{ data.Errors["password"] }
+				</p>
+			}
+		</div>
+		// Password confirmation field
+		<div data-slot="field">
+			<label for="password_confirmation" data-slot="label" class="block text-sm/6 font-medium text-foreground">
+				Confirm password
+			</label>
+			<div class="mt-2">
+				<input
+					type="password"
+					name="password_confirmation"
+					id="password_confirmation"
+					autocomplete="new-password"
+					required
+					class={ inputClasses(data.Errors["password_confirmation"]) }
+				/>
+			</div>
+			if data.Errors["password_confirmation"] != "" {
+				<p data-slot="error" class="mt-2 text-sm/6 text-destructive" role="alert">
+					{ data.Errors["password_confirmation"] }
+				</p>
+			}
+		</div>
+		// Invite code field (conditional)
+		if data.InviteCodesEnabled {
+			<div data-slot="field">
+				<label for="invite_code" data-slot="label" class="block text-sm/6 font-medium text-foreground">
+					Invite code
+				</label>
+				<div class="mt-2">
+					<input
+						type="text"
+						name="invite_code"
+						id="invite_code"
+						required
+						value={ data.Form.InviteCode }
+						placeholder="Enter your invite code"
+						class={ inputClasses(data.Errors["invite_code"]) }
+					/>
+				</div>
+				if data.Errors["invite_code"] != "" {
+					<p data-slot="error" class="mt-2 text-sm/6 text-destructive" role="alert">
+						{ data.Errors["invite_code"] }
+					</p>
+				}
+			</div>
+		}
+		// Terms checkbox
+		<div class="grid grid-cols-[1.125rem_1fr] gap-x-3 sm:grid-cols-[1rem_1fr] items-start">
+			<label for="terms" class="group inline-flex mt-0.5 cursor-pointer">
+				<input type="checkbox" id="terms" name="terms" required class="peer sr-only"/>
+				<span class="relative isolate flex size-[1.125rem] sm:size-4 items-center justify-center rounded-[0.3125rem] before:absolute before:inset-0 before:-z-10 before:rounded-[calc(0.3125rem-1px)] before:bg-white before:shadow-sm border border-zinc-950/15 group-hover:border-zinc-950/30 peer-checked:border-transparent peer-checked:before:bg-primary peer-checked:bg-primary peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-primary">
+					<svg class="size-4 sm:size-3.5 stroke-white opacity-0 peer-checked:group-[]:opacity-100" viewBox="0 0 14 14" fill="none">
+						<path d="M3 8L6 11L11 3.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+					</svg>
+				</span>
+			</label>
+			<label for="terms" class="text-sm/6 text-muted-foreground">
+				I agree to the
+				<a href="/terms" class="font-medium text-primary hover:text-primary/80">Terms of Service</a>
+				and
+				<a href="/privacy" class="font-medium text-primary hover:text-primary/80">Privacy Policy</a>
+			</label>
+		</div>
+		// Submit button
+		<div>
+			<button
+				type="submit"
+				class="flex w-full justify-center rounded-lg px-3.5 py-2.5 sm:px-3 sm:py-1.5 text-base/6 sm:text-sm/6 font-semibold bg-primary text-white shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
+			>
+				Create account
+			</button>
+		</div>
+	</form>
+}
+
+templ registerFooter() {
+	<p class="mt-10 text-center text-sm text-muted-foreground">
+		Already have an account?
+		<a href="/login" class="font-semibold text-primary hover:text-primary/80">Sign in</a>
+	</p>
+}

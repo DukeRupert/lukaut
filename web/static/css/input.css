@@ -1,6 +1,9 @@
 /* Design tokens - must be imported before Tailwind */
 @import './themes/tokens.css';
 
+/* Templui theme variables */
+@import './templui-theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

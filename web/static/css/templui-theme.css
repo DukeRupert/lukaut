@@ -1,0 +1,181 @@
+/*
+ * templUI Theme Configuration
+ *
+ * Maps Lukaut design tokens to templUI CSS variable expectations.
+ * templUI components use these variables for styling.
+ *
+ * Uses the existing Lukaut brand colors:
+ * - Navy (#1E3A5F) as primary
+ * - Safety Orange (#FF6B35) as accent
+ */
+
+/* Tailwind v4 dark mode variant */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* templUI Theme Variables (extend Tailwind) */
+@theme inline {
+  /* Breakpoints */
+  --breakpoint-3xl: 1600px;
+  --breakpoint-4xl: 2000px;
+
+  /* Border Radius - templUI uses these */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Color mappings for Tailwind */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Chart colors (for any data viz) */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Sidebar colors */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* Light Theme - templUI CSS Variables */
+:root {
+  /* Base radius for component styling */
+  --radius: 0.5rem;
+
+  /* Surface/Background colors using Lukaut tokens */
+  --background: oklch(98.5% 0.002 247.839);      /* gray-50 */
+  --foreground: oklch(14.1% 0.005 285.823);      /* zinc-950 */
+
+  /* Card colors */
+  --card: oklch(100% 0 0);                        /* white */
+  --card-foreground: oklch(14.1% 0.005 285.823); /* zinc-950 */
+
+  /* Popover (dropdown, menu) colors */
+  --popover: oklch(100% 0 0);                     /* white */
+  --popover-foreground: oklch(14.1% 0.005 285.823);
+
+  /* Primary - Lukaut Navy */
+  --primary: oklch(35% 0.08 250);                 /* navy-700 */
+  --primary-foreground: oklch(100% 0 0);          /* white */
+
+  /* Secondary */
+  --secondary: oklch(96.7% 0.001 286.375);       /* zinc-100 */
+  --secondary-foreground: oklch(21% 0.006 285.885); /* zinc-900 */
+
+  /* Muted (subdued backgrounds/text) */
+  --muted: oklch(96.7% 0.001 286.375);           /* zinc-100 */
+  --muted-foreground: oklch(55.2% 0.016 285.938); /* zinc-500 */
+
+  /* Accent - Lukaut Safety Orange */
+  --accent: oklch(70% 0.20 35);                   /* safety-orange-500 */
+  --accent-foreground: oklch(100% 0 0);           /* white */
+
+  /* Destructive/Danger */
+  --destructive: oklch(57.7% 0.245 27.325);      /* red-600 */
+  --destructive-foreground: oklch(100% 0 0);
+
+  /* Borders and Inputs */
+  --border: oklch(92% 0.004 286.32);             /* zinc-200 */
+  --input: oklch(92% 0.004 286.32);              /* zinc-200 */
+  --ring: oklch(35% 0.08 250);                   /* navy-700 (focus ring) */
+
+  /* Chart colors - using brand palette */
+  --chart-1: oklch(35% 0.08 250);                /* navy-700 */
+  --chart-2: oklch(70% 0.20 35);                 /* safety-orange-500 */
+  --chart-3: oklch(62.3% 0.214 259.815);         /* blue-500 */
+  --chart-4: oklch(72.3% 0.219 149.579);         /* green-500 */
+  --chart-5: oklch(76.9% 0.188 70.08);           /* amber-500 */
+
+  /* Sidebar */
+  --sidebar: oklch(100% 0 0);                     /* white */
+  --sidebar-foreground: oklch(44.2% 0.017 285.786); /* zinc-600 */
+  --sidebar-primary: oklch(35% 0.08 250);        /* navy-700 */
+  --sidebar-primary-foreground: oklch(100% 0 0);
+  --sidebar-accent: oklch(96.7% 0.001 286.375);  /* zinc-100 */
+  --sidebar-accent-foreground: oklch(21% 0.006 285.885);
+  --sidebar-border: oklch(92% 0.004 286.32);     /* zinc-200 */
+  --sidebar-ring: oklch(35% 0.08 250);           /* navy-700 */
+}
+
+/* Dark Theme - templUI CSS Variables */
+.dark {
+  /* Surface/Background colors */
+  --background: oklch(14.1% 0.005 285.823);      /* zinc-950 */
+  --foreground: oklch(98.5% 0 0);                /* zinc-50 */
+
+  /* Card colors */
+  --card: oklch(21% 0.006 285.885);              /* zinc-900 */
+  --card-foreground: oklch(98.5% 0 0);
+
+  /* Popover colors */
+  --popover: oklch(21% 0.006 285.885);           /* zinc-900 */
+  --popover-foreground: oklch(98.5% 0 0);
+
+  /* Primary - Slightly lighter navy for dark mode */
+  --primary: oklch(52% 0.09 250);                /* navy-500 */
+  --primary-foreground: oklch(100% 0 0);
+
+  /* Secondary */
+  --secondary: oklch(27.4% 0.006 286.033);       /* zinc-800 */
+  --secondary-foreground: oklch(98.5% 0 0);
+
+  /* Muted */
+  --muted: oklch(27.4% 0.006 286.033);           /* zinc-800 */
+  --muted-foreground: oklch(70.5% 0.015 286.067); /* zinc-400 */
+
+  /* Accent - Safety Orange */
+  --accent: oklch(70% 0.20 35);                  /* safety-orange-500 */
+  --accent-foreground: oklch(14.1% 0.005 285.823); /* zinc-950 */
+
+  /* Destructive/Danger */
+  --destructive: oklch(63.7% 0.237 25.331);      /* red-500 - brighter for dark */
+  --destructive-foreground: oklch(100% 0 0);
+
+  /* Borders and Inputs */
+  --border: oklch(27.4% 0.006 286.033);          /* zinc-800 */
+  --input: oklch(27.4% 0.006 286.033);           /* zinc-800 */
+  --ring: oklch(52% 0.09 250);                   /* navy-500 */
+
+  /* Chart colors - adjusted for dark mode */
+  --chart-1: oklch(52% 0.09 250);                /* navy-500 */
+  --chart-2: oklch(77% 0.18 38);                 /* safety-orange-400 */
+  --chart-3: oklch(70.7% 0.165 254.624);         /* blue-400 */
+  --chart-4: oklch(79.2% 0.209 151.711);         /* green-400 */
+  --chart-5: oklch(82.8% 0.189 84.429);          /* amber-400 */
+
+  /* Sidebar */
+  --sidebar: oklch(21% 0.006 285.885);           /* zinc-900 */
+  --sidebar-foreground: oklch(70.5% 0.015 286.067); /* zinc-400 */
+  --sidebar-primary: oklch(52% 0.09 250);        /* navy-500 */
+  --sidebar-primary-foreground: oklch(100% 0 0);
+  --sidebar-accent: oklch(27.4% 0.006 286.033);  /* zinc-800 */
+  --sidebar-accent-foreground: oklch(98.5% 0 0);
+  --sidebar-border: oklch(27.4% 0.006 286.033);  /* zinc-800 */
+  --sidebar-ring: oklch(52% 0.09 250);           /* navy-500 */
+}

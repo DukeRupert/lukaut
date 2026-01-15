@@ -1,0 +1,131 @@
+package auth
+
+import (
+	"github.com/DukeRupert/lukaut/internal/templ/layouts"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
+)
+
+// LoginPage renders the full login page with layout
+templ LoginPage(data LoginPageData) {
+	@layouts.AuthLayoutWithFooter("Sign in", "Sign in to your account") {
+		<div class="bg-white px-6 py-12 shadow-sm ring-1 ring-zinc-950/5 sm:rounded-xl sm:px-12">
+			@shared.FlashMessage(data.Flash)
+			@LoginForm(data)
+		</div>
+		@loginFooter()
+	}
+}
+
+// LoginForm renders just the login form (for htmx partial swaps)
+templ LoginForm(data LoginPageData) {
+	<form
+		id="login-form"
+		class="space-y-6"
+		action="/login"
+		method="POST"
+		hx-post="/login"
+		hx-swap="outerHTML"
+		hx-target="#login-form"
+	>
+		if data.CSRFToken != "" {
+			<input type="hidden" name="csrf_token" value={ data.CSRFToken }/>
+		}
+		if data.ReturnTo != "" {
+			<input type="hidden" name="return_to" value={ data.ReturnTo }/>
+		}
+		// Flash message inside form for htmx swaps
+		@shared.InlineFlash(data.Flash)
+		// Email field
+		<div data-slot="field">
+			<label for="email" data-slot="label" class="block text-sm/6 font-medium text-foreground">
+				Email address
+			</label>
+			<div class="mt-2">
+				<span class="relative block">
+					<input
+						type="email"
+						name="email"
+						id="email"
+						autocomplete="email"
+						required
+						value={ data.Form.Email }
+						class={ inputClasses(data.Errors["email"]) }
+					/>
+				</span>
+			</div>
+			if data.Errors["email"] != "" {
+				<p data-slot="error" class="mt-2 text-sm/6 text-destructive" role="alert">
+					{ data.Errors["email"] }
+				</p>
+			}
+		</div>
+		// Password field
+		<div data-slot="field">
+			<label for="password" data-slot="label" class="block text-sm/6 font-medium text-foreground">
+				Password
+			</label>
+			<div class="mt-2">
+				<span class="relative block">
+					<input
+						type="password"
+						name="password"
+						id="password"
+						autocomplete="current-password"
+						required
+						class={ inputClasses(data.Errors["password"]) }
+					/>
+				</span>
+			</div>
+			if data.Errors["password"] != "" {
+				<p data-slot="error" class="mt-2 text-sm/6 text-destructive" role="alert">
+					{ data.Errors["password"] }
+				</p>
+			}
+		</div>
+		// Remember me & Forgot password
+		<div class="flex items-center justify-between">
+			<div class="grid grid-cols-[1.125rem_1fr] gap-x-3 sm:grid-cols-[1rem_1fr]">
+				<span class="group inline-flex">
+					<input type="checkbox" id="remember-me" name="remember-me" class="peer sr-only"/>
+					<span class="relative isolate flex size-[1.125rem] sm:size-4 items-center justify-center rounded-[0.3125rem] cursor-pointer before:absolute before:inset-0 before:-z-10 before:rounded-[calc(0.3125rem-1px)] before:bg-white before:shadow-sm border border-zinc-950/15 hover:border-zinc-950/30 peer-checked:border-transparent peer-checked:before:bg-primary peer-checked:bg-primary peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-primary">
+						<svg class="size-4 sm:size-3.5 stroke-white opacity-0 peer-checked:group-[]:opacity-100" viewBox="0 0 14 14" fill="none">
+							<path d="M3 8L6 11L11 3.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+						</svg>
+					</span>
+				</span>
+				<label for="remember-me" class="text-sm/6 text-foreground">Remember me</label>
+			</div>
+			<div class="text-sm/6">
+				<a href="/forgot-password" class="font-semibold text-primary hover:text-primary/80">
+					Forgot password?
+				</a>
+			</div>
+		</div>
+		// Submit button
+		<div>
+			<button
+				type="submit"
+				class="flex w-full justify-center rounded-lg px-3.5 py-2.5 sm:px-3 sm:py-1.5 text-base/6 sm:text-sm/6 font-semibold bg-primary text-white shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
+			>
+				Sign in
+			</button>
+		</div>
+	</form>
+}
+
+templ loginFooter() {
+	<p class="mt-10 text-center text-sm text-muted-foreground">
+		Not a member?
+		<a href="/register" class="font-semibold text-primary hover:text-primary/80">
+			Start your free trial
+		</a>
+	</p>
+}
+
+func inputClasses(errorMsg string) string {
+	base := "block w-full rounded-lg border-none bg-white py-2.5 px-3.5 text-base/6 text-foreground sm:py-1.5 sm:px-3 sm:text-sm/6 shadow-sm ring-1 ring-inset placeholder:text-muted-foreground focus:outline-none focus:ring-2"
+	if errorMsg != "" {
+		return base + " ring-destructive focus:ring-destructive"
+	}
+	return base + " ring-zinc-950/10 focus:ring-primary"
+}
