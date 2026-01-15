@@ -100,6 +100,7 @@ func run() error {
 	inspectionService := service.NewInspectionService(repo, logger)
 	violationService := service.NewViolationService(repo, logger)
 	clientService := service.NewClientService(repo, logger)
+	siteService := service.NewSiteService(repo, logger)
 
 	// Initialize thumbnail processor
 	thumbnailProcessor := service.NewImagingProcessor()
@@ -196,6 +197,7 @@ func run() error {
 	regulationHandler := handler.NewRegulationHandler(repo, renderer, logger)
 	settingsHandler := handler.NewSettingsHandler(userService, renderer, logger)
 	clientHandler := handler.NewClientHandler(clientService, renderer, logger)
+	siteHandler := handler.NewSiteHandler(siteService, clientService, renderer, logger)
 
 	// ==========================================================================
 	// Create router and register routes
@@ -235,6 +237,9 @@ func run() error {
 	// Auth routes (public - no auth required)
 	authHandler.RegisterRoutes(mux)
 
+	// Templ auth routes (parallel routes for testing templ migration)
+	authHandler.RegisterTemplRoutes(mux)
+
 	// Create middleware stacks for protected routes
 	requireUser := middleware.Stack(authMw.WithUser, authMw.RequireUser)
 
@@ -258,6 +263,9 @@ func run() error {
 
 	// Client routes (requires authentication)
 	clientHandler.RegisterRoutes(mux, requireUser)
+
+	// Site routes (requires authentication)
+	siteHandler.RegisterRoutes(mux, requireUser)
 
 	// ==========================================================================
 	// Start server
