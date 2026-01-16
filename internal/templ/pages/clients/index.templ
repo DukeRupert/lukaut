@@ -1,0 +1,41 @@
+package clients
+
+import (
+	"github.com/DukeRupert/lukaut/internal/templ/layouts"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
+)
+
+// IndexPage renders the clients list page
+templ IndexPage(data ListPageData) {
+	@layouts.AppLayout(layouts.AppLayoutData{
+		Title:       "Clients",
+		CurrentPath: data.CurrentPath,
+		User:        userToLayoutUser(data.User),
+		CSRFToken:   data.CSRFToken,
+		Flash:       data.Flash,
+	}) {
+		// Flash message
+		@shared.InlineFlash(data.Flash)
+		// Page header
+		@PageHeader("Clients", "Manage your construction company clients.", "New Client", "/clients/new")
+		if len(data.Clients) > 0 {
+			// Clients table
+			@ClientsTable(data.Clients)
+			// Pagination
+			@Pagination(data.Pagination, "/clients")
+		} else {
+			// Empty state
+			@EmptyState("No clients yet", "Get started by adding your first client.", "New Client", "/clients/new")
+		}
+	}
+}
+
+func userToLayoutUser(u *UserDisplay) *layouts.UserInfo {
+	if u == nil {
+		return nil
+	}
+	return &layouts.UserInfo{
+		Name:  u.Name,
+		Email: u.Email,
+	}
+}

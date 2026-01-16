@@ -241,8 +241,8 @@ func run() error {
 	// Create middleware stacks for protected routes
 	requireUser := middleware.Stack(authMw.WithUser, authMw.RequireUser)
 
-	// Dashboard (requires authentication)
-	mux.Handle("GET /dashboard", requireUser(http.HandlerFunc(dashboardHandler.Show)))
+	// Dashboard (requires authentication) - using templ
+	mux.Handle("GET /dashboard", requireUser(http.HandlerFunc(dashboardHandler.ShowTempl)))
 
 	// Inspection routes (requires authentication)
 	inspectionHandler.RegisterRoutes(mux, requireUser)
@@ -256,14 +256,14 @@ func run() error {
 	// Regulation routes (requires authentication)
 	regulationHandler.RegisterRoutes(mux, requireUser)
 
-	// Settings routes (requires authentication)
-	settingsHandler.RegisterRoutes(mux, requireUser)
+	// Settings routes (requires authentication) - using templ
+	settingsHandler.RegisterTemplRoutes(mux, requireUser)
 
-	// Client routes (requires authentication)
-	clientHandler.RegisterRoutes(mux, requireUser)
+	// Client routes (requires authentication) - using templ
+	clientHandler.RegisterTemplRoutes(mux, requireUser)
 
-	// Site routes (requires authentication)
-	siteHandler.RegisterRoutes(mux, requireUser)
+	// Site routes (requires authentication) - using templ
+	siteHandler.RegisterTemplRoutes(mux, requireUser)
 
 	// ==========================================================================
 	// Start server

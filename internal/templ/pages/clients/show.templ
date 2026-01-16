@@ -1,0 +1,192 @@
+package clients
+
+import (
+	"fmt"
+
+	"github.com/DukeRupert/lukaut/internal/templ/layouts"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
+)
+
+// ShowPage renders the client detail page
+templ ShowPage(data ShowPageData) {
+	@layouts.AppLayout(layouts.AppLayoutData{
+		Title:       data.Client.Name,
+		CurrentPath: data.CurrentPath,
+		User:        userToLayoutUser(data.User),
+		CSRFToken:   data.CSRFToken,
+		Flash:       data.Flash,
+	}) {
+		// Breadcrumb
+		@Breadcrumb([]BreadcrumbItem{
+			{Label: "Clients", Href: "/clients"},
+			{Label: data.Client.Name, Href: ""},
+		})
+		<div class="mt-6">
+			// Flash message
+			@shared.InlineFlash(data.Flash)
+			// Client Header
+			@ClientHeader(data.Client)
+			// Client Details
+			@ClientDetails(data.Client)
+			// Associated Sites
+			if data.Client.SiteCount > 0 {
+				@AssociatedSites(data.Client.SiteCount)
+			}
+		</div>
+	}
+}
+
+// ClientHeader renders the client header with actions
+templ ClientHeader(client *ClientDetail) {
+	<div class="bg-white shadow sm:rounded-lg mb-6">
+		<div class="px-4 py-5 sm:px-6">
+			<div class="flex items-center justify-between">
+				<div>
+					<h2 class="text-xl font-bold text-gray-900">{ client.Name }</h2>
+					if client.SiteCount > 0 {
+						<p class="mt-1 text-sm text-gray-500">
+							{ fmt.Sprintf("%d associated site", client.SiteCount) }
+							if client.SiteCount != 1 {
+								s
+							}
+						</p>
+					} else {
+						<p class="mt-1 text-sm text-gray-500">No associated sites</p>
+					}
+				</div>
+				<div class="flex gap-3">
+					<a
+						href={ templ.SafeURL(fmt.Sprintf("/clients/%s/edit", client.ID)) }
+						class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+					>
+						@editIcon()
+						Edit
+					</a>
+					if client.SiteCount == 0 {
+						<button
+							type="button"
+							hx-delete={ fmt.Sprintf("/clients/%s", client.ID) }
+							hx-confirm="Are you sure you want to delete this client? This action cannot be undone."
+							class="inline-flex items-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500"
+						>
+							@deleteIcon()
+							Delete
+						</button>
+					}
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+// ClientDetails renders the client details card
+templ ClientDetails(client *ClientDetail) {
+	<div class="bg-white shadow sm:rounded-lg">
+		<div class="px-4 py-5 sm:p-6">
+			<dl class="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2">
+				// Contact Information Section
+				<div class="sm:col-span-2">
+					<h3 class="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-4">Contact Information</h3>
+				</div>
+				// Email
+				<div class="sm:col-span-1">
+					<dt class="text-sm font-medium text-gray-500">Email</dt>
+					<dd class="mt-1 text-sm text-gray-900">
+						if client.Email != "" {
+							<a href={ templ.SafeURL(fmt.Sprintf("mailto:%s", client.Email)) } class="text-primary hover:text-primary/80">{ client.Email }</a>
+						} else {
+							<span class="text-gray-400 italic">Not provided</span>
+						}
+					</dd>
+				</div>
+				// Phone
+				<div class="sm:col-span-1">
+					<dt class="text-sm font-medium text-gray-500">Phone</dt>
+					<dd class="mt-1 text-sm text-gray-900">
+						if client.Phone != "" {
+							<a href={ templ.SafeURL(fmt.Sprintf("tel:%s", client.Phone)) } class="text-primary hover:text-primary/80">{ client.Phone }</a>
+						} else {
+							<span class="text-gray-400 italic">Not provided</span>
+						}
+					</dd>
+				</div>
+				// Corporate Address Section
+				<div class="sm:col-span-2 mt-4">
+					<h3 class="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-4">Corporate Address</h3>
+				</div>
+				<div class="sm:col-span-2">
+					<dt class="text-sm font-medium text-gray-500">Address</dt>
+					<dd class="mt-1 text-sm text-gray-900">
+						if client.HasAddress {
+							<address class="not-italic">
+								if client.AddressLine1 != "" {
+									{ client.AddressLine1 }
+									<br/>
+								}
+								if client.AddressLine2 != "" {
+									{ client.AddressLine2 }
+									<br/>
+								}
+								if client.City != "" || client.State != "" || client.PostalCode != "" {
+									{ formatCityStateZip(client.City, client.State, client.PostalCode) }
+								}
+							</address>
+						} else {
+							<span class="text-gray-400 italic">No address provided</span>
+						}
+					</dd>
+				</div>
+				// Notes Section
+				if client.Notes != "" {
+					<div class="sm:col-span-2 mt-4">
+						<h3 class="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-4">Notes</h3>
+					</div>
+					<div class="sm:col-span-2">
+						<dd class="text-sm text-gray-900 whitespace-pre-wrap">{ client.Notes }</dd>
+					</div>
+				}
+			</dl>
+		</div>
+	</div>
+}
+
+// AssociatedSites renders the associated sites section
+templ AssociatedSites(siteCount int) {
+	<div class="mt-6 bg-white shadow sm:rounded-lg">
+		<div class="px-4 py-5 sm:p-6">
+			<h3 class="text-base font-semibold text-gray-900 mb-4">Associated Sites</h3>
+			<p class="text-sm text-gray-500">
+				This client is associated with { fmt.Sprintf("%d site", siteCount) }
+				if siteCount != 1 {
+					s
+				}
+				.
+			</p>
+		</div>
+	</div>
+}
+
+func formatCityStateZip(city, state, postalCode string) string {
+	result := city
+	if city != "" && state != "" {
+		result += ", "
+	}
+	result += state
+	if result != "" && postalCode != "" {
+		result += " "
+	}
+	result += postalCode
+	return result
+}
+
+templ editIcon() {
+	<svg class="-ml-0.5 mr-1.5 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+		<path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/>
+	</svg>
+}
+
+templ deleteIcon() {
+	<svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+		<path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd"/>
+	</svg>
+}

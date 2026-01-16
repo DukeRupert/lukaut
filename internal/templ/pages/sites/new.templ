@@ -1,0 +1,102 @@
+package sites
+
+import (
+	"github.com/DukeRupert/lukaut/internal/templ/layouts"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
+)
+
+// NewPage renders the create site form page
+templ NewPage(data FormPageData) {
+	@layouts.AppLayout(layouts.AppLayoutData{
+		Title:       "New Site",
+		CurrentPath: data.CurrentPath,
+		User:        userToLayoutUser(data.User),
+		CSRFToken:   data.CSRFToken,
+		Flash:       data.Flash,
+	}) {
+		// Breadcrumb
+		@Breadcrumb([]BreadcrumbItem{
+			{Label: "Sites", Href: "/sites"},
+			{Label: "New", Href: ""},
+		})
+		<div class="mt-6">
+			// Flash message
+			@shared.InlineFlash(data.Flash)
+			@FormCard("Create New Site") {
+				@SiteForm(data, "/sites", "Create Site")
+			}
+		</div>
+		// Quick add client modal
+		@QuickAddClientModal()
+	}
+}
+
+// SiteForm renders the site form (shared between new and edit)
+templ SiteForm(data FormPageData, action, submitLabel string) {
+	<form method="POST" action={ templ.SafeURL(action) } class="space-y-8">
+		if data.CSRFToken != "" {
+			<input type="hidden" name="csrf_token" value={ data.CSRFToken }/>
+		}
+		if data.IsEdit {
+			<input type="hidden" name="_method" value="PUT"/>
+		}
+		// Site Information Section
+		<div>
+			@FormSection("Site Information") {
+				<div class="space-y-4">
+					// Name
+					@FormField("name", "Site Name", data.Errors["name"], true) {
+						@TextInput("name", "name", "text", data.Form.Name, "e.g., Downtown Office Tower", true, data.Errors["name"] != "")
+					}
+					// Address Line 1
+					@FormField("address_line1", "Street Address", data.Errors["address_line1"], true) {
+						@TextInput("address_line1", "address_line1", "text", data.Form.AddressLine1, "123 Main Street", true, data.Errors["address_line1"] != "")
+					}
+					// Address Line 2
+					@FormField("address_line2", "Address Line 2", "", false) {
+						@TextInput("address_line2", "address_line2", "text", data.Form.AddressLine2, "Suite, Unit, Building, Floor, etc.", false, false)
+					}
+					// City, State, Postal Code
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-6">
+						<div class="sm:col-span-3">
+							@FormField("city", "City", data.Errors["city"], true) {
+								@TextInput("city", "city", "text", data.Form.City, "", true, data.Errors["city"] != "")
+							}
+						</div>
+						<div class="sm:col-span-2">
+							@FormField("state", "State", data.Errors["state"], true) {
+								@TextInput("state", "state", "text", data.Form.State, "CA", true, data.Errors["state"] != "")
+							}
+						</div>
+						<div class="sm:col-span-1">
+							@FormField("postal_code", "ZIP", data.Errors["postal_code"], true) {
+								@TextInput("postal_code", "postal_code", "text", data.Form.PostalCode, "90210", true, data.Errors["postal_code"] != "")
+							}
+						</div>
+					</div>
+				</div>
+			}
+		</div>
+		<hr class="border-gray-200"/>
+		// Client Selection Section
+		<div>
+			@FormSection("Client") {
+				<div>
+					<label for="client_id" class="block text-sm font-medium leading-6 text-gray-900">Select Client</label>
+					<div class="mt-2">
+						@ClientSelect("client_id", "client_id", data.Form.ClientID, data.Clients)
+					</div>
+				</div>
+			}
+		</div>
+		<hr class="border-gray-200"/>
+		// Notes Section
+		<div>
+			@FormField("notes", "Notes", "", false) {
+				@TextArea("notes", "notes", data.Form.Notes, "Access instructions, parking info, site contact, etc.", 3)
+			}
+		</div>
+		// Actions
+		@FormActions("/sites", submitLabel)
+	</form>
+}

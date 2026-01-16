@@ -1,0 +1,88 @@
+package clients
+
+import (
+	"fmt"
+
+	"github.com/DukeRupert/lukaut/internal/templ/layouts"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
+)
+
+// EditPage renders the edit client form page
+templ EditPage(data FormPageData) {
+	@layouts.AppLayout(layouts.AppLayoutData{
+		Title:       "Edit Client",
+		CurrentPath: data.CurrentPath,
+		User:        userToLayoutUser(data.User),
+		CSRFToken:   data.CSRFToken,
+		Flash:       data.Flash,
+	}) {
+		// Breadcrumb
+		@Breadcrumb([]BreadcrumbItem{
+			{Label: "Clients", Href: "/clients"},
+			{Label: data.Client.Name, Href: fmt.Sprintf("/clients/%s", data.Client.ID)},
+			{Label: "Edit", Href: ""},
+		})
+		<div class="mt-6">
+			// Flash message
+			@shared.InlineFlash(data.Flash)
+			@FormCard("Edit Client") {
+				@EditClientForm(data)
+			}
+		</div>
+	}
+}
+
+// EditClientForm renders the edit form with htmx support
+templ EditClientForm(data FormPageData) {
+	<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/clients/%s", data.Client.ID)) } class="space-y-6">
+		if data.CSRFToken != "" {
+			<input type="hidden" name="csrf_token" value={ data.CSRFToken }/>
+		}
+		<input type="hidden" name="_method" value="PUT"/>
+		// Name field
+		@FormField("name", "Company Name", data.Errors["name"], true) {
+			@TextInput("name", "name", "text", data.Form.Name, "e.g., Greystar South Florida", true, data.Errors["name"] != "")
+		}
+		// Contact Information Section
+		@FormSection("Contact Information") {
+			<div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+				@FormField("email", "Email", data.Errors["email"], false) {
+					@TextInput("email", "email", "email", data.Form.Email, "contact@company.com", false, data.Errors["email"] != "")
+				}
+				@FormField("phone", "Phone", data.Errors["phone"], false) {
+					@TextInput("phone", "phone", "tel", data.Form.Phone, "(555) 123-4567", false, false)
+				}
+			</div>
+		}
+		// Corporate Address Section
+		@FormSection("Corporate Address") {
+			<div class="space-y-4">
+				@FormField("address_line1", "Street Address", "", false) {
+					@TextInput("address_line1", "address_line1", "text", data.Form.AddressLine1, "1012 NE 3rd Ave", false, false)
+				}
+				@FormField("address_line2", "Suite / Floor", "", false) {
+					@TextInput("address_line2", "address_line2", "text", data.Form.AddressLine2, "Suite 1810", false, false)
+				}
+				<div class="grid grid-cols-1 gap-6 sm:grid-cols-3">
+					@FormField("city", "City", "", false) {
+						@TextInput("city", "city", "text", data.Form.City, "Fort Lauderdale", false, false)
+					}
+					@FormField("state", "State", "", false) {
+						@TextInput("state", "state", "text", data.Form.State, "Florida", false, false)
+					}
+					@FormField("postal_code", "ZIP Code", "", false) {
+						@TextInput("postal_code", "postal_code", "text", data.Form.PostalCode, "33301", false, false)
+					}
+				</div>
+			</div>
+		}
+		// Notes Section
+		@FormSection("") {
+			@FormField("notes", "Notes", "", false) {
+				@TextArea("notes", "notes", data.Form.Notes, "Any additional information about this client...", 3)
+			}
+		}
+		// Actions with htmx
+		@FormActionsWithHtmx(fmt.Sprintf("/clients/%s", data.Client.ID), "Update Client", fmt.Sprintf("/clients/%s", data.Client.ID))
+	</form>
+}

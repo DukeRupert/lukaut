@@ -1,0 +1,174 @@
+package settings
+
+import (
+	"github.com/DukeRupert/lukaut/internal/templ/layouts"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
+)
+
+// BusinessPage renders the business settings page
+templ BusinessPage(data BusinessPageData) {
+	@layouts.AppLayout(layouts.AppLayoutData{
+		Title:       "Business Settings",
+		CurrentPath: data.CurrentPath,
+		User:        userToLayoutUser(data.User),
+		CSRFToken:   data.CSRFToken,
+		Flash:       data.Flash,
+	}) {
+		<div class="max-w-2xl">
+			@SettingsTabs(TabBusiness)
+			@FormCard() {
+				@PageHeader("Business Information", "This information will appear on your generated inspection reports.")
+				@BusinessForm(data)
+			}
+		</div>
+	}
+}
+
+// BusinessForm renders just the business form (for htmx partial swaps)
+templ BusinessForm(data BusinessPageData) {
+	<form
+		id="business-form"
+		action="/settings/business"
+		method="POST"
+		class="space-y-6"
+	>
+		if data.CSRFToken != "" {
+			<input type="hidden" name="csrf_token" value={ data.CSRFToken }/>
+		}
+		// Inline flash for form errors
+		@shared.InlineFlash(data.Flash)
+		// Business Name field
+		@FormField("business_name", "Business Name", data.Errors["business_name"], false) {
+			<input
+				type="text"
+				name="business_name"
+				id="business_name"
+				autocomplete="organization"
+				placeholder="Your Company Name"
+				value={ data.Form.BusinessName }
+				class={ inputClasses(data.Errors["business_name"] != "") }
+			/>
+		}
+		// Contact Information Section
+		@SectionDivider("Contact Information")
+		<div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+			// Business Email
+			@FormField("business_email", "Business Email", data.Errors["business_email"], false) {
+				<input
+					type="email"
+					name="business_email"
+					id="business_email"
+					autocomplete="email"
+					placeholder="contact@company.com"
+					value={ data.Form.BusinessEmail }
+					class={ inputClasses(data.Errors["business_email"] != "") }
+				/>
+			}
+			// Business Phone
+			@FormField("business_phone", "Business Phone", data.Errors["business_phone"], false) {
+				<input
+					type="tel"
+					name="business_phone"
+					id="business_phone"
+					autocomplete="tel"
+					placeholder="(555) 123-4567"
+					value={ data.Form.BusinessPhone }
+					class={ inputClasses(data.Errors["business_phone"] != "") }
+				/>
+			}
+		</div>
+		// Business Address Section
+		@SectionDivider("Business Address")
+		// Street Address
+		<div class="mb-4">
+			@FormField("address_line1", "Street Address", data.Errors["address_line1"], false) {
+				<input
+					type="text"
+					name="address_line1"
+					id="address_line1"
+					autocomplete="street-address"
+					placeholder="123 Main Street"
+					value={ data.Form.BusinessAddressLine1 }
+					class={ inputClasses(data.Errors["address_line1"] != "") }
+				/>
+			}
+		</div>
+		// Suite/Floor
+		<div class="mb-4">
+			@FormField("address_line2", "Suite / Floor", "", false) {
+				<input
+					type="text"
+					name="address_line2"
+					id="address_line2"
+					placeholder="Suite 100"
+					value={ data.Form.BusinessAddressLine2 }
+					class={ inputClasses(false) }
+				/>
+			}
+		</div>
+		// City, State, ZIP
+		<div class="grid grid-cols-1 gap-6 sm:grid-cols-3">
+			@FormField("city", "City", "", false) {
+				<input
+					type="text"
+					name="city"
+					id="city"
+					autocomplete="address-level2"
+					placeholder="Fort Lauderdale"
+					value={ data.Form.BusinessCity }
+					class={ inputClasses(false) }
+				/>
+			}
+			@FormField("state", "State", "", false) {
+				<input
+					type="text"
+					name="state"
+					id="state"
+					autocomplete="address-level1"
+					placeholder="Florida"
+					value={ data.Form.BusinessState }
+					class={ inputClasses(false) }
+				/>
+			}
+			@FormField("postal_code", "ZIP Code", "", false) {
+				<input
+					type="text"
+					name="postal_code"
+					id="postal_code"
+					autocomplete="postal-code"
+					placeholder="33301"
+					value={ data.Form.BusinessPostalCode }
+					class={ inputClasses(false) }
+				/>
+			}
+		</div>
+		// Professional Information Section
+		@SectionDivider("Professional Information")
+		@FormFieldWithHint("license_number", "License / Certification Number", "Your professional license or certification number (e.g., CSP, ASP, CHST)", data.Errors["license_number"], false) {
+			<input
+				type="text"
+				name="license_number"
+				id="license_number"
+				placeholder="e.g., CSP-12345"
+				value={ data.Form.BusinessLicenseNumber }
+				class={ inputClasses(data.Errors["license_number"] != "") }
+			/>
+		}
+		// Logo Display (if exists)
+		if data.Form.BusinessLogoURL != "" {
+			@SectionDivider("Business Logo")
+			<div class="flex items-center gap-4">
+				<img
+					src={ data.Form.BusinessLogoURL }
+					alt="Business logo"
+					class="h-16 w-16 object-contain rounded-lg border border-gray-200"
+				/>
+				<p class="text-sm text-gray-500">Your logo will appear on generated reports.</p>
+			</div>
+		}
+		// Submit button with top border
+		<div class="border-t border-gray-200">
+			@SubmitButton("Save changes")
+		</div>
+	</form>
+}

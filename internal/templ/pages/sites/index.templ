@@ -1,0 +1,39 @@
+package sites
+
+import (
+	"github.com/DukeRupert/lukaut/internal/templ/layouts"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
+)
+
+// IndexPage renders the sites list page
+templ IndexPage(data ListPageData) {
+	@layouts.AppLayout(layouts.AppLayoutData{
+		Title:       "Sites",
+		CurrentPath: data.CurrentPath,
+		User:        userToLayoutUser(data.User),
+		CSRFToken:   data.CSRFToken,
+		Flash:       data.Flash,
+	}) {
+		// Flash message
+		@shared.InlineFlash(data.Flash)
+		// Page header
+		@PageHeader("Sites", "Manage your construction site locations and client information.", "New Site", "/sites/new")
+		if len(data.Sites) > 0 {
+			// Sites table
+			@SitesTable(data.Sites)
+		} else {
+			// Empty state
+			@EmptyState()
+		}
+	}
+}
+
+func userToLayoutUser(u *UserDisplay) *layouts.UserInfo {
+	if u == nil {
+		return nil
+	}
+	return &layouts.UserInfo{
+		Name:  u.Name,
+		Email: u.Email,
+	}
+}

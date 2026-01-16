@@ -1,0 +1,133 @@
+package settings
+
+// SettingsTabs renders the navigation tabs for settings pages
+templ SettingsTabs(activeTab Tab) {
+	<div class="border-b border-gray-200 mb-8">
+		<nav class="-mb-px flex space-x-8" aria-label="Settings tabs">
+			@settingsTab("/settings", "Profile", activeTab == TabProfile)
+			@settingsTab("/settings/business", "Business", activeTab == TabBusiness)
+			@settingsTab("/settings/password", "Password", activeTab == TabPassword)
+		</nav>
+	</div>
+}
+
+templ settingsTab(href, label string, isActive bool) {
+	<a
+		href={ templ.SafeURL(href) }
+		class={ tabClasses(isActive) }
+	>
+		{ label }
+	</a>
+}
+
+func tabClasses(isActive bool) string {
+	base := "whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium"
+	if isActive {
+		return base + " border-primary text-primary"
+	}
+	return base + " border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+}
+
+// PageHeader renders a section header with title and description
+templ PageHeader(title, description string) {
+	<div class="mb-6">
+		<h2 class="text-base font-semibold leading-7 text-gray-900">{ title }</h2>
+		<p class="mt-1 text-sm leading-6 text-gray-600">{ description }</p>
+	</div>
+}
+
+// SectionDivider renders a horizontal divider with optional title
+templ SectionDivider(title string) {
+	<div class="border-t border-gray-200 pt-6">
+		if title != "" {
+			<h3 class="text-sm font-medium text-gray-900 mb-4">{ title }</h3>
+		}
+	</div>
+}
+
+// FormCard wraps form content in a styled card
+templ FormCard() {
+	<div class="bg-white shadow-sm ring-1 ring-gray-900/5 rounded-xl">
+		<div class="px-4 py-6 sm:p-8">
+			{ children... }
+		</div>
+	</div>
+}
+
+// FormField renders a form field with label, input slot, and error message
+templ FormField(id, label string, errorMsg string, required bool) {
+	<div>
+		<label for={ id } class="block text-sm font-medium leading-6 text-gray-900">
+			{ label }
+			if required {
+				<span class="text-red-500">*</span>
+			}
+		</label>
+		<div class="mt-2">
+			{ children... }
+		</div>
+		if errorMsg != "" {
+			<p class="mt-2 text-sm text-red-600">{ errorMsg }</p>
+		}
+	</div>
+}
+
+// FormFieldWithHint renders a form field with label, input slot, hint, and error message
+templ FormFieldWithHint(id, label, hint string, errorMsg string, required bool) {
+	<div>
+		<label for={ id } class="block text-sm font-medium leading-6 text-gray-900">
+			{ label }
+			if required {
+				<span class="text-red-500">*</span>
+			}
+		</label>
+		<div class="mt-2">
+			{ children... }
+		</div>
+		if errorMsg != "" {
+			<p class="mt-2 text-sm text-red-600">{ errorMsg }</p>
+		} else if hint != "" {
+			<p class="mt-2 text-sm text-gray-500">{ hint }</p>
+		}
+	</div>
+}
+
+// ReadOnlyField renders a disabled/read-only form field
+templ ReadOnlyField(id, label, value, hint string) {
+	<div>
+		<label for={ id } class="block text-sm font-medium leading-6 text-gray-900">{ label }</label>
+		<div class="mt-2">
+			<input
+				type="text"
+				id={ id }
+				disabled
+				value={ value }
+				class="block w-full rounded-md border-0 py-1.5 text-gray-500 bg-gray-50 shadow-sm ring-1 ring-inset ring-gray-300 sm:text-sm sm:leading-6 px-3 cursor-not-allowed"
+			/>
+		</div>
+		if hint != "" {
+			<p class="mt-2 text-sm text-gray-500">{ hint }</p>
+		}
+	</div>
+}
+
+// SubmitButton renders a submit button aligned to the right
+templ SubmitButton(label string) {
+	<div class="flex justify-end pt-4">
+		<button
+			type="submit"
+			class="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
+		>
+			{ label }
+		</button>
+	</div>
+}
+
+// inputClasses returns classes for form inputs based on error state
+func inputClasses(hasError bool) string {
+	base := "block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6 px-3"
+	if hasError {
+		return base + " ring-red-300"
+	}
+	return base + " ring-gray-300"
+}
