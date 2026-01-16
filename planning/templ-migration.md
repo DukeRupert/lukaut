@@ -37,6 +37,14 @@ Track the progress of converting Go HTML templates to templ components.
 - [x] `regulations/search` - htmx search results partial
 - [x] `regulations/detail` - Regulation detail modal partial
 
+### Inspections (Complex)
+- [x] `inspections/index` - List inspections with pagination
+- [x] `inspections/new` - Create inspection form
+- [x] `inspections/edit` - Edit inspection form with delete section
+- [x] `inspections/show` - Inspection detail view with image gallery, upload, violations summary
+- [x] `inspections/review` - List-based violation review with add violation form
+- [x] `inspections/review_queue` - Keyboard-driven queue-based violation review
+
 ## In Progress
 
 ### Dashboard
@@ -47,22 +55,6 @@ Track the progress of converting Go HTML templates to templ components.
 ### Public Pages
 - [ ] `public/home` - Marketing landing page
 
-### Inspections (Complex)
-- [ ] `inspections/index` - List inspections
-- [ ] `inspections/new` - Create inspection form
-- [ ] `inspections/edit` - Edit inspection form
-- [ ] `inspections/show` - Inspection detail view
-- [ ] `inspections/review` - Single violation review
-- [ ] `inspections/review_queue` - Queue-based violation review
-
-### Partials (Convert as needed)
-- [ ] `partials/image_upload`
-- [ ] `partials/image_gallery`
-- [ ] `partials/violation_form`
-- [ ] `partials/violation_card`
-- [ ] `partials/violations_summary`
-- [ ] `partials/analysis_status`
-
 ### Layouts
 - [ ] `layouts/public` - Public pages layout
 
@@ -71,5 +63,6 @@ Track the progress of converting Go HTML templates to templ components.
 - Each page conversion should include CSRF protection for forms
 - Use `internal/templ/pages/<section>/` for page components
 - Use `internal/templ/shared/` for shared components (Flash, etc.)
-- Handler methods follow pattern: `Show<Page>Templ` / `<Action>Templ`
+- Handler methods follow pattern: `IndexTempl`, `NewTempl`, `EditTempl`, `ShowTempl`
 - Wire up in handler's `RegisterTemplRoutes()` method
+- Partials are now embedded directly in templ component files rather than separate partial files

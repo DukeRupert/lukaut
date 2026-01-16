@@ -1,0 +1,82 @@
+package inspections
+
+import (
+	"github.com/DukeRupert/lukaut/internal/templ/layouts"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
+)
+
+// NewPage renders the create inspection form page.
+templ NewPage(data FormPageData) {
+	@layouts.AppLayout(layouts.AppLayoutData{
+		Title:       "New Inspection",
+		CurrentPath: data.CurrentPath,
+		User:        userToLayoutUser(data.User),
+		CSRFToken:   data.CSRFToken,
+		Flash:       data.Flash,
+	}) {
+		// Breadcrumb
+		@Breadcrumb([]BreadcrumbItem{
+			{Label: "Inspections", Href: "/inspections"},
+			{Label: "New", Href: ""},
+		})
+		<div class="mt-6">
+			// Flash message
+			@shared.InlineFlash(data.Flash)
+			@FormCard("Create New Inspection") {
+				@InspectionForm(data, "/inspections", "Create Inspection")
+			}
+		</div>
+	}
+}
+
+// InspectionForm renders the inspection form (shared between new and edit).
+templ InspectionForm(data FormPageData, action, submitLabel string) {
+	<form method="POST" action={ templ.SafeURL(action) } class="space-y-6">
+		if data.CSRFToken != "" {
+			<input type="hidden" name="csrf_token" value={ data.CSRFToken }/>
+		}
+		// Title
+		@FormField("title", "Title", data.Errors["title"], true) {
+			@TextInput("title", "title", "text", data.Form.Title, "", true, data.Errors["title"] != "")
+		}
+		// Site
+		<div>
+			<label for="site_id" class="block text-sm font-medium leading-6 text-gray-900">Site</label>
+			<div class="mt-2">
+				@SiteSelect("site_id", "site_id", data.Form.SiteID, data.Sites)
+			</div>
+			if data.Errors["site_id"] != "" {
+				<p class="mt-2 text-sm text-red-600">{ data.Errors["site_id"] }</p>
+			}
+			<p class="mt-2 text-sm text-gray-500">Optionally link this inspection to a site.</p>
+		</div>
+		// Inspection Date
+		@FormField("inspection_date", "Inspection Date", data.Errors["inspection_date"], true) {
+			@DateInput("inspection_date", "inspection_date", data.Form.InspectionDate, true, data.Errors["inspection_date"] != "")
+		}
+		// Weather Conditions
+		<div>
+			<label for="weather_conditions" class="block text-sm font-medium leading-6 text-gray-900">Weather Conditions</label>
+			<div class="mt-2">
+				@TextInput("weather_conditions", "weather_conditions", "text", data.Form.WeatherConditions, "e.g., Sunny, Cloudy, Rainy", false, false)
+			</div>
+		</div>
+		// Temperature
+		<div>
+			<label for="temperature" class="block text-sm font-medium leading-6 text-gray-900">Temperature</label>
+			<div class="mt-2">
+				@TextInput("temperature", "temperature", "text", data.Form.Temperature, "e.g., 72°F, 22°C", false, false)
+			</div>
+		</div>
+		// Inspector Notes
+		<div>
+			<label for="inspector_notes" class="block text-sm font-medium leading-6 text-gray-900">Inspector Notes</label>
+			<div class="mt-2">
+				@TextArea("inspector_notes", "inspector_notes", data.Form.InspectorNotes, "", 4)
+			</div>
+			<p class="mt-2 text-sm text-gray-500">General observations or notes about the inspection.</p>
+		</div>
+		// Actions
+		@FormActions("/inspections", submitLabel)
+	</form>
+}

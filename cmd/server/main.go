@@ -244,8 +244,8 @@ func run() error {
 	// Dashboard (requires authentication) - using templ
 	mux.Handle("GET /dashboard", requireUser(http.HandlerFunc(dashboardHandler.ShowTempl)))
 
-	// Inspection routes (requires authentication)
-	inspectionHandler.RegisterRoutes(mux, requireUser)
+	// Inspection routes (requires authentication) - using templ
+	inspectionHandler.RegisterTemplRoutes(mux, requireUser)
 
 	// Image routes (requires authentication)
 	imageHandler.RegisterRoutes(mux, requireUser)
