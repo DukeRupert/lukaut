@@ -16,11 +16,18 @@ templ BusinessPage(data BusinessPageData) {
 	}) {
 		<div class="max-w-2xl">
 			@SettingsTabs(TabBusiness)
-			@FormCard() {
-				@PageHeader("Business Information", "This information will appear on your generated inspection reports.")
-				@BusinessForm(data)
-			}
+			<div id="settings-content">
+				@BusinessContent(data)
+			</div>
 		</div>
+	}
+}
+
+// BusinessContent renders just the business content (for htmx partial swaps)
+templ BusinessContent(data BusinessPageData) {
+	@FormCard() {
+		@PageHeader("Business Information", "This information will appear on your generated inspection reports.")
+		@BusinessForm(data)
 	}
 }
 

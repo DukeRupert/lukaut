@@ -16,11 +16,18 @@ templ ProfilePage(data ProfilePageData) {
 	}) {
 		<div class="max-w-2xl">
 			@SettingsTabs(TabProfile)
-			@FormCard() {
-				@PageHeader("Profile Information", "Update your personal information.")
-				@ProfileForm(data)
-			}
+			<div id="settings-content">
+				@ProfileContent(data)
+			</div>
 		</div>
+	}
+}
+
+// ProfileContent renders just the profile content (for htmx partial swaps)
+templ ProfileContent(data ProfilePageData) {
+	@FormCard() {
+		@PageHeader("Profile Information", "Update your personal information.")
+		@ProfileForm(data)
 	}
 }
 
