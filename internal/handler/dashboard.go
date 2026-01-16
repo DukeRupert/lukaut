@@ -173,8 +173,9 @@ func (h *DashboardHandler) ShowTempl(w http.ResponseWriter, r *http.Request) {
 	data := dashboard.DashboardPageData{
 		CurrentPath: r.URL.Path,
 		User: &layouts.UserInfo{
-			Name:  user.Name,
-			Email: user.Email,
+			Name:               user.Name,
+			Email:              user.Email,
+			HasBusinessProfile: user.HasBusinessProfile(),
 		},
 		Stats:             stats,
 		RecentInspections: recentInspections,

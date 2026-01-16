@@ -196,8 +196,9 @@ func userToLayoutUser(u *UserDisplay) *layouts.UserInfo {
 		return nil
 	}
 	return &layouts.UserInfo{
-		Name:  u.Name,
-		Email: u.Email,
+		Name:               u.Name,
+		Email:              u.Email,
+		HasBusinessProfile: u.HasBusinessProfile,
 	}
 }
 

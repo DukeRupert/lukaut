@@ -24,8 +24,9 @@ type ProfilePageData struct {
 
 // UserDisplay contains user info for display
 type UserDisplay struct {
-	Name  string
-	Email string
+	Name               string
+	Email              string
+	HasBusinessProfile bool
 }
 
 // ProfileFormData contains the profile form field values

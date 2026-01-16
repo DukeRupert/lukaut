@@ -468,8 +468,9 @@ func domainUserToInspectionDisplay(u *domain.User) *inspections.UserDisplay {
 		return nil
 	}
 	return &inspections.UserDisplay{
-		Name:  u.Name,
-		Email: u.Email,
+		Name:               u.Name,
+		Email:              u.Email,
+		HasBusinessProfile: u.HasBusinessProfile(),
 	}
 }
 

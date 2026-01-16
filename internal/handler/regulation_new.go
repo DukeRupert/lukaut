@@ -333,8 +333,9 @@ func domainUserToRegulationDisplay(u *domain.User) *regulations.UserDisplay {
 		return nil
 	}
 	return &regulations.UserDisplay{
-		Name:  u.Name,
-		Email: u.Email,
+		Name:               u.Name,
+		Email:              u.Email,
+		HasBusinessProfile: u.HasBusinessProfile(),
 	}
 }
 

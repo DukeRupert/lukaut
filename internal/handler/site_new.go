@@ -187,8 +187,9 @@ func domainUserToSiteDisplay(u *domain.User) *sites.UserDisplay {
 		return nil
 	}
 	return &sites.UserDisplay{
-		Name:  u.Name,
-		Email: u.Email,
+		Name:               u.Name,
+		Email:              u.Email,
+		HasBusinessProfile: u.HasBusinessProfile(),
 	}
 }
 

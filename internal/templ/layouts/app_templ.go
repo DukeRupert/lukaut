@@ -21,8 +21,9 @@ type AppLayoutData struct {
 
 // UserInfo contains user information for display
 type UserInfo struct {
-	Name  string
-	Email string
+	Name               string
+	Email              string
+	HasBusinessProfile bool // Whether the user has completed their business profile
 }
 
 // AppLayout is the main application layout with sidebar navigation
@@ -54,7 +55,7 @@ func AppLayout(data AppLayoutData) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(data.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 27, Col: 22}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 28, Col: 22}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -252,7 +253,7 @@ func NavItem(href string, label string, currentPath string, icon templ.Component
 		var templ_7745c5c3_Var7 templ.SafeURL
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(href))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 144, Col: 29}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 145, Col: 29}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -282,7 +283,7 @@ func NavItem(href string, label string, currentPath string, icon templ.Component
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 148, Col: 10}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 149, Col: 10}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -389,7 +390,7 @@ func UserMenu(user *UserInfo, csrfToken string) templ.Component {
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(userInitial(user))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 201, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 202, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -402,7 +403,7 @@ func UserMenu(user *UserInfo, csrfToken string) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(userName(user))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 205, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 206, Col: 21}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -420,7 +421,7 @@ func UserMenu(user *UserInfo, csrfToken string) templ.Component {
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(csrfToken)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 227, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 228, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 			if templ_7745c5c3_Err != nil {

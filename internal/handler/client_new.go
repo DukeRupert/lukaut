@@ -237,8 +237,9 @@ func domainUserToClientDisplay(u *domain.User) *clients.UserDisplay {
 		return nil
 	}
 	return &clients.UserDisplay{
-		Name:  u.Name,
-		Email: u.Email,
+		Name:               u.Name,
+		Email:              u.Email,
+		HasBusinessProfile: u.HasBusinessProfile(),
 	}
 }
 

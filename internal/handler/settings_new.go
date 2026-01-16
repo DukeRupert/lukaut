@@ -145,8 +145,9 @@ func domainUserToDisplay(u *domain.User) *settings.UserDisplay {
 		return nil
 	}
 	return &settings.UserDisplay{
-		Name:  u.Name,
-		Email: u.Email,
+		Name:               u.Name,
+		Email:              u.Email,
+		HasBusinessProfile: u.HasBusinessProfile(),
 	}
 }
 

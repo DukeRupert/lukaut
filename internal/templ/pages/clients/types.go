@@ -54,8 +54,9 @@ type PaginationData struct {
 
 // UserDisplay contains user info for display
 type UserDisplay struct {
-	Name  string
-	Email string
+	Name               string
+	Email              string
+	HasBusinessProfile bool
 }
 
 // ListPageData contains data for the clients list page

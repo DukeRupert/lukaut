@@ -41,8 +41,9 @@ type DetailData struct {
 
 // UserDisplay represents user information for display in templates.
 type UserDisplay struct {
-	Name  string
-	Email string
+	Name               string
+	Email              string
+	HasBusinessProfile bool
 }
 
 // RegulationDisplay represents a regulation in list view.

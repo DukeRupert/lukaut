@@ -51,7 +51,10 @@ templ DashboardPage(data DashboardPageData) {
 
 // DashboardContent renders just the dashboard content (for htmx swaps)
 templ DashboardContent(data DashboardPageData) {
-	<!-- Breadcrumb in top bar is handled by layout -->
+	<!-- Onboarding banner for users without business profile -->
+	if data.User != nil && !data.User.HasBusinessProfile {
+		@shared.OnboardingBanner()
+	}
 	<!-- Stats -->
 	<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
 		@StatCard("Total Inspections", data.Stats.TotalInspections)

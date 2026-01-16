@@ -74,8 +74,9 @@ type ReviewQueuePageData struct {
 
 // UserDisplay represents user information for display in templates.
 type UserDisplay struct {
-	Name  string
-	Email string
+	Name               string
+	Email              string
+	HasBusinessProfile bool
 }
 
 // InspectionListItem represents an inspection in the list view.
