@@ -33,8 +33,6 @@ templ LoginForm(data LoginPageData) {
 		if data.ReturnTo != "" {
 			<input type="hidden" name="return_to" value={ data.ReturnTo }/>
 		}
-		// Flash message inside form for htmx swaps
-		@shared.InlineFlash(data.Flash)
 		// Email field
 		<div data-slot="field">
 			<label for="email" data-slot="label" class="block text-sm/6 font-medium text-foreground">
