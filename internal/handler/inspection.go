@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -17,6 +16,9 @@ import (
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/DukeRupert/lukaut/internal/templ/pages/inspections"
+	"github.com/DukeRupert/lukaut/internal/templ/partials"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
 	"github.com/DukeRupert/lukaut/internal/worker"
 	"github.com/google/uuid"
 )
@@ -131,7 +133,6 @@ type InspectionHandler struct {
 	imageService      service.ImageService
 	violationService  service.ViolationService
 	queries           *repository.Queries
-	renderer          TemplateRenderer
 	logger            *slog.Logger
 }
 
@@ -141,7 +142,6 @@ func NewInspectionHandler(
 	imageService service.ImageService,
 	violationService service.ViolationService,
 	queries *repository.Queries,
-	renderer TemplateRenderer,
 	logger *slog.Logger,
 ) *InspectionHandler {
 	return &InspectionHandler{
@@ -149,132 +149,8 @@ func NewInspectionHandler(
 		imageService:      imageService,
 		violationService:  violationService,
 		queries:           queries,
-		renderer:          renderer,
 		logger:            logger,
 	}
-}
-
-// =============================================================================
-// Route Registration
-// =============================================================================
-
-// RegisterRoutes registers all inspection routes with the provided mux.
-//
-// All routes require authentication via the requireUser middleware.
-//
-// Routes:
-// - GET  /inspections          -> Index (list)
-// - GET  /inspections/new      -> New (create form)
-// - POST /inspections          -> Create
-// - GET  /inspections/{id}     -> Show
-// - GET  /inspections/{id}/edit -> Edit
-// - PUT  /inspections/{id}     -> Update
-// - DELETE /inspections/{id}   -> Delete
-// - POST /inspections/{id}/analyze -> TriggerAnalysis
-// - GET  /inspections/{id}/status  -> GetStatus
-// - GET  /inspections/{id}/review  -> Review
-func (h *InspectionHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(http.Handler) http.Handler) {
-	mux.Handle("GET /inspections", requireUser(http.HandlerFunc(h.Index)))
-	mux.Handle("GET /inspections/new", requireUser(http.HandlerFunc(h.New)))
-	mux.Handle("POST /inspections", requireUser(http.HandlerFunc(h.Create)))
-	mux.Handle("GET /inspections/{id}", requireUser(http.HandlerFunc(h.Show)))
-	mux.Handle("GET /inspections/{id}/edit", requireUser(http.HandlerFunc(h.Edit)))
-	mux.Handle("PUT /inspections/{id}", requireUser(http.HandlerFunc(h.Update)))
-	mux.Handle("DELETE /inspections/{id}", requireUser(http.HandlerFunc(h.Delete)))
-	mux.Handle("POST /inspections/{id}/analyze", requireUser(http.HandlerFunc(h.TriggerAnalysis)))
-	mux.Handle("GET /inspections/{id}/status", requireUser(http.HandlerFunc(h.GetStatus)))
-	mux.Handle("GET /inspections/{id}/review", requireUser(http.HandlerFunc(h.Review)))
-	mux.Handle("GET /inspections/{id}/review/queue", requireUser(http.HandlerFunc(h.ReviewQueue)))
-	mux.Handle("GET /inspections/{id}/violations-summary", requireUser(http.HandlerFunc(h.ViolationsSummary)))
-}
-
-// =============================================================================
-// GET /inspections - List Inspections
-// =============================================================================
-
-// Index displays a paginated list of inspections.
-func (h *InspectionHandler) Index(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUserFromRequest(r)
-	if user == nil {
-		h.logger.Error("index handler called without authenticated user")
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	// Parse pagination parameters
-	page := 1
-	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
-		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			page = p
-		}
-	}
-
-	perPage := int32(20)
-	offset := int32((page - 1) * int(perPage))
-
-	// Fetch inspections
-	result, err := h.inspectionService.List(r.Context(), domain.ListInspectionsParams{
-		UserID: user.ID,
-		Limit:  perPage,
-		Offset: offset,
-	})
-	if err != nil {
-		h.logger.Error("failed to list inspections", "error", err, "user_id", user.ID)
-		h.renderError(w, r, "Failed to load inspections. Please try again.")
-		return
-	}
-
-	// Build pagination data
-	pagination := buildPaginationData(result)
-
-	// Render template
-	data := InspectionListPageData{
-		CurrentPath: r.URL.Path,
-		User:        user,
-		Inspections: result.Inspections,
-		Pagination:  pagination,
-		Flash:       nil,
-	}
-
-	h.renderer.RenderHTTP(w, "inspections/index", data)
-}
-
-// =============================================================================
-// GET /inspections/new - Show Create Form
-// =============================================================================
-
-// New displays the inspection creation form.
-func (h *InspectionHandler) New(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUserFromRequest(r)
-	if user == nil {
-		h.logger.Error("new handler called without authenticated user")
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	// Fetch sites for dropdown
-	sites, err := h.fetchSiteOptions(r.Context(), user.ID)
-	if err != nil {
-		h.logger.Error("failed to fetch sites", "error", err, "user_id", user.ID)
-		h.renderError(w, r, "Failed to load sites. Please try again.")
-		return
-	}
-
-	// Render form with empty values
-	data := InspectionFormPageData{
-		CurrentPath: r.URL.Path,
-		User:        user,
-		Inspection:  nil,
-		Sites:       sites,
-		Form: map[string]string{
-			"inspection_date": time.Now().Format("2006-01-02"),
-		},
-		Errors: make(map[string]string),
-		Flash:  nil,
-		IsEdit: false,
-	}
-
-	h.renderer.RenderHTTP(w, "inspections/new", data)
 }
 
 // =============================================================================
@@ -367,219 +243,6 @@ func (h *InspectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Redirect to inspection detail page
 	http.Redirect(w, r, fmt.Sprintf("/inspections/%s", inspection.ID), http.StatusSeeOther)
-}
-
-// =============================================================================
-// GET /inspections/{id} - Show Inspection
-// =============================================================================
-
-// Show displays inspection details.
-func (h *InspectionHandler) Show(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUserFromRequest(r)
-	if user == nil {
-		h.logger.Error("show handler called without authenticated user")
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	// Parse inspection ID
-	idStr := r.PathValue("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		NotFoundResponse(w, r, h.logger)
-		return
-	}
-
-	// Fetch inspection
-	inspection, err := h.inspectionService.GetByID(r.Context(), id, user.ID)
-	if err != nil {
-		code := domain.ErrorCode(err)
-		if code == domain.ENOTFOUND {
-			NotFoundResponse(w, r, h.logger)
-		} else {
-			h.logger.Error("failed to get inspection", "error", err, "inspection_id", id)
-			h.renderError(w, r, "Failed to load inspection. Please try again.")
-		}
-		return
-	}
-
-	// Fetch images for this inspection
-	images, err := h.imageService.ListByInspection(r.Context(), id, user.ID)
-	if err != nil {
-		h.logger.Error("failed to fetch images", "error", err, "inspection_id", id)
-		// Continue with empty image list rather than failing
-		images = []domain.Image{}
-	}
-
-	// Populate thumbnail URLs for gallery
-	imageDisplays := make([]ImageDisplay, 0, len(images))
-	for _, img := range images {
-		thumbnailURL, err := h.imageService.GetThumbnailURL(r.Context(), img.ID, user.ID)
-		if err != nil {
-			h.logger.Error("failed to generate thumbnail URL", "error", err, "image_id", img.ID)
-			thumbnailURL = "" // Show broken image
-		}
-
-		imageDisplays = append(imageDisplays, ImageDisplay{
-			ID:               img.ID,
-			ThumbnailURL:     thumbnailURL,
-			OriginalFilename: img.OriginalFilename,
-			AnalysisStatus:   string(img.AnalysisStatus),
-			SizeMB:           img.SizeMB(),
-		})
-	}
-
-	// Build analysis status data
-	analysisStatus, err := h.buildAnalysisStatusData(r.Context(), id, user.ID)
-	if err != nil {
-		h.logger.Error("failed to build analysis status", "error", err, "inspection_id", id)
-		// Continue with empty status rather than failing
-		analysisStatus = &AnalysisStatusData{
-			InspectionID: id,
-			Status:       inspection.Status,
-			Message:      "Unable to load analysis status",
-		}
-	}
-
-	// Fetch violations
-	violations, err := h.violationService.ListByInspection(r.Context(), id, user.ID)
-	if err != nil {
-		h.logger.Error("failed to list violations", "error", err, "inspection_id", id)
-		violations = []domain.Violation{} // Continue with empty list
-	}
-
-	// Build violation details with thumbnail URLs
-	violationDetails := make([]ViolationWithDetails, 0, len(violations))
-	for _, v := range violations {
-		// Get thumbnail URL if violation has an image
-		thumbnailURL := ""
-		if v.ImageID != nil {
-			thumbnailURL, err = h.imageService.GetThumbnailURL(r.Context(), *v.ImageID, user.ID)
-			if err != nil {
-				h.logger.Warn("failed to generate thumbnail URL",
-					"error", err,
-					"image_id", *v.ImageID,
-				)
-				// Continue with empty thumbnail URL
-			}
-		}
-
-		violationDetails = append(violationDetails, ViolationWithDetails{
-			Violation:    &v,
-			Regulations:  []domain.ViolationRegulation{}, // Skip regulations for show page
-			ThumbnailURL: thumbnailURL,
-		})
-	}
-
-	// Calculate violation counts by status
-	counts := ViolationCounts{
-		Total: len(violations),
-	}
-	for _, v := range violations {
-		switch v.Status {
-		case domain.ViolationStatusPending:
-			counts.Pending++
-		case domain.ViolationStatusConfirmed:
-			counts.Confirmed++
-		case domain.ViolationStatusRejected:
-			counts.Rejected++
-		}
-	}
-
-	// Render template
-	data := InspectionShowPageData{
-		CurrentPath:  r.URL.Path,
-		User:         user,
-		Inspection:   inspection,
-		InspectionID: id,
-		CanUpload:    inspection.CanAddPhotos(),
-		IsAnalyzing:  analysisStatus.IsAnalyzing,
-		GalleryData: ImageGalleryData{
-			InspectionID: id,
-			Images:       imageDisplays,
-			Errors:       []string{},
-			CanUpload:    inspection.CanAddPhotos(),
-			IsAnalyzing:  analysisStatus.IsAnalyzing,
-		},
-		AnalysisStatus:  *analysisStatus,
-		Violations:      violationDetails,
-		ViolationCounts: counts,
-		Flash:           nil,
-	}
-
-	h.renderer.RenderHTTP(w, "inspections/show", data)
-}
-
-// =============================================================================
-// GET /inspections/{id}/edit - Show Edit Form
-// =============================================================================
-
-// Edit displays the inspection edit form.
-func (h *InspectionHandler) Edit(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUserFromRequest(r)
-	if user == nil {
-		h.logger.Error("edit handler called without authenticated user")
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	// Parse inspection ID
-	idStr := r.PathValue("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		NotFoundResponse(w, r, h.logger)
-		return
-	}
-
-	// Fetch inspection
-	inspection, err := h.inspectionService.GetByID(r.Context(), id, user.ID)
-	if err != nil {
-		code := domain.ErrorCode(err)
-		if code == domain.ENOTFOUND {
-			NotFoundResponse(w, r, h.logger)
-		} else {
-			h.logger.Error("failed to get inspection", "error", err, "inspection_id", id)
-			h.renderError(w, r, "Failed to load inspection. Please try again.")
-		}
-		return
-	}
-
-	// Fetch sites for dropdown
-	sites, err := h.fetchSiteOptions(r.Context(), user.ID)
-	if err != nil {
-		h.logger.Error("failed to fetch sites", "error", err, "user_id", user.ID)
-		h.renderError(w, r, "Failed to load sites. Please try again.")
-		return
-	}
-
-	// Populate form with inspection data
-	siteIDStr := ""
-	if inspection.SiteID != nil {
-		siteIDStr = inspection.SiteID.String()
-	}
-
-	formValues := map[string]string{
-		"title":              inspection.Title,
-		"site_id":            siteIDStr,
-		"inspection_date":    inspection.InspectionDate.Format("2006-01-02"),
-		"weather_conditions": inspection.WeatherConditions,
-		"temperature":        inspection.Temperature,
-		"inspector_notes":    inspection.InspectorNotes,
-	}
-
-	// Render form
-	data := InspectionFormPageData{
-		CurrentPath: r.URL.Path,
-		User:        user,
-		Inspection:  inspection,
-		Sites:       sites,
-		Form:        formValues,
-		Errors:      make(map[string]string),
-		Flash:       nil,
-		IsEdit:      true,
-	}
-
-	h.renderer.RenderHTTP(w, "inspections/edit", data)
 }
 
 // =============================================================================
@@ -825,7 +488,23 @@ func (h *InspectionHandler) TriggerAnalysis(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	h.renderer.RenderHTTP(w, "partials/analysis_status", statusData)
+	// Render templ partial
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	templData := partials.AnalysisStatusData{
+		InspectionID:   statusData.InspectionID.String(),
+		Status:         string(statusData.Status),
+		CanAnalyze:     statusData.CanAnalyze,
+		IsAnalyzing:    statusData.IsAnalyzing,
+		HasImages:      statusData.HasImages,
+		PendingImages:  statusData.PendingImages,
+		ViolationCount: statusData.ViolationCount,
+		Message:        statusData.Message,
+		PollingEnabled: statusData.PollingEnabled,
+	}
+	if err := partials.AnalysisStatus(templData).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render analysis status", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
 // =============================================================================
@@ -862,111 +541,23 @@ func (h *InspectionHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.renderer.RenderHTTP(w, "partials/analysis_status", statusData)
-}
-
-// =============================================================================
-// GET /inspections/{id}/review - Review Violations
-// =============================================================================
-
-// Review displays the violation review page where inspectors can accept/reject
-// AI-detected violations and add manual violations.
-func (h *InspectionHandler) Review(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUserFromRequest(r)
-	if user == nil {
-		h.logger.Error("review handler called without authenticated user")
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
+	// Render templ partial
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	templData := partials.AnalysisStatusData{
+		InspectionID:   statusData.InspectionID.String(),
+		Status:         string(statusData.Status),
+		CanAnalyze:     statusData.CanAnalyze,
+		IsAnalyzing:    statusData.IsAnalyzing,
+		HasImages:      statusData.HasImages,
+		PendingImages:  statusData.PendingImages,
+		ViolationCount: statusData.ViolationCount,
+		Message:        statusData.Message,
+		PollingEnabled: statusData.PollingEnabled,
 	}
-
-	// Parse inspection ID
-	idStr := r.PathValue("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		NotFoundResponse(w, r, h.logger)
-		return
+	if err := partials.AnalysisStatus(templData).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render analysis status", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
-
-	// Fetch inspection
-	inspection, err := h.inspectionService.GetByID(r.Context(), id, user.ID)
-	if err != nil {
-		code := domain.ErrorCode(err)
-		if code == domain.ENOTFOUND {
-			NotFoundResponse(w, r, h.logger)
-		} else {
-			h.logger.Error("failed to get inspection", "error", err, "inspection_id", id)
-			h.renderError(w, r, "Failed to load inspection. Please try again.")
-		}
-		return
-	}
-
-	// Fetch violations
-	violations, err := h.violationService.ListByInspection(r.Context(), id, user.ID)
-	if err != nil {
-		h.logger.Error("failed to list violations", "error", err, "inspection_id", id)
-		h.renderError(w, r, "Failed to load violations. Please try again.")
-		return
-	}
-
-	// Build violation details with regulations and thumbnail URLs
-	violationDetails := make([]ViolationWithDetails, 0, len(violations))
-	for _, v := range violations {
-		// Get regulations for this violation
-		_, regulations, err := h.violationService.GetByIDWithRegulations(r.Context(), v.ID, user.ID)
-		if err != nil {
-			h.logger.Warn("failed to get regulations for violation",
-				"error", err,
-				"violation_id", v.ID,
-			)
-			regulations = []domain.ViolationRegulation{} // Continue with empty list
-		}
-
-		// Get thumbnail URL if violation has an image
-		thumbnailURL := ""
-		if v.ImageID != nil {
-			thumbnailURL, err = h.imageService.GetThumbnailURL(r.Context(), *v.ImageID, user.ID)
-			if err != nil {
-				h.logger.Warn("failed to generate thumbnail URL",
-					"error", err,
-					"image_id", *v.ImageID,
-				)
-				// Continue with empty thumbnail URL
-			}
-		}
-
-		violationDetails = append(violationDetails, ViolationWithDetails{
-			Violation:    &v,
-			Regulations:  regulations,
-			ThumbnailURL: thumbnailURL,
-		})
-	}
-
-	// Calculate violation counts by status
-	counts := ViolationCounts{
-		Total: len(violations),
-	}
-	for _, v := range violations {
-		switch v.Status {
-		case domain.ViolationStatusPending:
-			counts.Pending++
-		case domain.ViolationStatusConfirmed:
-			counts.Confirmed++
-		case domain.ViolationStatusRejected:
-			counts.Rejected++
-		}
-	}
-
-	// Render review page
-	data := InspectionReviewPageData{
-		CurrentPath:     r.URL.Path,
-		User:            user,
-		Inspection:      inspection,
-		Violations:      violationDetails,
-		ViolationCounts: counts,
-		Flash:           nil,
-	}
-
-	h.renderer.RenderHTTP(w, "inspections/review", data)
 }
 
 // =============================================================================
@@ -1028,117 +619,22 @@ func (h *InspectionHandler) ViolationsSummary(w http.ResponseWriter, r *http.Req
 	// Check if analysis is running
 	isAnalyzing := inspection.Status == domain.InspectionStatusAnalyzing
 
-	// Render violations summary partial
-	data := InspectionShowPageData{
-		InspectionID:    id,
-		IsAnalyzing:     isAnalyzing,
-		ViolationCounts: counts,
+	// Render violations summary templ partial
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	templData := partials.ViolationsSummaryData{
+		InspectionID: id.String(),
+		IsAnalyzing:  isAnalyzing,
+		ViolationCounts: partials.ViolationCounts{
+			Total:     counts.Total,
+			Pending:   counts.Pending,
+			Confirmed: counts.Confirmed,
+			Rejected:  counts.Rejected,
+		},
 	}
-
-	h.renderer.RenderPartial(w, "partials/violations_summary", data)
-}
-
-// =============================================================================
-// GET /inspections/{id}/review/queue - Queue-Based Violation Review
-// =============================================================================
-
-// ReviewQueue renders the keyboard-focused queue-based violation review page.
-func (h *InspectionHandler) ReviewQueue(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUserFromRequest(r)
-	if user == nil {
-		h.logger.Error("review queue handler called without authenticated user")
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
+	if err := partials.ViolationsSummary(templData).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render violations summary", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
-
-	// Parse inspection ID
-	idStr := r.PathValue("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		NotFoundResponse(w, r, h.logger)
-		return
-	}
-
-	// Fetch inspection
-	inspection, err := h.inspectionService.GetByID(r.Context(), id, user.ID)
-	if err != nil {
-		code := domain.ErrorCode(err)
-		if code == domain.ENOTFOUND {
-			NotFoundResponse(w, r, h.logger)
-		} else {
-			h.logger.Error("failed to fetch inspection", "error", err, "inspection_id", id)
-			h.renderError(w, r, "Failed to load inspection. Please try again.")
-		}
-		return
-	}
-
-	// Fetch violations
-	violations, err := h.violationService.ListByInspection(r.Context(), id, user.ID)
-	if err != nil {
-		h.logger.Error("failed to list violations", "error", err, "inspection_id", id)
-		h.renderError(w, r, "Failed to load violations. Please try again.")
-		return
-	}
-
-	// Build violation details with regulations and thumbnail URLs
-	violationDetails := make([]ViolationWithDetails, 0, len(violations))
-	for _, v := range violations {
-		// Get regulations for this violation
-		_, regulations, err := h.violationService.GetByIDWithRegulations(r.Context(), v.ID, user.ID)
-		if err != nil {
-			h.logger.Warn("failed to get regulations for violation",
-				"error", err,
-				"violation_id", v.ID,
-			)
-			regulations = []domain.ViolationRegulation{} // Continue with empty list
-		}
-
-		// Get thumbnail URL if violation has an image
-		thumbnailURL := ""
-		if v.ImageID != nil {
-			thumbnailURL, err = h.imageService.GetThumbnailURL(r.Context(), *v.ImageID, user.ID)
-			if err != nil {
-				h.logger.Warn("failed to generate thumbnail URL",
-					"error", err,
-					"image_id", *v.ImageID,
-				)
-				// Continue with empty thumbnail URL
-			}
-		}
-
-		violationDetails = append(violationDetails, ViolationWithDetails{
-			Violation:    &v,
-			Regulations:  regulations,
-			ThumbnailURL: thumbnailURL,
-		})
-	}
-
-	// Calculate violation counts by status
-	counts := ViolationCounts{
-		Total: len(violations),
-	}
-	for _, v := range violations {
-		switch v.Status {
-		case domain.ViolationStatusPending:
-			counts.Pending++
-		case domain.ViolationStatusConfirmed:
-			counts.Confirmed++
-		case domain.ViolationStatusRejected:
-			counts.Rejected++
-		}
-	}
-
-	// Render review queue page
-	data := InspectionReviewPageData{
-		CurrentPath:     r.URL.Path,
-		User:            user,
-		Inspection:      inspection,
-		Violations:      violationDetails,
-		ViolationCounts: counts,
-		Flash:           nil,
-	}
-
-	h.renderer.RenderHTTP(w, "inspections/review_queue", data)
 }
 
 // =============================================================================
@@ -1180,21 +676,28 @@ func buildPaginationData(result *domain.ListInspectionsResult) PaginationData {
 	}
 }
 
-// renderError renders a generic error page.
+// renderError renders a generic error page using templ.
 func (h *InspectionHandler) renderError(w http.ResponseWriter, r *http.Request, message string) {
 	user := auth.GetUserFromRequest(r)
-	data := map[string]interface{}{
-		"CurrentPath": r.URL.Path,
-		"User":        user,
-		"Flash": &Flash{
-			Type:    "error",
+	data := inspections.ListPageData{
+		CurrentPath: r.URL.Path,
+		CSRFToken:   "",
+		User:        domainUserToInspectionDisplay(user),
+		Inspections: []inspections.InspectionListItem{},
+		Pagination:  inspections.PaginationData{},
+		Flash: &shared.Flash{
+			Type:    shared.FlashError,
 			Message: message,
 		},
 	}
-	h.renderer.RenderHTTP(w, "inspections/index", data)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := inspections.IndexPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render inspections index error", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
-// renderFormError re-renders the form with errors.
+// renderFormError re-renders the form with errors using templ.
 func (h *InspectionHandler) renderFormError(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -1219,31 +722,44 @@ func (h *InspectionHandler) renderFormError(
 		fieldErrors = make(map[string]string)
 	}
 
-	var flash *Flash
+	var flash *shared.Flash
 	if flashMessage != "" {
-		flash = &Flash{
-			Type:    "error",
+		flash = &shared.Flash{
+			Type:    shared.FlashError,
 			Message: flashMessage,
 		}
 	}
 
-	template := "inspections/new"
-	if isEdit {
-		template = "inspections/edit"
-	}
-
-	data := InspectionFormPageData{
+	data := inspections.FormPageData{
 		CurrentPath: r.URL.Path,
-		User:        user,
-		Inspection:  inspection,
-		Sites:       sites,
-		Form:        formValues,
-		Errors:      fieldErrors,
-		Flash:       flash,
-		IsEdit:      isEdit,
+		CSRFToken:   "",
+		User:        domainUserToInspectionDisplay(user),
+		Inspection:  domainInspectionToDisplay(inspection),
+		Sites:       domainSitesToOptions(sites),
+		Form: inspections.InspectionFormValues{
+			Title:             formValues["title"],
+			SiteID:            formValues["site_id"],
+			InspectionDate:    formValues["inspection_date"],
+			WeatherConditions: formValues["weather_conditions"],
+			Temperature:       formValues["temperature"],
+			InspectorNotes:    formValues["inspector_notes"],
+		},
+		Errors: fieldErrors,
+		Flash:  flash,
+		IsEdit: isEdit,
 	}
 
-	h.renderer.RenderHTTP(w, template, data)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	var renderErr error
+	if isEdit {
+		renderErr = inspections.EditPage(data).Render(r.Context(), w)
+	} else {
+		renderErr = inspections.NewPage(data).Render(r.Context(), w)
+	}
+	if renderErr != nil {
+		h.logger.Error("failed to render form error", "error", renderErr)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
 // buildAnalysisStatusData builds the data needed for the analysis status partial.

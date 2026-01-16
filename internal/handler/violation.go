@@ -13,6 +13,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/DukeRupert/lukaut/internal/templ/partials"
 	"github.com/google/uuid"
 )
 
@@ -36,7 +37,6 @@ type ViolationHandler struct {
 	violationService  service.ViolationService
 	inspectionService service.InspectionService
 	imageService      service.ImageService
-	renderer          TemplateRenderer
 	logger            *slog.Logger
 }
 
@@ -45,14 +45,12 @@ func NewViolationHandler(
 	violationService service.ViolationService,
 	inspectionService service.InspectionService,
 	imageService service.ImageService,
-	renderer TemplateRenderer,
 	logger *slog.Logger,
 ) *ViolationHandler {
 	return &ViolationHandler{
 		violationService:  violationService,
 		inspectionService: inspectionService,
 		imageService:      imageService,
-		renderer:          renderer,
 		logger:            logger,
 	}
 }
@@ -151,7 +149,11 @@ func (h *ViolationHandler) Create(w http.ResponseWriter, r *http.Request) {
 		CanEdit:     true,
 	}
 
-	h.renderer.RenderHTTP(w, "partials/violation_card", data)
+	templData := toTemplViolationCardData(data, "")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := partials.ViolationCard(templData).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render violation card", "error", err)
+	}
 }
 
 // =============================================================================
@@ -248,10 +250,13 @@ func (h *ViolationHandler) Update(w http.ResponseWriter, r *http.Request) {
 		CanEdit:     true,
 	}
 
-	h.renderer.RenderHTTPWithToast(w, "partials/violation_card", data, ToastData{
-		Type:    "success",
-		Message: "Violation updated successfully.",
-	})
+	// Set toast header for htmx
+	w.Header().Set("HX-Trigger", `{"showToast": {"type": "success", "message": "Violation updated successfully."}}`)
+	templData := toTemplViolationCardData(data, "")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := partials.ViolationCard(templData).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render violation card", "error", err)
+	}
 }
 
 // =============================================================================
@@ -342,7 +347,11 @@ func (h *ViolationHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) 
 		CanEdit:     true,
 	}
 
-	h.renderer.RenderHTTP(w, "partials/violation_card", data)
+	templData := toTemplViolationCardData(data, "")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := partials.ViolationCard(templData).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render violation card", "error", err)
+	}
 }
 
 // =============================================================================
@@ -425,5 +434,40 @@ func (h *ViolationHandler) GetCard(w http.ResponseWriter, r *http.Request) {
 		CanEdit:     true,
 	}
 
-	h.renderer.RenderHTTP(w, "partials/violation_card", data)
+	templData := toTemplViolationCardData(data, "")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := partials.ViolationCard(templData).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render violation card", "error", err)
+	}
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+// toTemplViolationCardData converts ViolationCardData to partials.ViolationCardData
+func toTemplViolationCardData(data ViolationCardData, thumbnailURL string) partials.ViolationCardData {
+	regulations := make([]partials.RegulationDisplay, len(data.Regulations))
+	for i, reg := range data.Regulations {
+		regulations[i] = partials.RegulationDisplay{
+			StandardNumber: reg.StandardNumber,
+			Title:          reg.Title,
+			IsPrimary:      reg.IsPrimary,
+		}
+	}
+
+	return partials.ViolationCardData{
+		Violation: partials.ViolationDisplay{
+			ID:             data.Violation.ID.String(),
+			Description:    data.Violation.Description,
+			AIDescription:  data.Violation.AIDescription,
+			Severity:       string(data.Violation.Severity),
+			Status:         string(data.Violation.Status),
+			Confidence:     string(data.Violation.Confidence),
+			InspectorNotes: data.Violation.InspectorNotes,
+		},
+		Regulations:  regulations,
+		ThumbnailURL: thumbnailURL,
+		CanEdit:      data.CanEdit,
+	}
 }

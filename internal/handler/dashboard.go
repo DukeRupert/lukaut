@@ -25,37 +25,32 @@ import (
 //
 // Dependencies:
 // - repo: Repository for database queries
-// - renderer: Template rendering for HTML responses
 // - logger: Structured logging for request handling
 //
 // Routes handled:
-// - GET /dashboard -> Show
+// - GET /dashboard -> ShowTempl
 type DashboardHandler struct {
-	repo     *repository.Queries
-	renderer TemplateRenderer
-	logger   *slog.Logger
+	repo   *repository.Queries
+	logger *slog.Logger
 }
 
 // NewDashboardHandler creates a new DashboardHandler with the required dependencies.
 //
 // Parameters:
 // - repo: Repository for database access
-// - renderer: Template renderer for HTML pages
 // - logger: Structured logger for request logging
 //
 // Example usage in main.go:
 //
-//	dashboardHandler := handler.NewDashboardHandler(repo, renderer, logger)
-//	mux.Handle("GET /dashboard", requireUser(http.HandlerFunc(dashboardHandler.Show)))
+//	dashboardHandler := handler.NewDashboardHandler(repo, logger)
+//	mux.Handle("GET /dashboard", requireUser(http.HandlerFunc(dashboardHandler.ShowTempl)))
 func NewDashboardHandler(
 	repo *repository.Queries,
-	renderer TemplateRenderer,
 	logger *slog.Logger,
 ) *DashboardHandler {
 	return &DashboardHandler{
-		repo:     repo,
-		renderer: renderer,
-		logger:   logger,
+		repo:   repo,
+		logger: logger,
 	}
 }
 
@@ -91,134 +86,7 @@ type DashboardPageData struct {
 }
 
 // =============================================================================
-// GET /dashboard - Show Dashboard
-// =============================================================================
-
-// Show renders the dashboard page with statistics and recent inspections.
-//
-// Template: dashboard
-//
-// This handler:
-// 1. Gets the authenticated user from context (set by RequireUser middleware)
-// 2. Fetches all dashboard statistics using repository queries
-// 3. Fetches the 10 most recent inspections with violation counts
-// 4. Converts repository types to view models
-// 5. Renders the dashboard template with all data
-//
-// Error Handling:
-// - If database queries fail, logs error and provides zero/empty defaults
-// - This ensures the page still loads even if some stats are unavailable
-//
-// Implementation Notes:
-// - Graceful error handling prevents partial failures from breaking the page
-// - Uses default values (0 for counts, empty list for inspections) on error
-// - Errors are logged at WARN level since the page can still function
-func (h *DashboardHandler) Show(w http.ResponseWriter, r *http.Request) {
-	// Get authenticated user from context
-	user := auth.GetUserFromRequest(r)
-	if user == nil {
-		// This shouldn't happen if RequireUser middleware is used
-		h.logger.Error("dashboard handler called without authenticated user")
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	// Initialize stats with zero values (defaults if queries fail)
-	stats := DashboardStats{
-		TotalInspections: 0,
-		TotalReports:     0,
-		TotalViolations:  0,
-		MonthlyReports:   0,
-	}
-
-	// Fetch total inspections
-	totalInspections, err := h.repo.CountInspectionsByUserID(r.Context(), user.ID)
-	if err != nil {
-		h.logger.Warn("failed to fetch total inspections count",
-			"error", err,
-			"user_id", user.ID,
-		)
-	} else {
-		stats.TotalInspections = totalInspections
-	}
-
-	// Fetch total reports
-	totalReports, err := h.repo.CountReportsByUserID(r.Context(), user.ID)
-	if err != nil {
-		h.logger.Warn("failed to fetch total reports count",
-			"error", err,
-			"user_id", user.ID,
-		)
-	} else {
-		stats.TotalReports = totalReports
-	}
-
-	// Fetch total violations
-	totalViolations, err := h.repo.CountViolationsByUserID(r.Context(), user.ID)
-	if err != nil {
-		h.logger.Warn("failed to fetch total violations count",
-			"error", err,
-			"user_id", user.ID,
-		)
-	} else {
-		stats.TotalViolations = totalViolations
-	}
-
-	// Fetch monthly reports
-	monthlyReports, err := h.repo.CountReportsThisMonthByUserID(r.Context(), user.ID)
-	if err != nil {
-		h.logger.Warn("failed to fetch monthly reports count",
-			"error", err,
-			"user_id", user.ID,
-		)
-	} else {
-		stats.MonthlyReports = monthlyReports
-	}
-
-	// Fetch recent inspections with violation counts (limit to 10)
-	recentInspectionsRows, err := h.repo.ListRecentInspectionsWithViolationCount(
-		r.Context(),
-		repository.ListRecentInspectionsWithViolationCountParams{
-			UserID: user.ID,
-			Limit:  10,
-		},
-	)
-
-	// Convert repository rows to view models
-	recentInspections := make([]DashboardInspection, 0, len(recentInspectionsRows))
-	if err != nil {
-		h.logger.Warn("failed to fetch recent inspections",
-			"error", err,
-			"user_id", user.ID,
-		)
-		// Continue with empty list
-	} else {
-		for _, row := range recentInspectionsRows {
-			recentInspections = append(recentInspections, DashboardInspection{
-				ID:             row.ID,
-				Title:          row.Title,
-				Status:         row.Status,
-				InspectionDate: row.InspectionDate,
-				ViolationCount: row.ViolationCount,
-			})
-		}
-	}
-
-	// Prepare template data
-	data := DashboardPageData{
-		CurrentPath:       r.URL.Path,
-		User:              user,
-		Stats:             stats,
-		RecentInspections: recentInspections,
-		Flash:             nil, // TODO: Get flash message from session if implemented
-	}
-
-	// Render dashboard template
-	h.renderer.RenderHTTP(w, "dashboard", data)
-}
-
-// =============================================================================
-// GET /dashboard (Templ) - Show Dashboard using templ components
+// GET /dashboard - Show Dashboard using templ components
 // =============================================================================
 
 // ShowTempl renders the dashboard page using templ components.

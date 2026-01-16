@@ -1,0 +1,83 @@
+package partials
+
+import "fmt"
+
+// AnalysisStatus renders the analysis status partial for htmx responses.
+templ AnalysisStatus(data AnalysisStatusData) {
+	<div
+		id="analysis-status"
+		if data.PollingEnabled {
+			hx-get={ fmt.Sprintf("/inspections/%s/status", data.InspectionID) }
+			hx-trigger="every 5s, galleryUpdated from:body"
+		} else {
+			hx-trigger="galleryUpdated from:body"
+			hx-get={ fmt.Sprintf("/inspections/%s/status", data.InspectionID) }
+		}
+		hx-swap="outerHTML"
+	>
+		<div class="bg-white shadow sm:rounded-lg">
+			<div class="px-4 py-5 sm:p-6">
+				<div class="sm:flex sm:items-center sm:justify-between">
+					<div class="sm:flex-auto">
+						<h3 class="text-base font-semibold leading-6 text-gray-900">AI Analysis</h3>
+						<p class="mt-2 text-sm text-gray-700">{ data.Message }</p>
+						if data.ViolationCount > 0 {
+							<p class="mt-1 text-sm text-gray-500">{ fmt.Sprintf("%d potential violation(s) identified", data.ViolationCount) }</p>
+						}
+					</div>
+					<div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+						if data.CanAnalyze {
+							<button
+								type="button"
+								class="inline-flex items-center rounded-md bg-navy px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-navy/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+								hx-post={ fmt.Sprintf("/inspections/%s/analyze", data.InspectionID) }
+								hx-target="#analysis-status"
+								hx-swap="outerHTML"
+							>
+								<svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+									<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"></path>
+								</svg>
+								{ analyzeButtonText(data.PendingImages) }
+							</button>
+						} else if data.IsAnalyzing {
+							<button
+								type="button"
+								disabled
+								class="inline-flex items-center rounded-md bg-gray-300 px-3 py-2 text-sm font-semibold text-gray-500 cursor-not-allowed"
+							>
+								<svg class="-ml-0.5 mr-1.5 h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+								Analyzing...
+							</button>
+						} else {
+							<button
+								type="button"
+								disabled
+								class="inline-flex items-center rounded-md bg-gray-300 px-3 py-2 text-sm font-semibold text-gray-500 cursor-not-allowed"
+							>
+								if data.Status == "completed" {
+									<svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+										<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"></path>
+									</svg>
+									Inspection Finalized
+								} else {
+									Analysis Complete
+								}
+							</button>
+						}
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+// analyzeButtonText returns the appropriate button text.
+func analyzeButtonText(pendingImages int64) string {
+	if pendingImages == 1 {
+		return "Analyze 1 Image"
+	}
+	return fmt.Sprintf("Analyze %d Images", pendingImages)
+}

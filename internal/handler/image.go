@@ -12,6 +12,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/DukeRupert/lukaut/internal/templ/partials"
 	"github.com/DukeRupert/lukaut/internal/worker"
 	"github.com/google/uuid"
 )
@@ -47,7 +48,6 @@ type ImageHandler struct {
 	imageService      service.ImageService
 	inspectionService service.InspectionService
 	queries           *repository.Queries
-	renderer          TemplateRenderer
 	logger            *slog.Logger
 }
 
@@ -56,14 +56,12 @@ func NewImageHandler(
 	imageService service.ImageService,
 	inspectionService service.InspectionService,
 	queries *repository.Queries,
-	renderer TemplateRenderer,
 	logger *slog.Logger,
 ) *ImageHandler {
 	return &ImageHandler{
 		imageService:      imageService,
 		inspectionService: inspectionService,
 		queries:           queries,
-		renderer:          renderer,
 		logger:            logger,
 	}
 }
@@ -233,7 +231,12 @@ func (h *ImageHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	// Trigger analysis status refresh and violations summary refresh
 	w.Header().Set("HX-Trigger", "galleryUpdated")
 
-	h.renderer.RenderPartial(w, "image_gallery", data)
+	// Render using templ
+	templData := toTemplImageGalleryData(data)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := partials.ImageGallery(templData).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render image gallery", "error", err)
+	}
 }
 
 // =============================================================================
@@ -322,7 +325,12 @@ func (h *ImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	// Trigger analysis status refresh
 	w.Header().Set("HX-Trigger", "galleryUpdated")
 
-	h.renderer.RenderPartial(w, "image_gallery", data)
+	// Render using templ
+	templData := toTemplImageGalleryData(data)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := partials.ImageGallery(templData).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render image gallery", "error", err)
+	}
 }
 
 // =============================================================================
@@ -481,5 +489,35 @@ func (h *ImageHandler) ListImages(w http.ResponseWriter, r *http.Request) {
 		IsAnalyzing:  isAnalyzing,
 	}
 
-	h.renderer.RenderPartial(w, "image_gallery", data)
+	// Render using templ
+	templData := toTemplImageGalleryData(data)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := partials.ImageGallery(templData).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render image gallery", "error", err)
+	}
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+// toTemplImageGalleryData converts ImageGalleryData to partials.ImageGalleryData
+func toTemplImageGalleryData(data ImageGalleryData) partials.ImageGalleryData {
+	images := make([]partials.ImageDisplay, len(data.Images))
+	for i, img := range data.Images {
+		images[i] = partials.ImageDisplay{
+			ID:               img.ID.String(),
+			ThumbnailURL:     img.ThumbnailURL,
+			OriginalFilename: img.OriginalFilename,
+			AnalysisStatus:   img.AnalysisStatus,
+			SizeMB:           img.SizeMB,
+		}
+	}
+	return partials.ImageGalleryData{
+		InspectionID: data.InspectionID.String(),
+		Images:       images,
+		Errors:       data.Errors,
+		CanUpload:    data.CanUpload,
+		IsAnalyzing:  data.IsAnalyzing,
+	}
 }

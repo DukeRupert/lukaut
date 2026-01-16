@@ -695,6 +695,324 @@ r.Handle("/admin", existingDashboardHandler)
 r.Handle("/admin/dashboard-templ", templDashboardHandler)
 ```
 
+## Hiri-Specific Implementation Notes
+
+Based on the dashboard migration, here are specific patterns for converting Hiri admin pages:
+
+### File Naming Convention
+
+**CRITICAL:** Never name handler files with `_templ.go` suffix. The `templ generate` command deletes all `*_templ.go` files, assuming they are generated files.
+
+```
+✗ internal/handler/admin/dashboard_templ.go  <- Will be deleted!
+✓ internal/handler/admin/dashboard_new.go    <- Safe
+✓ internal/handler/admin/products_v2.go      <- Safe
+```
+
+### Directory Structure for Admin Pages
+
+```
+internal/templ/admin/
+├── layout/
+│   └── base.templ              # Shared admin layout (already created)
+├── dashboard/                  # ✓ Converted
+│   ├── types.go
+│   ├── components.templ
+│   └── page.templ
+├── products/                   # Next candidate
+│   ├── types.go                # ProductListData, ProductDetailData, DisplayProduct
+│   ├── components.templ        # ProductCard, SKUTable, ImageGallery
+│   ├── list.templ              # Products list page
+│   └── detail.templ            # Product detail page
+├── orders/
+│   ├── types.go
+│   ├── components.templ        # OrderRow, ShipmentCard, RefundHistory
+│   ├── list.templ
+│   └── detail.templ
+└── customers/
+    ├── types.go
+    ├── components.templ
+    ├── list.templ
+    └── detail.templ
+```
+
+### Conversion Checklist for Each Page
+
+1. **Create types.go** - Define typed structs for page data
+   - Move away from `map[string]interface{}`
+   - Pre-format dates, currency in handler (not template)
+   - Convert UUIDs to strings for template use
+
+2. **Create components.templ** - Extract reusable components
+   - Status badges specific to that domain
+   - Table rows with proper typing
+   - Cards and sections
+
+3. **Create page.templ** - Compose the full page
+   - Import layout: `"github.com/dukerupert/hiri/internal/templ/admin/layout"`
+   - Use `@layout.AdminLayout(title, currentPath) { ... }`
+
+4. **Create handler** (e.g., `products_new.go`)
+   - Same data fetching as existing handler
+   - Transform to typed PageData
+   - Render with `page.Page(data).Render(ctx, w)`
+
+5. **Update routes**
+   - Add to `AdminDeps` struct in `deps.go`
+   - Register route in `admin.go`
+   - Initialize in `main.go`
+
+### Shared Components to Reuse
+
+These components are already available in `internal/templ/admin/dashboard/`:
+
+- `StatCard` - Metric display with color variants
+- `PageHeader` - Title + description
+- `Heading` - Semantic headings (h1-h3)
+- `OrderStatusBadge` - Status badges (pending, processing, shipped, etc.)
+- `EmptyState` - No data placeholder
+
+Consider moving commonly-used components to a shared location:
+```
+internal/templ/admin/shared/
+├── badges.templ      # All status badges
+├── cards.templ       # StatCard, InfoCard, etc.
+├── tables.templ      # Table wrapper, pagination
+└── forms.templ       # Input, Select, Textarea wrappers
+```
+
+### Priority Order for Remaining Pages
+
+Based on complexity and usage:
+
+1. **Products list/detail** - Core functionality, good table/form practice
+2. **Orders list/detail** - Similar patterns, status workflows
+3. **Customers list/detail** - Wholesale approval UI
+4. **Invoices** - Good HTMX integration practice
+5. **Settings pages** - Forms and validation
+6. **Reports** - Charts and data visualization
+
+### HTMX Partial Responses
+
+For HTMX partial updates, create separate templ components:
+
+```go
+// internal/templ/admin/orders/partials.templ
+templ RefundHistoryPartial(refunds []Refund) {
+    // Renders just the refund history section
+    // No layout wrapper
+}
+```
+
+Handler returns partial:
+```go
+if r.Header.Get("HX-Request") == "true" {
+    return partials.RefundHistoryPartial(refunds).Render(ctx, w)
+}
+return page.OrderDetail(data).Render(ctx, w)
+```
+
+## Post-Migration Consolidation
+
+After completing the templ migration for all admin pages, consolidate handlers to reduce code duplication.
+
+### The Problem: Duplicate Handlers
+
+During migration, you'll have pairs of handlers:
+
+```go
+// Old handler with html/template (mutations + old rendering)
+type ProductHandler struct {
+    repo     repository.Querier
+    renderer *handler.Renderer  // old html/template renderer
+    storage  storage.Storage
+}
+
+// New handler with templ (templ rendering only)
+type ProductTemplHandler struct {
+    repo    repository.Querier
+    storage storage.Storage
+}
+```
+
+This results in:
+- Duplicate structs with similar dependencies
+- Routes split between two handlers
+- Maintenance overhead
+
+### Consolidation Strategy
+
+1. **Rename TemplHandler to Handler** - The templ handler becomes THE handler
+2. **Merge mutation methods** - Copy POST/PUT/DELETE methods from old handler to new
+3. **Remove renderer dependency** - templ doesn't need the old `*handler.Renderer`
+4. **Update deps.go** - Remove duplicate handler fields
+5. **Update routes** - Point all routes to consolidated handler
+6. **Update main.go** - Simplify handler instantiation
+
+### Step-by-Step Process
+
+**1. Merge handler files**
+
+```go
+// Before: products_new.go
+type ProductTemplHandler struct {
+    repo    repository.Querier
+    storage storage.Storage
+}
+
+func NewProductTemplHandler(repo repository.Querier, storage storage.Storage) *ProductTemplHandler {
+    return &ProductTemplHandler{repo: repo, storage: storage}
+}
+
+func (h *ProductTemplHandler) List(w http.ResponseWriter, r *http.Request) { ... }
+func (h *ProductTemplHandler) Detail(w http.ResponseWriter, r *http.Request) { ... }
+func (h *ProductTemplHandler) ShowForm(w http.ResponseWriter, r *http.Request) { ... }
+
+// After: products.go (merged)
+type ProductHandler struct {
+    repo    repository.Querier
+    storage storage.Storage
+}
+
+func NewProductHandler(repo repository.Querier, storage storage.Storage) *ProductHandler {
+    return &ProductHandler{repo: repo, storage: storage}
+}
+
+// Templ rendering methods
+func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) { ... }
+func (h *ProductHandler) Detail(w http.ResponseWriter, r *http.Request) { ... }
+func (h *ProductHandler) ShowForm(w http.ResponseWriter, r *http.Request) { ... }
+
+// Mutation methods (copied from old handler)
+func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) { ... }
+func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) { ... }
+func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) { ... }
+```
+
+**2. Update deps.go**
+
+```go
+// Before
+type AdminDeps struct {
+    ProductHandler      *admin.ProductHandler       // old
+    ProductTemplHandler *admin.ProductTemplHandler  // new
+    // ... duplicates for each domain
+}
+
+// After
+type AdminDeps struct {
+    ProductHandler *admin.ProductHandler  // consolidated
+    // ... single handler per domain
+}
+```
+
+**3. Update routes**
+
+```go
+// Before
+admin.Get("/admin/products", deps.ProductTemplHandler.List)
+admin.Post("/admin/products", deps.ProductHandler.Create)  // different handler!
+
+// After
+admin.Get("/admin/products", deps.ProductHandler.List)
+admin.Post("/admin/products", deps.ProductHandler.Create)  // same handler
+```
+
+**4. Update main.go**
+
+```go
+// Before
+adminDeps := routes.AdminDeps{
+    ProductHandler:      admin.NewProductHandler(repo, renderer, fileStorage),
+    ProductTemplHandler: admin.NewProductTemplHandler(repo, fileStorage),
+}
+
+// After (no renderer needed)
+adminDeps := routes.AdminDeps{
+    ProductHandler: admin.NewProductHandler(repo, fileStorage),
+}
+```
+
+### Helper Functions to Preserve
+
+During consolidation, ensure helper functions are preserved:
+
+```go
+// These helpers may exist in old handlers - copy them to consolidated handler
+
+// isCSVFile checks if filename ends with .csv
+func isCSVFile(filename string) bool {
+    return strings.HasSuffix(strings.ToLower(filename), ".csv")
+}
+
+// usStateCodes returns list of US state codes for tax rate forms
+func usStateCodes() []string {
+    return []string{"AL", "AK", "AZ", ...}
+}
+
+// getRefundReasons returns list of refund reason options
+func getRefundReasons() []map[string]string { ... }
+```
+
+### HTMX Partials
+
+For htmx partial responses, add types to the templ types.go file:
+
+```go
+// internal/templ/admin/orders/types.go
+
+// RefundHistoryData contains data for the refund history partial
+type RefundHistoryData struct {
+    Refunds []DisplayRefund
+    OrderID string
+}
+```
+
+And create corresponding templ components:
+
+```go
+// internal/templ/admin/orders/refund.templ
+
+// RefundHistory renders the refund history as an htmx partial
+templ RefundHistory(data RefundHistoryData) {
+    if len(data.Refunds) > 0 {
+        <div class="divide-y divide-zinc-950/5 dark:divide-white/5">
+            for _, refund := range data.Refunds {
+                @refundHistoryItem(refund)
+            }
+        </div>
+    } else {
+        <p class="text-sm text-zinc-500 dark:text-zinc-400">No refunds yet.</p>
+    }
+}
+```
+
+### Consolidation Checklist
+
+For each handler pair:
+
+- [ ] Rename struct from `XxxTemplHandler` to `XxxHandler`
+- [ ] Rename constructor from `NewXxxTemplHandler` to `NewXxxHandler`
+- [ ] Update all method receivers from `(h *XxxTemplHandler)` to `(h *XxxHandler)`
+- [ ] Copy mutation methods (Create, Update, Delete) from old handler
+- [ ] Copy helper functions used by mutation methods
+- [ ] Remove `renderer *handler.Renderer` from struct and constructor
+- [ ] Delete old handler file
+- [ ] Rename `xxx_new.go` to `xxx.go`
+- [ ] Update deps.go to remove TemplHandler field
+- [ ] Update routes to use consolidated handler
+- [ ] Update main.go handler instantiation
+- [ ] Build and test
+
+### Results from Hiri Consolidation
+
+After consolidating 16 handler pairs:
+
+- **Lines deleted:** ~11,000 (old html/template files + duplicate handlers)
+- **Lines added:** ~2,300 (helper functions, missing types)
+- **Net reduction:** ~8,700 lines
+- **Single source of truth:** Each domain has one handler
+
 ## Summary
 
 **Benefits observed:**
@@ -702,12 +1020,15 @@ r.Handle("/admin/dashboard-templ", templDashboardHandler)
 - IDE autocompletion for props
 - Component composition feels natural
 - Good integration with htmx and Alpine.js
+- Post-migration consolidation reduces code by ~50%
 
 **Considerations:**
 - Additional build step (templ generate)
 - Learning curve for templ syntax
 - Some templUI components may need customization
 - Theme setup requires complete CSS variable definitions
+- **Never use `_templ.go` suffix for handler files**
+- Plan for post-migration consolidation to avoid long-term handler duplication
 
 **Recommended for:**
 - New projects with significant UI complexity

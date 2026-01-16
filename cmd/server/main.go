@@ -60,17 +60,6 @@ func run() error {
 	// Initialize repository
 	repo := repository.New(db)
 
-	// Initialize template renderer
-	renderer, err := handler.NewRenderer(handler.RendererConfig{
-		TemplatesDir: "web/templates",
-		Logger:       logger,
-		IsDev:        cfg.Env == "development",
-	})
-	if err != nil {
-		return fmt.Errorf("renderer initialization failed: %w", err)
-	}
-	logger.Info("Templates loaded", "count", len(renderer.ListTemplates()))
-
 	// Initialize storage service
 	var storageService storage.Storage
 	if cfg.StorageProvider == storage.ProviderR2 {
@@ -190,15 +179,15 @@ func run() error {
 	authMw := middleware.NewAuthMiddleware(userService, logger, isSecure)
 
 	// Initialize handlers
-	authHandler := handler.NewAuthHandler(userService, emailService, inviteValidator, renderer, logger, isSecure)
-	dashboardHandler := handler.NewDashboardHandler(repo, renderer, logger)
-	inspectionHandler := handler.NewInspectionHandler(inspectionService, imageService, violationService, repo, renderer, logger)
-	imageHandler := handler.NewImageHandler(imageService, inspectionService, repo, renderer, logger)
-	violationHandler := handler.NewViolationHandler(violationService, inspectionService, imageService, renderer, logger)
-	regulationHandler := handler.NewRegulationHandler(repo, renderer, logger)
-	settingsHandler := handler.NewSettingsHandler(userService, renderer, logger)
-	clientHandler := handler.NewClientHandler(clientService, renderer, logger)
-	siteHandler := handler.NewSiteHandler(siteService, clientService, renderer, logger)
+	authHandler := handler.NewAuthHandler(userService, emailService, inviteValidator, logger, isSecure)
+	dashboardHandler := handler.NewDashboardHandler(repo, logger)
+	inspectionHandler := handler.NewInspectionHandler(inspectionService, imageService, violationService, repo, logger)
+	imageHandler := handler.NewImageHandler(imageService, inspectionService, repo, logger)
+	violationHandler := handler.NewViolationHandler(violationService, inspectionService, imageService, logger)
+	regulationHandler := handler.NewRegulationHandler(repo, logger)
+	settingsHandler := handler.NewSettingsHandler(userService, logger)
+	clientHandler := handler.NewClientHandler(clientService, logger)
+	siteHandler := handler.NewSiteHandler(siteService, clientService, logger)
 
 	// ==========================================================================
 	// Create router and register routes

@@ -11,30 +11,29 @@ import (
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/DukeRupert/lukaut/internal/templ/pages/settings"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
 )
 
 // SettingsHandler handles settings-related HTTP requests.
 //
 // Routes handled:
-// - GET  /settings          -> ShowProfile
+// - GET  /settings          -> ShowProfileTempl
 // - POST /settings/profile  -> UpdateProfile
-// - GET  /settings/password -> ShowPassword
+// - GET  /settings/password -> ShowPasswordTempl
 // - POST /settings/password -> ChangePassword
 type SettingsHandler struct {
 	userService service.UserService
-	renderer    TemplateRenderer
 	logger      *slog.Logger
 }
 
 // NewSettingsHandler creates a new SettingsHandler with the required dependencies.
 func NewSettingsHandler(
 	userService service.UserService,
-	renderer TemplateRenderer,
 	logger *slog.Logger,
 ) *SettingsHandler {
 	return &SettingsHandler{
 		userService: userService,
-		renderer:    renderer,
 		logger:      logger,
 	}
 }
@@ -48,44 +47,6 @@ type SettingsPageData struct {
 	Errors      map[string]string
 	Flash       *Flash
 	ActiveTab   string // "profile" or "password"
-}
-
-// =============================================================================
-// GET /settings - Show Profile Form
-// =============================================================================
-
-// ShowProfile renders the profile settings form.
-func (h *SettingsHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUser(r.Context())
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	// Check for success flash from query param
-	var flash *Flash
-	if r.URL.Query().Get("updated") == "1" {
-		flash = &Flash{
-			Type:    "success",
-			Message: "Profile updated successfully.",
-		}
-	}
-
-	data := SettingsPageData{
-		CurrentPath: r.URL.Path,
-		User:        user,
-		CSRFToken:   "",
-		Form: map[string]string{
-			"Name":        user.Name,
-			"CompanyName": user.CompanyName,
-			"Phone":       user.Phone,
-		},
-		Errors:    make(map[string]string),
-		Flash:     flash,
-		ActiveTab: "profile",
-	}
-
-	h.renderer.RenderHTTP(w, "settings/profile", data)
 }
 
 // =============================================================================
@@ -177,7 +138,7 @@ func (h *SettingsHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(w, r, "/settings?updated=1", http.StatusSeeOther)
 }
 
-// renderProfileError re-renders the profile form with errors.
+// renderProfileError re-renders the profile form with errors using templ.
 func (h *SettingsHandler) renderProfileError(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -197,51 +158,33 @@ func (h *SettingsHandler) renderProfileError(
 		errors = make(map[string]string)
 	}
 
-	data := SettingsPageData{
-		CurrentPath: "/settings",
-		User:        user,
-		CSRFToken:   "",
-		Form:        formValues,
-		Errors:      errors,
-		Flash:       flash,
-		ActiveTab:   "profile",
-	}
-
-	h.renderer.RenderHTTP(w, "settings/profile", data)
-}
-
-// =============================================================================
-// GET /settings/password - Show Password Form
-// =============================================================================
-
-// ShowPassword renders the password change form.
-func (h *SettingsHandler) ShowPassword(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUser(r.Context())
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	// Check for success flash from query param
-	var flash *Flash
-	if r.URL.Query().Get("changed") == "1" {
-		flash = &Flash{
-			Type:    "success",
-			Message: "Password changed successfully.",
+	var templFlash *shared.Flash
+	if flash != nil {
+		templFlash = &shared.Flash{
+			Type:    shared.FlashType(flash.Type),
+			Message: flash.Message,
 		}
 	}
 
-	data := SettingsPageData{
-		CurrentPath: r.URL.Path,
-		User:        user,
+	data := settings.ProfilePageData{
+		CurrentPath: "/settings",
 		CSRFToken:   "",
-		Form:        make(map[string]string),
-		Errors:      make(map[string]string),
-		Flash:       flash,
-		ActiveTab:   "password",
+		User:        domainUserToDisplay(user),
+		Form: settings.ProfileFormData{
+			Name:        formValues["Name"],
+			CompanyName: formValues["CompanyName"],
+			Phone:       formValues["Phone"],
+		},
+		Errors:    errors,
+		Flash:     templFlash,
+		ActiveTab: settings.TabProfile,
 	}
 
-	h.renderer.RenderHTTP(w, "settings/password", data)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := settings.ProfilePage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render profile error page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
 // =============================================================================
@@ -330,7 +273,7 @@ func (h *SettingsHandler) ChangePassword(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, "/login?reset=1", http.StatusSeeOther)
 }
 
-// renderPasswordError re-renders the password form with errors.
+// renderPasswordError re-renders the password form with errors using templ.
 func (h *SettingsHandler) renderPasswordError(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -342,62 +285,28 @@ func (h *SettingsHandler) renderPasswordError(
 		errors = make(map[string]string)
 	}
 
-	data := SettingsPageData{
-		CurrentPath: "/settings/password",
-		User:        user,
-		CSRFToken:   "",
-		Form:        make(map[string]string), // Never re-populate password fields
-		Errors:      errors,
-		Flash:       flash,
-		ActiveTab:   "password",
-	}
-
-	h.renderer.RenderHTTP(w, "settings/password", data)
-}
-
-// =============================================================================
-// GET /settings/business - Show Business Form
-// =============================================================================
-
-// ShowBusiness renders the business settings form.
-func (h *SettingsHandler) ShowBusiness(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUser(r.Context())
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	// Check for success flash from query param
-	var flash *Flash
-	if r.URL.Query().Get("updated") == "1" {
-		flash = &Flash{
-			Type:    "success",
-			Message: "Business information updated successfully.",
+	var templFlash *shared.Flash
+	if flash != nil {
+		templFlash = &shared.Flash{
+			Type:    shared.FlashType(flash.Type),
+			Message: flash.Message,
 		}
 	}
 
-	data := SettingsPageData{
-		CurrentPath: r.URL.Path,
-		User:        user,
+	data := settings.PasswordPageData{
+		CurrentPath: "/settings/password",
 		CSRFToken:   "",
-		Form: map[string]string{
-			"BusinessName":          user.BusinessName,
-			"BusinessEmail":         user.BusinessEmail,
-			"BusinessPhone":         user.BusinessPhone,
-			"BusinessAddressLine1":  user.BusinessAddressLine1,
-			"BusinessAddressLine2":  user.BusinessAddressLine2,
-			"BusinessCity":          user.BusinessCity,
-			"BusinessState":         user.BusinessState,
-			"BusinessPostalCode":    user.BusinessPostalCode,
-			"BusinessLicenseNumber": user.BusinessLicenseNumber,
-			"BusinessLogoURL":       user.BusinessLogoURL,
-		},
-		Errors:    make(map[string]string),
-		Flash:     flash,
-		ActiveTab: "business",
+		User:        domainUserToDisplay(user),
+		Errors:      errors,
+		Flash:       templFlash,
+		ActiveTab:   settings.TabPassword,
 	}
 
-	h.renderer.RenderHTTP(w, "settings/business", data)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := settings.PasswordPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render password error page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
 // =============================================================================
@@ -515,7 +424,7 @@ func (h *SettingsHandler) UpdateBusiness(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, "/settings/business?updated=1", http.StatusSeeOther)
 }
 
-// renderBusinessError re-renders the business form with errors.
+// renderBusinessError re-renders the business form with errors using templ.
 func (h *SettingsHandler) renderBusinessError(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -542,29 +451,38 @@ func (h *SettingsHandler) renderBusinessError(
 		errors = make(map[string]string)
 	}
 
-	data := SettingsPageData{
-		CurrentPath: "/settings/business",
-		User:        user,
-		CSRFToken:   "",
-		Form:        formValues,
-		Errors:      errors,
-		Flash:       flash,
-		ActiveTab:   "business",
+	var templFlash *shared.Flash
+	if flash != nil {
+		templFlash = &shared.Flash{
+			Type:    shared.FlashType(flash.Type),
+			Message: flash.Message,
+		}
 	}
 
-	h.renderer.RenderHTTP(w, "settings/business", data)
-}
+	data := settings.BusinessPageData{
+		CurrentPath: "/settings/business",
+		CSRFToken:   "",
+		User:        domainUserToDisplay(user),
+		Form: settings.BusinessFormData{
+			BusinessName:          formValues["BusinessName"],
+			BusinessEmail:         formValues["BusinessEmail"],
+			BusinessPhone:         formValues["BusinessPhone"],
+			BusinessAddressLine1:  formValues["BusinessAddressLine1"],
+			BusinessAddressLine2:  formValues["BusinessAddressLine2"],
+			BusinessCity:          formValues["BusinessCity"],
+			BusinessState:         formValues["BusinessState"],
+			BusinessPostalCode:    formValues["BusinessPostalCode"],
+			BusinessLicenseNumber: formValues["BusinessLicenseNumber"],
+			BusinessLogoURL:       formValues["BusinessLogoURL"],
+		},
+		Errors:    errors,
+		Flash:     templFlash,
+		ActiveTab: settings.TabBusiness,
+	}
 
-// =============================================================================
-// Route Registration Helper
-// =============================================================================
-
-// RegisterRoutes registers all settings routes on the provided ServeMux.
-func (h *SettingsHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(http.Handler) http.Handler) {
-	mux.Handle("GET /settings", requireUser(http.HandlerFunc(h.ShowProfile)))
-	mux.Handle("POST /settings/profile", requireUser(http.HandlerFunc(h.UpdateProfile)))
-	mux.Handle("GET /settings/password", requireUser(http.HandlerFunc(h.ShowPassword)))
-	mux.Handle("POST /settings/password", requireUser(http.HandlerFunc(h.ChangePassword)))
-	mux.Handle("GET /settings/business", requireUser(http.HandlerFunc(h.ShowBusiness)))
-	mux.Handle("POST /settings/business", requireUser(http.HandlerFunc(h.UpdateBusiness)))
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := settings.BusinessPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render business error page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }

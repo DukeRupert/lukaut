@@ -11,6 +11,8 @@ import (
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/DukeRupert/lukaut/internal/templ/pages/sites"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
 	"github.com/google/uuid"
 )
 
@@ -49,7 +51,6 @@ type SiteFormPageData struct {
 type SiteHandler struct {
 	siteService   service.SiteService
 	clientService service.ClientService
-	renderer      TemplateRenderer
 	logger        *slog.Logger
 }
 
@@ -57,110 +58,12 @@ type SiteHandler struct {
 func NewSiteHandler(
 	siteService service.SiteService,
 	clientService service.ClientService,
-	renderer TemplateRenderer,
 	logger *slog.Logger,
 ) *SiteHandler {
 	return &SiteHandler{
 		siteService:   siteService,
 		clientService: clientService,
-		renderer:      renderer,
 		logger:        logger,
-	}
-}
-
-// =============================================================================
-// Route Registration
-// =============================================================================
-
-// RegisterRoutes registers all site routes with the provided mux.
-//
-// All routes require authentication via the requireUser middleware.
-//
-// Routes:
-// - GET  /sites          -> Index (list)
-// - GET  /sites/new      -> New (create form)
-// - POST /sites          -> Create
-// - GET  /sites/{id}/edit -> Edit
-// - PUT  /sites/{id}     -> Update
-// - DELETE /sites/{id}   -> Delete
-func (h *SiteHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(http.Handler) http.Handler) {
-	mux.Handle("GET /sites", requireUser(http.HandlerFunc(h.Index)))
-	mux.Handle("GET /sites/new", requireUser(http.HandlerFunc(h.New)))
-	mux.Handle("POST /sites", requireUser(http.HandlerFunc(h.Create)))
-	mux.Handle("GET /sites/{id}/edit", requireUser(http.HandlerFunc(h.Edit)))
-	mux.Handle("PUT /sites/{id}", requireUser(http.HandlerFunc(h.Update)))
-	mux.Handle("DELETE /sites/{id}", requireUser(http.HandlerFunc(h.Delete)))
-}
-
-// =============================================================================
-// GET /sites - List Sites
-// =============================================================================
-
-// Index displays a list of all sites for the current user.
-func (h *SiteHandler) Index(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUserFromRequest(r)
-	if user == nil {
-		h.logger.Error("index handler called without authenticated user")
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	// Fetch sites
-	sites, err := h.siteService.List(r.Context(), user.ID)
-	if err != nil {
-		h.logger.Error("failed to list sites", "error", err, "user_id", user.ID)
-		h.renderError(w, r, "Failed to load sites. Please try again.")
-		return
-	}
-
-	data := SiteListPageData{
-		CurrentPath: r.URL.Path,
-		User:        user,
-		Sites:       sites,
-		Flash:       nil,
-	}
-
-	h.renderer.RenderHTTP(w, "sites/index", data)
-}
-
-// =============================================================================
-// GET /sites/new - Show Create Form
-// =============================================================================
-
-// New displays the site creation form.
-func (h *SiteHandler) New(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUserFromRequest(r)
-	if user == nil {
-		h.logger.Error("new handler called without authenticated user")
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	isModal := r.URL.Query().Get("modal") == "true"
-
-	// Fetch clients for dropdown
-	clients, err := h.clientService.ListAll(r.Context(), user.ID)
-	if err != nil {
-		h.logger.Error("failed to list clients for site form", "error", err, "user_id", user.ID)
-		clients = []domain.Client{} // Continue with empty list
-	}
-
-	data := SiteFormPageData{
-		CurrentPath: r.URL.Path,
-		User:        user,
-		Site:        nil,
-		Form:        make(map[string]string),
-		Errors:      make(map[string]string),
-		Flash:       nil,
-		IsEdit:      false,
-		IsModal:     isModal,
-		Clients:     clients,
-	}
-
-	if isModal {
-		h.renderer.RenderPartial(w, "site_form", data)
-	} else {
-		h.renderer.RenderHTTP(w, "sites/new", data)
 	}
 }
 
@@ -242,85 +145,16 @@ func (h *SiteHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// If modal request, return the new site option for the dropdown
 	if isModal {
-		h.renderer.RenderPartial(w, "site_select_option", site)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("HX-Trigger", "siteCreated")
+		// Return an option element for the dropdown
+		optionHTML := `<option value="` + site.ID.String() + `" selected>` + site.Name + `</option>`
+		w.Write([]byte(optionHTML))
 		return
 	}
 
 	// Redirect to sites list with success message
 	http.Redirect(w, r, "/sites", http.StatusSeeOther)
-}
-
-// =============================================================================
-// GET /sites/{id}/edit - Show Edit Form
-// =============================================================================
-
-// Edit displays the site edit form.
-func (h *SiteHandler) Edit(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUserFromRequest(r)
-	if user == nil {
-		h.logger.Error("edit handler called without authenticated user")
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	// Parse site ID
-	idStr := r.PathValue("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		h.logger.Error("invalid site ID", "id", idStr, "error", err)
-		http.Redirect(w, r, "/sites", http.StatusSeeOther)
-		return
-	}
-
-	// Fetch site
-	site, err := h.siteService.GetByID(r.Context(), id, user.ID)
-	if err != nil {
-		code := domain.ErrorCode(err)
-		if code == domain.ENOTFOUND {
-			http.Redirect(w, r, "/sites", http.StatusSeeOther)
-			return
-		}
-		h.logger.Error("failed to get site", "error", err, "site_id", id)
-		h.renderError(w, r, "Failed to load site. Please try again.")
-		return
-	}
-
-	// Fetch clients for dropdown
-	clients, err := h.clientService.ListAll(r.Context(), user.ID)
-	if err != nil {
-		h.logger.Error("failed to list clients for site form", "error", err, "user_id", user.ID)
-		clients = []domain.Client{} // Continue with empty list
-	}
-
-	// Populate form values from site
-	clientIDStr := ""
-	if site.ClientID != nil {
-		clientIDStr = site.ClientID.String()
-	}
-	formValues := map[string]string{
-		"name":          site.Name,
-		"address_line1": site.AddressLine1,
-		"address_line2": site.AddressLine2,
-		"city":          site.City,
-		"state":         site.State,
-		"postal_code":   site.PostalCode,
-		"client_id":     clientIDStr,
-		"notes":         site.Notes,
-	}
-
-	data := SiteFormPageData{
-		CurrentPath: r.URL.Path,
-		User:        user,
-		Site:        site,
-		Form:        formValues,
-		Errors:      make(map[string]string),
-		Flash:       nil,
-		IsEdit:      true,
-		IsModal:     false,
-		Clients:     clients,
-	}
-
-	h.renderer.RenderHTTP(w, "sites/edit", data)
 }
 
 // =============================================================================
@@ -456,12 +290,10 @@ func (h *SiteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.logger.Error("failed to delete site", "error", err, "site_id", id)
-		// For htmx requests, return error toast
+		// For htmx requests, return error toast via HX-Trigger
 		if r.Header.Get("HX-Request") == "true" {
-			h.renderer.RenderHTTPWithToast(w, "sites/index", nil, ToastData{
-				Type:    "error",
-				Message: "Failed to delete site. Please try again.",
-			})
+			w.Header().Set("HX-Trigger", `{"showToast": {"type": "error", "message": "Failed to delete site. Please try again."}}`)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		http.Redirect(w, r, "/sites", http.StatusSeeOther)
@@ -513,81 +345,105 @@ func (h *SiteHandler) validateSiteForm(form map[string]string) map[string]string
 	return errors
 }
 
-// renderError renders a generic error page.
+// renderError renders a generic error page using templ.
 func (h *SiteHandler) renderError(w http.ResponseWriter, r *http.Request, message string) {
 	user := auth.GetUserFromRequest(r)
-	data := SiteListPageData{
+	data := sites.ListPageData{
 		CurrentPath: r.URL.Path,
-		User:        user,
-		Sites:       nil,
-		Flash: &Flash{
-			Type:    "error",
+		CSRFToken:   "",
+		User:        domainUserToSiteDisplay(user),
+		Sites:       []sites.DisplaySite{},
+		Flash: &shared.Flash{
+			Type:    shared.FlashError,
 			Message: message,
 		},
 	}
-	h.renderer.RenderHTTP(w, "sites/index", data)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := sites.IndexPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render sites index error", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
-// renderFormError renders the form with a generic error.
+// renderFormError renders the form with a generic error using templ.
 func (h *SiteHandler) renderFormError(w http.ResponseWriter, r *http.Request, site *domain.Site, message string) {
 	user := auth.GetUserFromRequest(r)
 
-	template := "sites/new"
-	isEdit := false
-	if site != nil {
-		template = "sites/edit"
-		isEdit = true
-	}
+	isEdit := site != nil
 
 	// Fetch clients for dropdown
-	clients, _ := h.clientService.ListAll(r.Context(), user.ID)
+	clientList, _ := h.clientService.ListAll(r.Context(), user.ID)
 
-	data := SiteFormPageData{
+	data := sites.FormPageData{
 		CurrentPath: r.URL.Path,
-		User:        user,
-		Site:        site,
-		Form:        make(map[string]string),
+		CSRFToken:   "",
+		User:        domainUserToSiteDisplay(user),
+		Site:        domainSiteToDetail(site),
+		Form:        sites.SiteFormValues{},
 		Errors:      make(map[string]string),
-		Flash: &Flash{
-			Type:    "error",
+		Flash: &shared.Flash{
+			Type:    shared.FlashError,
 			Message: message,
 		},
 		IsEdit:  isEdit,
-		IsModal: false,
-		Clients: clients,
+		Clients: domainClientsToOptions(clientList),
 	}
-	h.renderer.RenderHTTP(w, template, data)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	var renderErr error
+	if isEdit {
+		renderErr = sites.EditPage(data).Render(r.Context(), w)
+	} else {
+		renderErr = sites.NewPage(data).Render(r.Context(), w)
+	}
+	if renderErr != nil {
+		h.logger.Error("failed to render form error", "error", renderErr)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
-// renderFormWithErrors renders the form with validation errors.
+// renderFormWithErrors renders the form with validation errors using templ.
 func (h *SiteHandler) renderFormWithErrors(w http.ResponseWriter, r *http.Request, site *domain.Site, form map[string]string, errors map[string]string, isModal bool) {
 	user := auth.GetUserFromRequest(r)
 
-	template := "sites/new"
-	isEdit := false
-	if site != nil {
-		template = "sites/edit"
-		isEdit = true
-	}
+	isEdit := site != nil
 
 	// Fetch clients for dropdown
-	clients, _ := h.clientService.ListAll(r.Context(), user.ID)
+	clientList, _ := h.clientService.ListAll(r.Context(), user.ID)
 
-	data := SiteFormPageData{
+	// Convert form map to SiteFormValues
+	siteForm := sites.SiteFormValues{
+		Name:         form["name"],
+		AddressLine1: form["address_line1"],
+		AddressLine2: form["address_line2"],
+		City:         form["city"],
+		State:        form["state"],
+		PostalCode:   form["postal_code"],
+		ClientID:     form["client_id"],
+		Notes:        form["notes"],
+	}
+
+	data := sites.FormPageData{
 		CurrentPath: r.URL.Path,
-		User:        user,
-		Site:        site,
-		Form:        form,
+		CSRFToken:   "",
+		User:        domainUserToSiteDisplay(user),
+		Site:        domainSiteToDetail(site),
+		Form:        siteForm,
 		Errors:      errors,
 		Flash:       nil,
 		IsEdit:      isEdit,
-		IsModal:     isModal,
-		Clients:     clients,
+		Clients:     domainClientsToOptions(clientList),
 	}
 
-	if isModal {
-		h.renderer.RenderPartial(w, "site_form", data)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	var renderErr error
+	if isEdit {
+		renderErr = sites.EditPage(data).Render(r.Context(), w)
 	} else {
-		h.renderer.RenderHTTP(w, template, data)
+		renderErr = sites.NewPage(data).Render(r.Context(), w)
+	}
+	if renderErr != nil {
+		h.logger.Error("failed to render form with errors", "error", renderErr)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
