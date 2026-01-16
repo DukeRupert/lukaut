@@ -253,8 +253,8 @@ func run() error {
 	// Violation routes (requires authentication)
 	violationHandler.RegisterRoutes(mux, requireUser)
 
-	// Regulation routes (requires authentication)
-	regulationHandler.RegisterRoutes(mux, requireUser)
+	// Regulation routes (requires authentication) - using templ
+	regulationHandler.RegisterTemplRoutes(mux, requireUser)
 
 	// Settings routes (requires authentication) - using templ
 	settingsHandler.RegisterTemplRoutes(mux, requireUser)

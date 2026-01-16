@@ -1,0 +1,18 @@
+package regulations
+
+// SearchResultsPartial renders the htmx search results partial.
+// This is returned by the /regulations/search endpoint.
+templ SearchResultsPartial(data SearchResultsData) {
+	if len(data.Regulations) > 0 {
+		@RegulationsList(data.Regulations, data.ViolationID)
+		@ResultsPagination(data.Pagination, data.Filter, data.ViolationID)
+	} else {
+		@EmptyState(data.EmptyMessage)
+	}
+}
+
+// DetailPartial renders the regulation detail modal content.
+// This is returned by the /regulations/{id} endpoint.
+templ DetailPartial(data DetailData) {
+	@RegulationDetailModal(data)
+}

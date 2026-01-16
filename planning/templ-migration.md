@@ -32,6 +32,11 @@ Track the progress of converting Go HTML templates to templ components.
 - [x] `sites/new` - Create site form with client selection
 - [x] `sites/edit` - Edit site form
 
+### Regulations
+- [x] `regulations/index` - Regulation search/list with htmx search and Alpine.js modal
+- [x] `regulations/search` - htmx search results partial
+- [x] `regulations/detail` - Regulation detail modal partial
+
 ## In Progress
 
 ### Dashboard
@@ -41,9 +46,6 @@ Track the progress of converting Go HTML templates to templ components.
 
 ### Public Pages
 - [ ] `public/home` - Marketing landing page
-
-### Regulations
-- [ ] `regulations/index` - Regulation search/list
 
 ### Inspections (Complex)
 - [ ] `inspections/index` - List inspections
@@ -60,8 +62,6 @@ Track the progress of converting Go HTML templates to templ components.
 - [ ] `partials/violation_card`
 - [ ] `partials/violations_summary`
 - [ ] `partials/analysis_status`
-- [ ] `partials/regulation_results`
-- [ ] `partials/regulation_detail`
 
 ### Layouts
 - [ ] `layouts/public` - Public pages layout
