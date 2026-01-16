@@ -10,7 +10,10 @@ import (
 	"time"
 
 	"github.com/DukeRupert/lukaut/internal/auth"
+	"github.com/DukeRupert/lukaut/internal/csrf"
 	"github.com/DukeRupert/lukaut/internal/repository"
+	"github.com/DukeRupert/lukaut/internal/templ/layouts"
+	"github.com/DukeRupert/lukaut/internal/templ/pages/dashboard"
 	"github.com/google/uuid"
 )
 
@@ -212,4 +215,108 @@ func (h *DashboardHandler) Show(w http.ResponseWriter, r *http.Request) {
 
 	// Render dashboard template
 	h.renderer.RenderHTTP(w, "dashboard", data)
+}
+
+// =============================================================================
+// GET /dashboard (Templ) - Show Dashboard using templ components
+// =============================================================================
+
+// ShowTempl renders the dashboard page using templ components.
+//
+// This is the templ-based version of Show. It:
+// 1. Gets the authenticated user from context
+// 2. Generates a CSRF token for forms
+// 3. Fetches all dashboard statistics
+// 4. Fetches recent inspections with violation counts
+// 5. Renders using the dashboard templ component
+func (h *DashboardHandler) ShowTempl(w http.ResponseWriter, r *http.Request) {
+	// Get authenticated user from context
+	user := auth.GetUserFromRequest(r)
+	if user == nil {
+		h.logger.Error("dashboard handler called without authenticated user")
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	// Generate CSRF token
+	csrfToken := csrf.EnsureToken(w, r, true) // isSecure should come from config
+
+	// Initialize stats with zero values
+	stats := dashboard.DashboardStats{
+		TotalInspections: 0,
+		TotalReports:     0,
+		TotalViolations:  0,
+		MonthlyReports:   0,
+	}
+
+	// Fetch total inspections
+	if count, err := h.repo.CountInspectionsByUserID(r.Context(), user.ID); err != nil {
+		h.logger.Warn("failed to fetch total inspections count", "error", err, "user_id", user.ID)
+	} else {
+		stats.TotalInspections = count
+	}
+
+	// Fetch total reports
+	if count, err := h.repo.CountReportsByUserID(r.Context(), user.ID); err != nil {
+		h.logger.Warn("failed to fetch total reports count", "error", err, "user_id", user.ID)
+	} else {
+		stats.TotalReports = count
+	}
+
+	// Fetch total violations
+	if count, err := h.repo.CountViolationsByUserID(r.Context(), user.ID); err != nil {
+		h.logger.Warn("failed to fetch total violations count", "error", err, "user_id", user.ID)
+	} else {
+		stats.TotalViolations = count
+	}
+
+	// Fetch monthly reports
+	if count, err := h.repo.CountReportsThisMonthByUserID(r.Context(), user.ID); err != nil {
+		h.logger.Warn("failed to fetch monthly reports count", "error", err, "user_id", user.ID)
+	} else {
+		stats.MonthlyReports = count
+	}
+
+	// Fetch recent inspections
+	recentRows, err := h.repo.ListRecentInspectionsWithViolationCount(
+		r.Context(),
+		repository.ListRecentInspectionsWithViolationCountParams{
+			UserID: user.ID,
+			Limit:  10,
+		},
+	)
+
+	recentInspections := make([]dashboard.DashboardInspection, 0, len(recentRows))
+	if err != nil {
+		h.logger.Warn("failed to fetch recent inspections", "error", err, "user_id", user.ID)
+	} else {
+		for _, row := range recentRows {
+			recentInspections = append(recentInspections, dashboard.DashboardInspection{
+				ID:             row.ID,
+				Title:          row.Title,
+				Status:         row.Status,
+				InspectionDate: row.InspectionDate,
+				ViolationCount: row.ViolationCount,
+			})
+		}
+	}
+
+	// Prepare template data
+	data := dashboard.DashboardPageData{
+		CurrentPath: r.URL.Path,
+		User: &layouts.UserInfo{
+			Name:  user.Name,
+			Email: user.Email,
+		},
+		Stats:             stats,
+		RecentInspections: recentInspections,
+		Flash:             nil, // TODO: Get flash from session
+		CSRFToken:         csrfToken,
+	}
+
+	// Render dashboard using templ
+	if err := dashboard.DashboardPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render dashboard page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }

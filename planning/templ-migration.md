@@ -45,10 +45,10 @@ Track the progress of converting Go HTML templates to templ components.
 - [x] `inspections/review` - List-based violation review with add violation form
 - [x] `inspections/review_queue` - Keyboard-driven queue-based violation review
 
-## In Progress
+## Completed (continued)
 
 ### Dashboard
-- [ ] `dashboard` - Main dashboard after login
+- [x] `dashboard` - Main dashboard with stats and recent inspections
 
 ## Not Started
 
