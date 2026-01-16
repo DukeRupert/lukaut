@@ -93,7 +93,7 @@
   --muted-foreground: oklch(55.2% 0.016 285.938); /* zinc-500 */
 
   /* Accent - Lukaut Safety Orange */
-  --accent: oklch(70% 0.20 35);                   /* safety-orange-500 */
+  --accent: oklch(75% 0.21 35);                   /* safety-orange-500 (brighter) */
   --accent-foreground: oklch(100% 0 0);           /* white */
 
   /* Destructive/Danger */
@@ -150,8 +150,8 @@
   --muted-foreground: oklch(70.5% 0.015 286.067); /* zinc-400 */
 
   /* Accent - Safety Orange */
-  --accent: oklch(70% 0.20 35);                  /* safety-orange-500 */
-  --accent-foreground: oklch(14.1% 0.005 285.823); /* zinc-950 */
+  --accent: oklch(75% 0.21 35);                  /* safety-orange-500 (brighter) */
+  --accent-foreground: oklch(100% 0 0);          /* white for better contrast */
 
   /* Destructive/Danger */
   --destructive: oklch(63.7% 0.237 25.331);      /* red-500 - brighter for dark */

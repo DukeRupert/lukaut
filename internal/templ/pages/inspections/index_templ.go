@@ -49,7 +49,7 @@ func IndexPage(data ListPageData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <div class=\"sm:flex sm:items-center\"><div class=\"sm:flex-auto\"><h1 class=\"text-xl font-semibold text-gray-900\">Inspections</h1><p class=\"mt-2 text-sm text-gray-700\">Manage your construction site safety inspections.</p></div><div class=\"mt-4 sm:ml-16 sm:mt-0 sm:flex-none\"><a href=\"/inspections/new\" class=\"block rounded-md bg-safety-orange px-3 py-2 text-center text-sm font-semibold text-navy shadow-sm hover:bg-safety-orange/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold transition-colors\">New Inspection</a></div></div> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <div class=\"sm:flex sm:items-center\"><div class=\"sm:flex-auto\"><h1 class=\"text-xl font-semibold text-gray-900\">Inspections</h1><p class=\"mt-2 text-sm text-gray-700\">Manage your construction site safety inspections.</p></div><div class=\"mt-4 sm:ml-16 sm:mt-0 sm:flex-none\"><a href=\"/inspections/new\" class=\"block rounded-md bg-safety-orange px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-safety-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-safety-orange transition-colors\">New Inspection</a></div></div> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

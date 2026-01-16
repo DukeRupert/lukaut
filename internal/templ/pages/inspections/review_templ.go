@@ -77,7 +77,7 @@ func ReviewPage(data ReviewPageData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"mb-6\"><button type=\"button\" class=\"inline-flex items-center rounded-md bg-safety-orange px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-safety-orange/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold\" x-data @click=\"$dispatch('open-violation-form')\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"mb-6\"><button type=\"button\" class=\"inline-flex items-center rounded-md bg-safety-orange px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-safety-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-safety-orange\" x-data @click=\"$dispatch('open-violation-form')\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -365,7 +365,7 @@ func NoViolationsEmptyState() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<h3 class=\"mt-2 text-sm font-semibold text-gray-900\">No violations yet</h3><p class=\"mt-1 text-sm text-gray-500\">Get started by running AI analysis or adding a manual violation.</p><div class=\"mt-6\"><button type=\"button\" class=\"inline-flex items-center rounded-md bg-safety-orange px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-safety-orange/90\" @click=\"$dispatch('open-violation-form')\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<h3 class=\"mt-2 text-sm font-semibold text-gray-900\">No violations yet</h3><p class=\"mt-1 text-sm text-gray-500\">Get started by running AI analysis or adding a manual violation.</p><div class=\"mt-6\"><button type=\"button\" class=\"inline-flex items-center rounded-md bg-safety-orange px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-safety-orange-600\" @click=\"$dispatch('open-violation-form')\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

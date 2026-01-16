@@ -328,14 +328,14 @@
   --color-safety-orange-50: oklch(98% 0.02 45);
   --color-safety-orange-100: oklch(95% 0.05 45);
   --color-safety-orange-200: oklch(90% 0.10 42);
-  --color-safety-orange-300: oklch(84% 0.15 40);
-  --color-safety-orange-400: oklch(77% 0.18 38);
-  --color-safety-orange-500: oklch(70% 0.20 35);
-  --color-safety-orange-600: oklch(62% 0.19 33);
-  --color-safety-orange-700: oklch(53% 0.17 32);
-  --color-safety-orange-800: oklch(45% 0.14 32);
-  --color-safety-orange-900: oklch(38% 0.11 32);
-  --color-safety-orange-950: oklch(25% 0.07 32);
+  --color-safety-orange-300: oklch(86% 0.16 40);
+  --color-safety-orange-400: oklch(80% 0.19 38);
+  --color-safety-orange-500: oklch(75% 0.21 35);
+  --color-safety-orange-600: oklch(68% 0.20 33);
+  --color-safety-orange-700: oklch(58% 0.18 32);
+  --color-safety-orange-800: oklch(48% 0.15 32);
+  --color-safety-orange-900: oklch(40% 0.12 32);
+  --color-safety-orange-950: oklch(28% 0.08 32);
 
   /* ========================================
      OPACITY VARIANTS
@@ -367,10 +367,11 @@
   --color-secondary-hover: var(--color-slate-500);
   --color-secondary-subtle: var(--color-slate-50);
 
-  /* Accent/CTA color (Safety Orange) */
+  /* Accent/CTA color (Safety Orange - brighter for better contrast) */
   --color-accent: var(--color-safety-orange-500);
   --color-accent-hover: var(--color-safety-orange-600);
   --color-accent-text: var(--color-white);
+  --color-accent-foreground: var(--color-white);
 
   /* Danger/destructive actions */
   --color-danger: var(--color-red-600);

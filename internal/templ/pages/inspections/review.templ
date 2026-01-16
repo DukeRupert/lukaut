@@ -33,7 +33,7 @@ templ ReviewPage(data ReviewPageData) {
 			<div class="mb-6">
 				<button
 					type="button"
-					class="inline-flex items-center rounded-md bg-safety-orange px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-safety-orange/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+					class="inline-flex items-center rounded-md bg-safety-orange px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-safety-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-safety-orange"
 					x-data
 					@click="$dispatch('open-violation-form')"
 				>
@@ -214,7 +214,7 @@ templ NoViolationsEmptyState() {
 				<div class="mt-6">
 					<button
 						type="button"
-						class="inline-flex items-center rounded-md bg-safety-orange px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-safety-orange/90"
+						class="inline-flex items-center rounded-md bg-safety-orange px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-safety-orange-600"
 						@click="$dispatch('open-violation-form')"
 					>
 						@PlusIcon()
