@@ -54,43 +54,6 @@ func (h *SettingsHandler) ShowProfileTempl(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-// renderProfileErrorTempl re-renders the profile form with errors using templ.
-func (h *SettingsHandler) renderProfileErrorTempl(
-	w http.ResponseWriter,
-	r *http.Request,
-	user *domain.User,
-	form *settings.ProfileFormData,
-	errors map[string]string,
-	flash *shared.Flash,
-) {
-	if form == nil {
-		form = &settings.ProfileFormData{
-			Name:        user.Name,
-			CompanyName: user.CompanyName,
-			Phone:       user.Phone,
-		}
-	}
-	if errors == nil {
-		errors = make(map[string]string)
-	}
-
-	data := settings.ProfilePageData{
-		CurrentPath: "/settings",
-		CSRFToken:   "",
-		User:        domainUserToDisplay(user),
-		Form:        *form,
-		Errors:      errors,
-		Flash:       flash,
-		ActiveTab:   settings.TabProfile,
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := settings.ProfilePage(data).Render(r.Context(), w); err != nil {
-		h.logger.Error("failed to render profile page", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}
-}
-
 // ShowPasswordTempl renders the password change form using templ.
 func (h *SettingsHandler) ShowPasswordTempl(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r.Context())
@@ -113,34 +76,6 @@ func (h *SettingsHandler) ShowPasswordTempl(w http.ResponseWriter, r *http.Reque
 		CSRFToken:   "",
 		User:        domainUserToDisplay(user),
 		Errors:      make(map[string]string),
-		Flash:       flash,
-		ActiveTab:   settings.TabPassword,
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := settings.PasswordPage(data).Render(r.Context(), w); err != nil {
-		h.logger.Error("failed to render password page", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}
-}
-
-// renderPasswordErrorTempl re-renders the password form with errors using templ.
-func (h *SettingsHandler) renderPasswordErrorTempl(
-	w http.ResponseWriter,
-	r *http.Request,
-	user *domain.User,
-	errors map[string]string,
-	flash *shared.Flash,
-) {
-	if errors == nil {
-		errors = make(map[string]string)
-	}
-
-	data := settings.PasswordPageData{
-		CurrentPath: "/settings/password",
-		CSRFToken:   "",
-		User:        domainUserToDisplay(user),
-		Errors:      errors,
 		Flash:       flash,
 		ActiveTab:   settings.TabPassword,
 	}
@@ -175,40 +110,6 @@ func (h *SettingsHandler) ShowBusinessTempl(w http.ResponseWriter, r *http.Reque
 		User:        domainUserToDisplay(user),
 		Form:        domainUserToBusinessForm(user),
 		Errors:      make(map[string]string),
-		Flash:       flash,
-		ActiveTab:   settings.TabBusiness,
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := settings.BusinessPage(data).Render(r.Context(), w); err != nil {
-		h.logger.Error("failed to render business page", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}
-}
-
-// renderBusinessErrorTempl re-renders the business form with errors using templ.
-func (h *SettingsHandler) renderBusinessErrorTempl(
-	w http.ResponseWriter,
-	r *http.Request,
-	user *domain.User,
-	form *settings.BusinessFormData,
-	errors map[string]string,
-	flash *shared.Flash,
-) {
-	if form == nil {
-		businessForm := domainUserToBusinessForm(user)
-		form = &businessForm
-	}
-	if errors == nil {
-		errors = make(map[string]string)
-	}
-
-	data := settings.BusinessPageData{
-		CurrentPath: "/settings/business",
-		CSRFToken:   "",
-		User:        domainUserToDisplay(user),
-		Form:        *form,
-		Errors:      errors,
 		Flash:       flash,
 		ActiveTab:   settings.TabBusiness,
 	}
@@ -262,27 +163,5 @@ func domainUserToBusinessForm(u *domain.User) settings.BusinessFormData {
 		BusinessPostalCode:    u.BusinessPostalCode,
 		BusinessLicenseNumber: u.BusinessLicenseNumber,
 		BusinessLogoURL:       u.BusinessLogoURL,
-	}
-}
-
-// flashToSharedFlash converts handler.Flash to shared.Flash
-func flashToSharedFlash(f *Flash) *shared.Flash {
-	if f == nil {
-		return nil
-	}
-	var flashType shared.FlashType
-	switch f.Type {
-	case "error":
-		flashType = shared.FlashError
-	case "success":
-		flashType = shared.FlashSuccess
-	case "warning":
-		flashType = shared.FlashWarning
-	default:
-		flashType = shared.FlashInfo
-	}
-	return &shared.Flash{
-		Type:    flashType,
-		Message: f.Message,
 	}
 }

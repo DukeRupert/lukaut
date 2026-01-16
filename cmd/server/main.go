@@ -23,6 +23,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/service"
 	"github.com/DukeRupert/lukaut/internal/storage"
+	publicpages "github.com/DukeRupert/lukaut/internal/templ/pages/public"
 	"github.com/DukeRupert/lukaut/internal/worker"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -222,16 +223,19 @@ func run() error {
 		_, _ = w.Write([]byte("OK"))
 	})
 
-	// Public pages
+	// Public pages - using templ
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		// Only handle exact root path
 		if r.URL.Path != "/" {
 			handler.NotFoundResponse(w, r, logger)
 			return
 		}
-		renderer.RenderHTTP(w, "public/home", map[string]interface{}{
-			"CurrentPath": r.URL.Path,
+		component := publicpages.HomePage(publicpages.HomePageData{
+			CurrentPath: r.URL.Path,
 		})
+		if err := component.Render(r.Context(), w); err != nil {
+			logger.Error("failed to render home page", "error", err)
+		}
 	})
 
 	// Auth routes (public - no auth required)

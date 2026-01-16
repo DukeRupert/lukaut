@@ -50,13 +50,17 @@ Track the progress of converting Go HTML templates to templ components.
 ### Dashboard
 - [x] `dashboard` - Main dashboard with stats and recent inspections
 
-## Not Started
+## Completed (continued)
 
 ### Public Pages
-- [ ] `public/home` - Marketing landing page
+- [x] `public/home` - Marketing landing page
 
 ### Layouts
-- [ ] `layouts/public` - Public pages layout
+- [x] `layouts/public` - Public pages layout
+
+## Not Started
+
+(All pages migrated!)
 
 ## Notes
 
