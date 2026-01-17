@@ -69,10 +69,12 @@ func NewViolationHandler(
 // - PUT    /violations/{id}/status      -> UpdateStatus
 // - DELETE /violations/{id}             -> Delete
 // - GET    /violations/{id}/card        -> GetCard
+// - PUT    /violations/batch/status     -> BatchUpdateStatus
 func (h *ViolationHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(http.Handler) http.Handler) {
 	mux.Handle("POST /inspections/{id}/violations", requireUser(http.HandlerFunc(h.Create)))
 	mux.Handle("PUT /violations/{id}", requireUser(http.HandlerFunc(h.Update)))
 	mux.Handle("PUT /violations/{id}/status", requireUser(http.HandlerFunc(h.UpdateStatus)))
+	mux.Handle("PUT /violations/batch/status", requireUser(http.HandlerFunc(h.BatchUpdateStatus)))
 	mux.Handle("DELETE /violations/{id}", requireUser(http.HandlerFunc(h.Delete)))
 	mux.Handle("GET /violations/{id}/card", requireUser(http.HandlerFunc(h.GetCard)))
 }
@@ -351,6 +353,101 @@ func (h *ViolationHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := partials.ViolationCard(templData).Render(r.Context(), w); err != nil {
 		h.logger.Error("failed to render violation card", "error", err)
+	}
+}
+
+// =============================================================================
+// PUT /violations/batch/status - Batch Update Violation Status
+// =============================================================================
+
+// BatchUpdateStatusRequest represents the request body for batch status updates.
+type BatchUpdateStatusRequest struct {
+	ViolationIDs []string `json:"violation_ids"`
+	Status       string   `json:"status"`
+}
+
+// BatchUpdateStatus handles updating multiple violations' status at once.
+func (h *ViolationHandler) BatchUpdateStatus(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromRequest(r)
+	if user == nil {
+		h.logger.Error("batch update status handler called without authenticated user")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse JSON body
+	var req BatchUpdateStatusRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Error("failed to parse batch update request", "error", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate status
+	status := domain.ViolationStatus(req.Status)
+	if !status.IsValid() {
+		http.Error(w, "Invalid status", http.StatusBadRequest)
+		return
+	}
+
+	// Validate we have violations to update
+	if len(req.ViolationIDs) == 0 {
+		http.Error(w, "No violations specified", http.StatusBadRequest)
+		return
+	}
+
+	// Update each violation
+	var updated []uuid.UUID
+	var errors []string
+
+	for _, idStr := range req.ViolationIDs {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			errors = append(errors, "Invalid violation ID: "+idStr)
+			continue
+		}
+
+		params := domain.UpdateViolationStatusParams{
+			ID:     id,
+			UserID: user.ID,
+			Status: status,
+		}
+
+		err = h.violationService.UpdateStatus(r.Context(), params)
+		if err != nil {
+			code := domain.ErrorCode(err)
+			if code == domain.ENOTFOUND {
+				errors = append(errors, "Violation not found: "+idStr)
+			} else {
+				h.logger.Error("failed to update violation status", "error", err, "violation_id", id)
+				errors = append(errors, "Failed to update: "+idStr)
+			}
+			continue
+		}
+
+		updated = append(updated, id)
+	}
+
+	h.logger.Info("batch violation status update completed",
+		"user_id", user.ID,
+		"status", status,
+		"updated_count", len(updated),
+		"error_count", len(errors),
+	)
+
+	// Return JSON response with results
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]interface{}{
+		"updated_count": len(updated),
+		"error_count":   len(errors),
+		"status":        string(status),
+	}
+	if len(errors) > 0 {
+		response["errors"] = errors
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Error("failed to encode batch update response", "error", err)
 	}
 }
 

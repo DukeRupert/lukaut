@@ -52,14 +52,22 @@ templ ReviewPage(data ReviewPageData) {
 			>
 				@AddViolationForm(data.Inspection.ID)
 			</div>
-			// Violations List
+			// Violations List with Batch Selection
 			if data.ViolationCounts.Total == 0 {
 				@NoViolationsEmptyState()
 			} else {
-				<div id="violation-list" class="space-y-4">
-					for _, violation := range data.Violations {
-						@ViolationCard(violation)
-					}
+				<div
+					x-data="batchViolationSelector()"
+					@batch-update-complete.window="handleBatchComplete($event)"
+				>
+					// Batch Action Toolbar (appears when items selected)
+					@BatchActionToolbar()
+					// Violations List
+					<div id="violation-list" class="space-y-4">
+						for _, violation := range data.Violations {
+							@SelectableViolationCard(violation)
+						}
+					</div>
 				</div>
 			}
 		</div>
@@ -562,6 +570,170 @@ templ ViolationActionButtons(v ViolationDisplay) {
 		@EditSmallIcon()
 		Edit
 	</button>
+}
+
+// =============================================================================
+// Batch Selection Components
+// =============================================================================
+
+// SelectableViolationCard wraps ViolationCard with a selection checkbox.
+templ SelectableViolationCard(v ViolationDisplay) {
+	<div
+		class="violation-card-wrapper relative"
+		data-violation-id={ v.ID }
+		data-violation-status={ v.Status }
+	>
+		// Selection checkbox (only for pending violations)
+		if v.Status == "pending" {
+			<div class="absolute top-4 left-4 z-10">
+				<input
+					type="checkbox"
+					class="h-5 w-5 rounded border-gray-300 text-navy focus:ring-navy cursor-pointer"
+					:checked={ fmt.Sprintf("selected.includes('%s')", v.ID) }
+					@change={ fmt.Sprintf("toggleSelection('%s')", v.ID) }
+				/>
+			</div>
+		}
+		// The actual violation card (with padding adjustment for checkbox)
+		<div class={ templ.KV("pl-10", v.Status == "pending") }>
+			@ViolationCard(v)
+		</div>
+	</div>
+}
+
+// BatchActionToolbar renders the floating toolbar for batch actions.
+templ BatchActionToolbar() {
+	<div
+		x-show="selected.length > 0"
+		x-transition:enter="transition ease-out duration-200"
+		x-transition:enter-start="opacity-0 translate-y-4"
+		x-transition:enter-end="opacity-100 translate-y-0"
+		x-transition:leave="transition ease-in duration-150"
+		x-transition:leave-start="opacity-100 translate-y-0"
+		x-transition:leave-end="opacity-0 translate-y-4"
+		class="sticky top-4 z-20 mb-4"
+		x-cloak
+	>
+		<div class="bg-white shadow-lg rounded-lg border border-gray-200 p-4">
+			<div class="flex flex-wrap items-center justify-between gap-4">
+				<div class="flex items-center gap-3">
+					<span class="text-sm font-medium text-gray-700">
+						<span x-text="selected.length"></span> violation(s) selected
+					</span>
+					<button
+						type="button"
+						@click="clearSelection()"
+						class="text-sm text-gray-500 hover:text-gray-700 underline"
+					>
+						Clear selection
+					</button>
+				</div>
+				<div class="flex items-center gap-3">
+					<button
+						type="button"
+						@click="batchUpdateStatus('confirmed')"
+						:disabled="loading"
+						class="inline-flex items-center rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+					>
+						@CheckIcon()
+						<span x-show="!loading">Confirm All</span>
+						<span x-show="loading" x-cloak>Processing...</span>
+					</button>
+					<button
+						type="button"
+						@click="batchUpdateStatus('rejected')"
+						:disabled="loading"
+						class="inline-flex items-center rounded-md bg-gray-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+					>
+						@XIcon()
+						<span x-show="!loading">Reject All</span>
+						<span x-show="loading" x-cloak>Processing...</span>
+					</button>
+				</div>
+			</div>
+			// Feedback area
+			<div x-show="feedback" x-text="feedback" class="mt-3 text-sm" :class="feedbackClass" x-cloak></div>
+		</div>
+	</div>
+	// Alpine.js script for batch selection
+	<script>
+		document.addEventListener('alpine:init', () => {
+			Alpine.data('batchViolationSelector', () => ({
+				selected: [],
+				loading: false,
+				feedback: '',
+				feedbackClass: '',
+
+				toggleSelection(id) {
+					const index = this.selected.indexOf(id);
+					if (index === -1) {
+						this.selected.push(id);
+					} else {
+						this.selected.splice(index, 1);
+					}
+				},
+
+				clearSelection() {
+					this.selected = [];
+					this.feedback = '';
+				},
+
+				async batchUpdateStatus(status) {
+					if (this.selected.length === 0) return;
+
+					this.loading = true;
+					this.feedback = '';
+
+					try {
+						const response = await fetch('/violations/batch/status', {
+							method: 'PUT',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify({
+								violation_ids: this.selected,
+								status: status
+							})
+						});
+
+						const data = await response.json();
+
+						if (response.ok) {
+							this.feedbackClass = 'text-green-600';
+							this.feedback = `Successfully updated ${data.updated_count} violation(s)`;
+
+							// Dispatch event to refresh the page
+							window.dispatchEvent(new CustomEvent('batch-update-complete', {
+								detail: { status: status, count: data.updated_count }
+							}));
+
+							// Clear selection
+							this.selected = [];
+
+							// Reload the page to show updated statuses
+							setTimeout(() => {
+								window.location.reload();
+							}, 1000);
+						} else {
+							this.feedbackClass = 'text-red-600';
+							this.feedback = data.errors ? data.errors.join(', ') : 'Failed to update violations';
+						}
+					} catch (error) {
+						this.feedbackClass = 'text-red-600';
+						this.feedback = 'Network error. Please try again.';
+						console.error('Batch update error:', error);
+					} finally {
+						this.loading = false;
+					}
+				},
+
+				handleBatchComplete(event) {
+					// Handle the batch update complete event
+					console.log('Batch update complete:', event.detail);
+				}
+			}));
+		});
+	</script>
 }
 
 // =============================================================================
