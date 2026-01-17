@@ -77,7 +77,9 @@ templ ReviewHeader(inspection *InspectionDisplay) {
 				Review AI-detected violations and add manual findings for { inspection.Title }
 			</p>
 		</div>
-		<div class="mt-4 flex md:ml-4 md:mt-0">
+		<div class="mt-4 flex gap-3 md:ml-4 md:mt-0">
+			// Generate Report Dropdown
+			@GenerateReportDropdown(inspection.ID)
 			<a
 				href={ templ.SafeURL(fmt.Sprintf("/inspections/%s", inspection.ID)) }
 				class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
@@ -86,6 +88,86 @@ templ ReviewHeader(inspection *InspectionDisplay) {
 			</a>
 		</div>
 	</div>
+	// Report generation feedback area
+	<div id="report-feedback" class="mb-4"></div>
+}
+
+// GenerateReportDropdown renders the report generation dropdown button.
+templ GenerateReportDropdown(inspectionID string) {
+	<div class="relative" x-data="{ open: false }">
+		<button
+			type="button"
+			@click="open = !open"
+			@click.outside="open = false"
+			class="inline-flex items-center rounded-md bg-safety-orange px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-safety-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-safety-orange"
+		>
+			@DocumentArrowDownIcon()
+			Generate Report
+			<svg class="-mr-1 ml-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+				<path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"></path>
+			</svg>
+		</button>
+		// Dropdown menu
+		<div
+			x-show="open"
+			x-transition:enter="transition ease-out duration-100"
+			x-transition:enter-start="transform opacity-0 scale-95"
+			x-transition:enter-end="transform opacity-100 scale-100"
+			x-transition:leave="transition ease-in duration-75"
+			x-transition:leave-start="transform opacity-100 scale-100"
+			x-transition:leave-end="transform opacity-0 scale-95"
+			class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+			x-cloak
+		>
+			<div class="py-1">
+				<button
+					type="button"
+					hx-post={ fmt.Sprintf("/inspections/%s/reports", inspectionID) }
+					hx-vals='{"format":"pdf"}'
+					hx-target="#report-feedback"
+					hx-swap="innerHTML"
+					@click="open = false"
+					class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+				>
+					@PDFIcon()
+					<span class="ml-2">Download as PDF</span>
+				</button>
+				<button
+					type="button"
+					hx-post={ fmt.Sprintf("/inspections/%s/reports", inspectionID) }
+					hx-vals='{"format":"docx"}'
+					hx-target="#report-feedback"
+					hx-swap="innerHTML"
+					@click="open = false"
+					class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+				>
+					@DOCXIcon()
+					<span class="ml-2">Download as Word</span>
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+// DocumentArrowDownIcon renders a document download icon.
+templ DocumentArrowDownIcon() {
+	<svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+		<path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm4.75 9.5a.75.75 0 00-1.5 0v2.19l-.72-.72a.75.75 0 00-1.06 1.06l2 2a.75.75 0 001.06 0l2-2a.75.75 0 10-1.06-1.06l-.72.72V11.5z" clip-rule="evenodd"></path>
+	</svg>
+}
+
+// PDFIcon renders a PDF file icon.
+templ PDFIcon() {
+	<svg class="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+		<path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zM10 8a.75.75 0 01.75.75v1.5h1.5a.75.75 0 010 1.5h-1.5v1.5a.75.75 0 01-1.5 0v-1.5h-1.5a.75.75 0 010-1.5h1.5v-1.5A.75.75 0 0110 8z" clip-rule="evenodd"></path>
+	</svg>
+}
+
+// DOCXIcon renders a Word document icon.
+templ DOCXIcon() {
+	<svg class="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+		<path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zM10 8a.75.75 0 01.75.75v1.5h1.5a.75.75 0 010 1.5h-1.5v1.5a.75.75 0 01-1.5 0v-1.5h-1.5a.75.75 0 010-1.5h1.5v-1.5A.75.75 0 0110 8z" clip-rule="evenodd"></path>
+	</svg>
 }
 
 // ViolationStatsBar renders the summary statistics.

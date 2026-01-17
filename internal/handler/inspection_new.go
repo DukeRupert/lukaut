@@ -14,6 +14,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/inspections"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
+	"github.com/DukeRupert/lukaut/internal/worker"
 	"github.com/google/uuid"
 )
 
@@ -439,6 +440,91 @@ func (h *InspectionHandler) ReviewQueueTempl(w http.ResponseWriter, r *http.Requ
 }
 
 // =============================================================================
+// Report Generation Handler
+// =============================================================================
+
+// GenerateReport enqueues a job to generate a report for an inspection.
+// POST /inspections/{id}/reports
+// Form data: format (pdf|docx)
+func (h *InspectionHandler) GenerateReport(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromRequest(r)
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid inspection ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	format := r.FormValue("format")
+	if format != "pdf" && format != "docx" {
+		http.Error(w, "Invalid format: must be 'pdf' or 'docx'", http.StatusBadRequest)
+		return
+	}
+
+	// Verify inspection exists and user has access
+	inspection, err := h.inspectionService.GetByID(r.Context(), id, user.ID)
+	if err != nil {
+		code := domain.ErrorCode(err)
+		if code == domain.ENOTFOUND {
+			http.Error(w, "Inspection not found", http.StatusNotFound)
+		} else {
+			h.logger.Error("failed to fetch inspection", "error", err, "inspection_id", id)
+			http.Error(w, "Failed to fetch inspection", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Verify inspection status allows report generation (review or completed)
+	if inspection.Status != domain.InspectionStatusReview && inspection.Status != domain.InspectionStatusCompleted {
+		http.Error(w, "Inspection must be in 'review' or 'completed' status to generate a report", http.StatusBadRequest)
+		return
+	}
+
+	// Enqueue the report generation job
+	_, err = worker.EnqueueGenerateReport(r.Context(), h.queries, id, user.ID, format)
+	if err != nil {
+		h.logger.Error("failed to enqueue report generation job", "error", err, "inspection_id", id)
+		http.Error(w, "Failed to start report generation", http.StatusInternalServerError)
+		return
+	}
+
+	h.logger.Info("Report generation job enqueued",
+		"inspection_id", id,
+		"user_id", user.ID,
+		"format", format,
+	)
+
+	// Return success response (htmx partial or JSON)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("HX-Trigger", "reportQueued")
+	fmt.Fprintf(w, `<div class="rounded-md bg-green-50 p-4">
+		<div class="flex">
+			<div class="flex-shrink-0">
+				<svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/>
+				</svg>
+			</div>
+			<div class="ml-3">
+				<p class="text-sm font-medium text-green-800">
+					Report generation started! You'll receive an email when your %s report is ready.
+				</p>
+			</div>
+		</div>
+	</div>`, format)
+}
+
+// =============================================================================
 // Templ Route Registration
 // =============================================================================
 
@@ -456,6 +542,7 @@ func (h *InspectionHandler) RegisterTemplRoutes(mux *http.ServeMux, requireUser 
 	mux.Handle("GET /inspections/{id}/review", requireUser(http.HandlerFunc(h.ReviewTempl)))
 	mux.Handle("GET /inspections/{id}/review/queue", requireUser(http.HandlerFunc(h.ReviewQueueTempl)))
 	mux.Handle("GET /inspections/{id}/violations-summary", requireUser(http.HandlerFunc(h.ViolationsSummary)))
+	mux.Handle("POST /inspections/{id}/reports", requireUser(http.HandlerFunc(h.GenerateReport)))
 }
 
 // =============================================================================
