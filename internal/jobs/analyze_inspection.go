@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sync"
+	"sync/atomic"
 
 	"github.com/DukeRupert/lukaut/internal/ai"
 	"github.com/DukeRupert/lukaut/internal/domain"
@@ -17,6 +19,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/sqlc-dev/pqtype"
 )
+
+// maxConcurrentAnalysis limits concurrent AI API calls to avoid rate limiting
+const maxConcurrentAnalysis = 3
 
 // AnalyzeInspectionHandler processes jobs that analyze inspection images for violations.
 // It sends images to the AI service and creates violation records based on the results.
@@ -103,47 +108,57 @@ func (h *AnalyzeInspectionHandler) Handle(ctx context.Context, payload []byte) e
 
 	h.logger.Info("Found pending images", "inspection_id", p.InspectionID, "count", len(images))
 
-	// 4. Process each image
-	successCount := 0
-	failCount := 0
+	// 4. Process images in parallel with limited concurrency
+	var successCount, failCount atomic.Int32
+	sem := make(chan struct{}, maxConcurrentAnalysis) // Semaphore to limit concurrent API calls
+	var wg sync.WaitGroup
 
 	for _, img := range images {
-		imgLogger := h.logger.With("image_id", img.ID, "inspection_id", p.InspectionID)
-		imgLogger.Info("Processing image", "storage_key", img.StorageKey)
+		wg.Add(1)
+		sem <- struct{}{} // Acquire semaphore slot
 
-		// Mark image as analyzing
-		err = h.queries.UpdateImageAnalysisStatus(ctx, repository.UpdateImageAnalysisStatusParams{
-			ID:             img.ID,
-			AnalysisStatus: sql.NullString{String: domain.ImageAnalysisStatusAnalyzing.String(), Valid: true},
-		})
-		if err != nil {
-			imgLogger.Error("Failed to mark image as analyzing", "error", err)
-			// Continue with other images
-			continue
-		}
+		go func(img repository.Image) {
+			defer wg.Done()
+			defer func() { <-sem }() // Release semaphore slot
 
-		// Analyze the image
-		if err := h.analyzeImage(ctx, img, p.InspectionID, p.UserID, imgLogger); err != nil {
-			imgLogger.Error("Image analysis failed", "error", err)
-			failCount++
+			imgLogger := h.logger.With("image_id", img.ID, "inspection_id", p.InspectionID)
+			imgLogger.Info("Processing image", "storage_key", img.StorageKey)
 
-			// Mark image as failed
-			if markErr := h.markImageFailed(ctx, img.ID); markErr != nil {
-				imgLogger.Error("Failed to mark image as failed", "error", markErr)
+			// Mark image as analyzing
+			if err := h.queries.UpdateImageAnalysisStatus(ctx, repository.UpdateImageAnalysisStatusParams{
+				ID:             img.ID,
+				AnalysisStatus: sql.NullString{String: domain.ImageAnalysisStatusAnalyzing.String(), Valid: true},
+			}); err != nil {
+				imgLogger.Error("Failed to mark image as analyzing", "error", err)
+				failCount.Add(1)
+				return
 			}
-			// Continue processing other images (partial failure is acceptable)
-			continue
-		}
 
-		// Mark image as completed
-		if err := h.markImageCompleted(ctx, img.ID); err != nil {
-			imgLogger.Error("Failed to mark image as completed", "error", err)
-			// Don't fail the whole job for this
-		}
+			// Analyze the image
+			if err := h.analyzeImage(ctx, img, p.InspectionID, p.UserID, imgLogger); err != nil {
+				imgLogger.Error("Image analysis failed", "error", err)
+				failCount.Add(1)
 
-		successCount++
-		imgLogger.Info("Image analysis completed successfully")
+				// Mark image as failed
+				if markErr := h.markImageFailed(ctx, img.ID); markErr != nil {
+					imgLogger.Error("Failed to mark image as failed", "error", markErr)
+				}
+				return
+			}
+
+			// Mark image as completed
+			if err := h.markImageCompleted(ctx, img.ID); err != nil {
+				imgLogger.Error("Failed to mark image as completed", "error", err)
+				// Don't fail - image was analyzed successfully
+			}
+
+			successCount.Add(1)
+			imgLogger.Info("Image analysis completed successfully")
+		}(img)
 	}
+
+	// Wait for all image analyses to complete
+	wg.Wait()
 
 	// 5. Update inspection status to "review"
 	err = h.queries.UpdateInspectionStatus(ctx, repository.UpdateInspectionStatusParams{
@@ -157,8 +172,8 @@ func (h *AnalyzeInspectionHandler) Handle(ctx context.Context, payload []byte) e
 	h.logger.Info("Inspection analysis completed",
 		"inspection_id", p.InspectionID,
 		"total_images", len(images),
-		"success", successCount,
-		"failed", failCount,
+		"success", successCount.Load(),
+		"failed", failCount.Load(),
 	)
 
 	return nil
