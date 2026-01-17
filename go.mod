@@ -10,11 +10,13 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.94.0
 	github.com/aws/smithy-go v1.24.0
 	github.com/disintegration/imaging v1.6.2
+	github.com/go-pdf/fpdf v0.9.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/joho/godotenv v1.5.1
 	github.com/pressly/goose/v3 v3.24.1
 	github.com/sqlc-dev/pqtype v0.3.0
+	github.com/unidoc/unioffice v1.39.0
 	golang.org/x/crypto v0.31.0
 	golang.org/x/text v0.32.0
 )
@@ -32,8 +34,9 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
+	github.com/richardlehane/msoleps v1.0.3 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/image v0.0.0-20191009234506-e7c1f5e7dbb8 // indirect
+	golang.org/x/image v0.18.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 )
