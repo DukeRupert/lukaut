@@ -197,6 +197,71 @@ The Lukaut Team
 	return s.send(ctx, email)
 }
 
+// SendReportToClientEmail sends an inspection report to a client.
+func (s *SMTPEmailService) SendReportToClientEmail(
+	ctx context.Context,
+	to, inspectorName, inspectorCompany, siteName, reportURL string,
+) error {
+	// Use inspector company if available, otherwise fall back to inspector name
+	fromEntity := inspectorCompany
+	if fromEntity == "" {
+		fromEntity = inspectorName
+	}
+
+	data := map[string]interface{}{
+		"InspectorName":    inspectorName,
+		"InspectorCompany": inspectorCompany,
+		"FromEntity":       fromEntity,
+		"SiteName":         siteName,
+		"ReportURL":        reportURL,
+		"Year":             time.Now().Year(),
+	}
+
+	htmlBody, err := s.renderTemplate("report_to_client.html", data)
+	if err != nil {
+		// Fall back to plain text if template doesn't exist
+		s.logger.Warn("Failed to render report_to_client template, using plain text",
+			"error", err,
+		)
+		htmlBody = ""
+	}
+
+	textBody := fmt.Sprintf(`Hello,
+
+A safety inspection report for %s is now available for your review.
+
+Inspector: %s
+%s
+You can download the report here:
+
+%s
+
+If you have any questions about this report, please contact the inspector directly.
+
+Best regards,
+The Lukaut Team
+`, siteName, inspectorName, func() string {
+		if inspectorCompany != "" {
+			return "Company: " + inspectorCompany + "\n"
+		}
+		return ""
+	}(), reportURL)
+
+	subject := fmt.Sprintf("Safety Inspection Report for %s", siteName)
+	if siteName == "" {
+		subject = "Your Safety Inspection Report is Ready"
+	}
+
+	email := Email{
+		To:       to,
+		Subject:  subject,
+		HTMLBody: htmlBody,
+		TextBody: textBody,
+	}
+
+	return s.send(ctx, email)
+}
+
 // =============================================================================
 // Internal Methods
 // =============================================================================

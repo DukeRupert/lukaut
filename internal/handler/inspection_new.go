@@ -349,6 +349,18 @@ func (h *InspectionHandler) ReviewTempl(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	// Fetch client email if inspection has a site with a client
+	var clientEmail string
+	if inspection.SiteID != nil {
+		site, err := h.queries.GetSiteByID(r.Context(), *inspection.SiteID)
+		if err == nil && site.ClientID.Valid {
+			client, err := h.queries.GetClientByID(r.Context(), site.ClientID.UUID)
+			if err == nil && client.Email.Valid {
+				clientEmail = client.Email.String
+			}
+		}
+	}
+
 	data := inspections.ReviewPageData{
 		CurrentPath:     r.URL.Path,
 		CSRFToken:       "",
@@ -357,6 +369,7 @@ func (h *InspectionHandler) ReviewTempl(w http.ResponseWriter, r *http.Request) 
 		Violations:      violationDetails,
 		ViolationCounts: counts,
 		Flash:           nil,
+		ClientEmail:     clientEmail,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -491,8 +504,11 @@ func (h *InspectionHandler) GenerateReport(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Get recipient email from form (optional)
+	recipientEmail := r.FormValue("recipient_email")
+
 	// Enqueue the report generation job
-	_, err = worker.EnqueueGenerateReport(r.Context(), h.queries, id, user.ID, format)
+	_, err = worker.EnqueueGenerateReport(r.Context(), h.queries, id, user.ID, format, recipientEmail)
 	if err != nil {
 		h.logger.Error("failed to enqueue report generation job", "error", err, "inspection_id", id)
 		http.Error(w, "Failed to start report generation", http.StatusInternalServerError)
@@ -503,25 +519,45 @@ func (h *InspectionHandler) GenerateReport(w http.ResponseWriter, r *http.Reques
 		"inspection_id", id,
 		"user_id", user.ID,
 		"format", format,
+		"recipient_email", recipientEmail,
 	)
 
 	// Return success response (htmx partial or JSON)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("HX-Trigger", "reportQueued")
-	fmt.Fprintf(w, `<div class="rounded-md bg-green-50 p-4">
-		<div class="flex">
-			<div class="flex-shrink-0">
-				<svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/>
-				</svg>
+
+	// Customize message based on whether recipient email was provided
+	if recipientEmail != "" {
+		fmt.Fprintf(w, `<div class="rounded-md bg-green-50 p-4">
+			<div class="flex">
+				<div class="flex-shrink-0">
+					<svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+						<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/>
+					</svg>
+				</div>
+				<div class="ml-3">
+					<p class="text-sm font-medium text-green-800">
+						Report generation started! The %s report will be emailed to %s when ready.
+					</p>
+				</div>
 			</div>
-			<div class="ml-3">
-				<p class="text-sm font-medium text-green-800">
-					Report generation started! You'll receive an email when your %s report is ready.
-				</p>
+		</div>`, format, recipientEmail)
+	} else {
+		fmt.Fprintf(w, `<div class="rounded-md bg-green-50 p-4">
+			<div class="flex">
+				<div class="flex-shrink-0">
+					<svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+						<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/>
+					</svg>
+				</div>
+				<div class="ml-3">
+					<p class="text-sm font-medium text-green-800">
+						Report generation started! You'll receive an email when your %s report is ready.
+					</p>
+				</div>
 			</div>
-		</div>
-	</div>`, format)
+		</div>`, format)
+	}
 }
 
 // UpdateStatusTempl handles updating an inspection's status via htmx.

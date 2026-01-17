@@ -41,6 +41,15 @@ type EmailService interface {
 	// - name: Recipient's name for personalization
 	// - reportURL: URL where the report can be downloaded
 	SendReportReadyEmail(ctx context.Context, to, name, reportURL string) error
+
+	// SendReportToClientEmail sends an inspection report to a client.
+	// Parameters:
+	// - to: Recipient email address (client)
+	// - inspectorName: Name of the inspector who conducted the inspection
+	// - inspectorCompany: Company name of the inspector
+	// - siteName: Name of the inspection site
+	// - reportURL: URL where the report can be downloaded
+	SendReportToClientEmail(ctx context.Context, to, inspectorName, inspectorCompany, siteName, reportURL string) error
 }
 
 // =============================================================================

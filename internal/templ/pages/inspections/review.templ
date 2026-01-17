@@ -26,7 +26,7 @@ templ ReviewPage(data ReviewPageData) {
 			// Flash message
 			@shared.InlineFlash(data.Flash)
 			// Header
-			@ReviewHeader(data.Inspection)
+			@ReviewHeader(data.Inspection, data.ClientEmail)
 			// Summary Stats Bar
 			@ViolationStatsBar(data.ViolationCounts)
 			// Add Violation Button
@@ -75,7 +75,7 @@ templ ReviewPage(data ReviewPageData) {
 }
 
 // ReviewHeader renders the review page header.
-templ ReviewHeader(inspection *InspectionDisplay) {
+templ ReviewHeader(inspection *InspectionDisplay, clientEmail string) {
 	<div class="md:flex md:items-center md:justify-between mb-6">
 		<div class="min-w-0 flex-1">
 			<h2 class="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
@@ -118,7 +118,7 @@ templ ReviewHeader(inspection *InspectionDisplay) {
 				</button>
 			}
 			// Generate Report Dropdown
-			@GenerateReportDropdown(inspection.ID)
+			@GenerateReportDropdown(inspection.ID, clientEmail)
 			<a
 				href={ templ.SafeURL(fmt.Sprintf("/inspections/%s", inspection.ID)) }
 				class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
@@ -133,9 +133,9 @@ templ ReviewHeader(inspection *InspectionDisplay) {
 	<div id="report-feedback" class="mb-4"></div>
 }
 
-// GenerateReportDropdown renders the report generation dropdown button.
-templ GenerateReportDropdown(inspectionID string) {
-	<div class="relative" x-data="{ open: false }">
+// GenerateReportDropdown renders the report generation dropdown button with email input.
+templ GenerateReportDropdown(inspectionID string, clientEmail string) {
+	<div class="relative" x-data={ fmt.Sprintf("{ open: false, recipientEmail: '%s' }", clientEmail) }>
 		<button
 			type="button"
 			@click="open = !open"
@@ -157,34 +157,53 @@ templ GenerateReportDropdown(inspectionID string) {
 			x-transition:leave="transition ease-in duration-75"
 			x-transition:leave-start="transform opacity-100 scale-100"
 			x-transition:leave-end="transform opacity-0 scale-95"
-			class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+			class="absolute right-0 z-10 mt-2 w-80 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
 			x-cloak
 		>
-			<div class="py-1">
-				<button
-					type="button"
-					hx-post={ fmt.Sprintf("/inspections/%s/reports", inspectionID) }
-					hx-vals='{"format":"pdf"}'
-					hx-target="#report-feedback"
-					hx-swap="innerHTML"
-					@click="open = false"
-					class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-				>
-					@PDFIcon()
-					<span class="ml-2">Download as PDF</span>
-				</button>
-				<button
-					type="button"
-					hx-post={ fmt.Sprintf("/inspections/%s/reports", inspectionID) }
-					hx-vals='{"format":"docx"}'
-					hx-target="#report-feedback"
-					hx-swap="innerHTML"
-					@click="open = false"
-					class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-				>
-					@DOCXIcon()
-					<span class="ml-2">Download as Word</span>
-				</button>
+			<div class="p-4">
+				// Email input
+				<div class="mb-3">
+					<label for="recipient-email" class="block text-sm font-medium text-gray-700 mb-1">
+						Send report to (optional)
+					</label>
+					<input
+						type="email"
+						id="recipient-email"
+						x-model="recipientEmail"
+						placeholder="client@example.com"
+						class="block w-full rounded-md border-gray-300 shadow-sm focus:border-navy focus:ring-navy sm:text-sm"
+					/>
+					if clientEmail != "" {
+						<p class="mt-1 text-xs text-gray-500">Pre-filled from client record</p>
+					}
+				</div>
+				// Format buttons
+				<div class="space-y-2">
+					<button
+						type="button"
+						hx-post={ fmt.Sprintf("/inspections/%s/reports", inspectionID) }
+						:hx-vals="JSON.stringify({format: 'pdf', recipient_email: recipientEmail})"
+						hx-target="#report-feedback"
+						hx-swap="innerHTML"
+						@click="open = false"
+						class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md flex items-center border border-gray-200"
+					>
+						@PDFIcon()
+						<span class="ml-2">Generate PDF</span>
+					</button>
+					<button
+						type="button"
+						hx-post={ fmt.Sprintf("/inspections/%s/reports", inspectionID) }
+						:hx-vals="JSON.stringify({format: 'docx', recipient_email: recipientEmail})"
+						hx-target="#report-feedback"
+						hx-swap="innerHTML"
+						@click="open = false"
+						class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md flex items-center border border-gray-200"
+					>
+						@DOCXIcon()
+						<span class="ml-2">Generate Word Document</span>
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>

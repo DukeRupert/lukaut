@@ -55,6 +55,7 @@ type ReviewPageData struct {
 	Violations      []ViolationDisplay
 	ViolationCounts ViolationCountsData
 	Flash           *shared.Flash
+	ClientEmail     string // Pre-populated client email for report delivery (if available)
 }
 
 // ReviewQueuePageData contains data for the queue-based review page.

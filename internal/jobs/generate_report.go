@@ -154,9 +154,9 @@ func (h *GenerateReportHandler) Handle(ctx context.Context, payload []byte) erro
 		return fmt.Errorf("create report record: %w", err)
 	}
 
-	// 10. Send email notification (optional - don't fail job if email fails)
+	// 10. Send email notification to inspector (optional - don't fail job if email fails)
+	reportURL := fmt.Sprintf("%s/reports/%s/download?format=%s", h.baseURL, dbReport.ID, p.Format)
 	if h.emailService != nil && reportData.InspectorEmail != "" {
-		reportURL := fmt.Sprintf("%s/reports/%s", h.baseURL, dbReport.ID)
 		if err := h.emailService.SendReportReadyEmail(
 			ctx,
 			reportData.InspectorEmail,
@@ -164,15 +164,39 @@ func (h *GenerateReportHandler) Handle(ctx context.Context, payload []byte) erro
 			reportURL,
 		); err != nil {
 			// Log error but don't fail the job - report was generated successfully
-			h.logger.Error("Failed to send report ready email",
+			h.logger.Error("Failed to send report ready email to inspector",
 				"error", err,
 				"user_id", p.UserID,
 				"report_id", dbReport.ID,
 			)
 		} else {
-			h.logger.Info("Report ready email sent",
+			h.logger.Info("Report ready email sent to inspector",
 				"user_id", p.UserID,
 				"email", reportData.InspectorEmail,
+			)
+		}
+	}
+
+	// 11. Send report to client/recipient if email was provided
+	if h.emailService != nil && p.RecipientEmail != "" {
+		if err := h.emailService.SendReportToClientEmail(
+			ctx,
+			p.RecipientEmail,
+			reportData.InspectorName,
+			reportData.InspectorCompany,
+			reportData.SiteName,
+			reportURL,
+		); err != nil {
+			// Log error but don't fail the job - report was generated successfully
+			h.logger.Error("Failed to send report to client",
+				"error", err,
+				"recipient_email", p.RecipientEmail,
+				"report_id", dbReport.ID,
+			)
+		} else {
+			h.logger.Info("Report sent to client",
+				"recipient_email", p.RecipientEmail,
+				"report_id", dbReport.ID,
 			)
 		}
 	}

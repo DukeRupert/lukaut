@@ -31,9 +31,10 @@ type AnalyzeInspectionPayload struct {
 
 // GenerateReportPayload is the payload for report generation jobs.
 type GenerateReportPayload struct {
-	InspectionID uuid.UUID `json:"inspection_id"`
-	UserID       uuid.UUID `json:"user_id"`
-	Format       string    `json:"format"` // "pdf" or "docx"
+	InspectionID   uuid.UUID `json:"inspection_id"`
+	UserID         uuid.UUID `json:"user_id"`
+	Format         string    `json:"format"`          // "pdf" or "docx"
+	RecipientEmail string    `json:"recipient_email"` // Optional: email to send report to (e.g., client)
 }
 
 // EnqueueOption is a functional option for customizing job enqueue parameters.
@@ -116,18 +117,21 @@ func EnqueueAnalyzeInspection(
 
 // EnqueueGenerateReport enqueues a job to generate a report for an inspection.
 // The format should be "pdf" or "docx".
+// The recipientEmail is optional - if provided, the report will be emailed to this address.
 func EnqueueGenerateReport(
 	ctx context.Context,
 	queries *repository.Queries,
 	inspectionID uuid.UUID,
 	userID uuid.UUID,
 	format string,
+	recipientEmail string,
 	opts ...EnqueueOption,
 ) (repository.Job, error) {
 	payload := GenerateReportPayload{
-		InspectionID: inspectionID,
-		UserID:       userID,
-		Format:       format,
+		InspectionID:   inspectionID,
+		UserID:         userID,
+		Format:         format,
+		RecipientEmail: recipientEmail,
 	}
 
 	return EnqueueJob(ctx, queries, JobTypeGenerateReport, payload, opts...)
