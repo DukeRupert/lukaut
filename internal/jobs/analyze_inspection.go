@@ -299,38 +299,100 @@ func (h *AnalyzeInspectionHandler) storeViolation(
 }
 
 // linkRegulations searches for and links relevant OSHA regulations to a violation.
+// It first attempts to use AI-suggested regulation numbers for precise matching,
+// then falls back to full-text search if no suggestions were provided or matched.
 func (h *AnalyzeInspectionHandler) linkRegulations(
 	ctx context.Context,
 	violationID uuid.UUID,
 	violation ai.PotentialViolation,
 	logger *slog.Logger,
 ) error {
-	// Build search query from violation description and category
+	// First, try to match AI-suggested regulation numbers directly
+	if len(violation.SuggestedRegulations) > 0 {
+		logger.Info("Attempting to match AI-suggested regulations",
+			"violation_id", violationID,
+			"suggested_count", len(violation.SuggestedRegulations),
+			"suggestions", violation.SuggestedRegulations,
+		)
+
+		aiRegs, err := h.queries.GetRegulationsByStandardNumbers(ctx, violation.SuggestedRegulations)
+		if err != nil {
+			logger.Warn("Failed to lookup AI-suggested regulations, falling back to full-text search",
+				"error", err,
+				"violation_id", violationID,
+			)
+		} else if len(aiRegs) > 0 {
+			// Successfully matched AI suggestions - link them
+			for i, reg := range aiRegs {
+				isPrimary := i == 0
+
+				_, err := h.queries.CreateViolationRegulation(ctx, repository.CreateViolationRegulationParams{
+					ViolationID:  violationID,
+					RegulationID: reg.ID,
+					RelevanceScore: sql.NullString{
+						String: "1.0", // AI suggestions get high relevance
+						Valid:  true,
+					},
+					AiExplanation: sql.NullString{
+						String: fmt.Sprintf("AI directly suggested regulation %s for %s violation", reg.StandardNumber, violation.Category),
+						Valid:  true,
+					},
+					IsPrimary: sql.NullBool{
+						Bool:  isPrimary,
+						Valid: true,
+					},
+				})
+				if err != nil {
+					logger.Error("Failed to link AI-suggested regulation",
+						"error", err,
+						"violation_id", violationID,
+						"regulation_id", reg.ID,
+					)
+					continue
+				}
+
+				logger.Info("Linked AI-suggested regulation to violation",
+					"violation_id", violationID,
+					"regulation_id", reg.ID,
+					"standard_number", reg.StandardNumber,
+					"is_primary", isPrimary,
+					"source", "ai_suggestion",
+				)
+			}
+
+			logger.Info("Successfully linked AI-suggested regulations",
+				"violation_id", violationID,
+				"matched_count", len(aiRegs),
+				"suggested_count", len(violation.SuggestedRegulations),
+			)
+			return nil
+		}
+	}
+
+	// Fall back to full-text search if no AI suggestions or none matched
 	searchQuery := violation.Description
 	if violation.Category != "" {
 		searchQuery = violation.Category + " " + searchQuery
 	}
 
-	// Search for matching regulations using full-text search
 	regulations, err := h.queries.SearchRegulations(ctx, repository.SearchRegulationsParams{
 		WebsearchToTsquery: searchQuery,
-		Limit:              5, // Limit to top 5 most relevant regulations
+		Limit:              5,
 	})
 	if err != nil {
 		return fmt.Errorf("search regulations: %w", err)
 	}
 
-	logger.Info("Found matching regulations",
+	logger.Info("Found matching regulations via full-text search",
 		"violation_id", violationID,
 		"count", len(regulations),
 		"query", searchQuery,
+		"source", "full_text_search",
 	)
 
-	// Link each regulation to the violation
 	for i, reg := range regulations {
-		isPrimary := i == 0 // First (highest ranked) regulation is primary
+		isPrimary := i == 0
 
-		// Convert float32 rank to string for storage
 		rankStr := fmt.Sprintf("%.6f", reg.Rank)
 
 		_, err := h.queries.CreateViolationRegulation(ctx, repository.CreateViolationRegulationParams{
@@ -355,7 +417,6 @@ func (h *AnalyzeInspectionHandler) linkRegulations(
 				"violation_id", violationID,
 				"regulation_id", reg.ID,
 			)
-			// Continue linking other regulations
 			continue
 		}
 
@@ -364,6 +425,7 @@ func (h *AnalyzeInspectionHandler) linkRegulations(
 			"regulation_id", reg.ID,
 			"standard_number", reg.StandardNumber,
 			"is_primary", isPrimary,
+			"source", "full_text_search",
 		)
 	}
 

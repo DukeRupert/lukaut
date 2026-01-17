@@ -70,3 +70,11 @@ SELECT id, standard_number, title, category, subcategory, full_text, summary,
        severity_typical, parent_standard, effective_date, last_updated
 FROM regulations
 WHERE id = $1;
+
+-- name: GetRegulationsByStandardNumbers :many
+-- Look up regulations by their standard numbers (e.g., ["1926.501(b)(1)", "1926.502(d)"])
+-- Results are returned in the order they appear in the input array
+SELECT r.*, array_position($1::text[], r.standard_number) as sort_order
+FROM regulations r
+WHERE r.standard_number = ANY($1::text[])
+ORDER BY array_position($1::text[], r.standard_number);

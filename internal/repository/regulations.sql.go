@@ -10,6 +10,7 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const countRegulations = `-- name: CountRegulations :one
@@ -192,6 +193,72 @@ func (q *Queries) GetRegulationDetail(ctx context.Context, id uuid.UUID) (GetReg
 		&i.LastUpdated,
 	)
 	return i, err
+}
+
+const getRegulationsByStandardNumbers = `-- name: GetRegulationsByStandardNumbers :many
+SELECT r.id, r.standard_number, r.title, r.category, r.subcategory, r.full_text, r.summary, r.severity_typical, r.parent_standard, r.effective_date, r.last_updated, r.search_vector, r.created_at, r.updated_at, array_position($1::text[], r.standard_number) as sort_order
+FROM regulations r
+WHERE r.standard_number = ANY($1::text[])
+ORDER BY array_position($1::text[], r.standard_number)
+`
+
+type GetRegulationsByStandardNumbersRow struct {
+	ID              uuid.UUID      `json:"id"`
+	StandardNumber  string         `json:"standard_number"`
+	Title           string         `json:"title"`
+	Category        string         `json:"category"`
+	Subcategory     sql.NullString `json:"subcategory"`
+	FullText        string         `json:"full_text"`
+	Summary         sql.NullString `json:"summary"`
+	SeverityTypical sql.NullString `json:"severity_typical"`
+	ParentStandard  sql.NullString `json:"parent_standard"`
+	EffectiveDate   sql.NullTime   `json:"effective_date"`
+	LastUpdated     sql.NullTime   `json:"last_updated"`
+	SearchVector    interface{}    `json:"search_vector"`
+	CreatedAt       sql.NullTime   `json:"created_at"`
+	UpdatedAt       sql.NullTime   `json:"updated_at"`
+	SortOrder       int32          `json:"sort_order"`
+}
+
+// Look up regulations by their standard numbers (e.g., ["1926.501(b)(1)", "1926.502(d)"])
+// Results are returned in the order they appear in the input array
+func (q *Queries) GetRegulationsByStandardNumbers(ctx context.Context, dollar_1 []string) ([]GetRegulationsByStandardNumbersRow, error) {
+	rows, err := q.db.QueryContext(ctx, getRegulationsByStandardNumbers, pq.Array(dollar_1))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetRegulationsByStandardNumbersRow{}
+	for rows.Next() {
+		var i GetRegulationsByStandardNumbersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.StandardNumber,
+			&i.Title,
+			&i.Category,
+			&i.Subcategory,
+			&i.FullText,
+			&i.Summary,
+			&i.SeverityTypical,
+			&i.ParentStandard,
+			&i.EffectiveDate,
+			&i.LastUpdated,
+			&i.SearchVector,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SortOrder,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAllCategories = `-- name: ListAllCategories :many
