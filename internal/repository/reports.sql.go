@@ -99,6 +99,31 @@ func (q *Queries) GetReportByID(ctx context.Context, id uuid.UUID) (Report, erro
 	return i, err
 }
 
+const getReportByIDAndUserID = `-- name: GetReportByIDAndUserID :one
+SELECT id, inspection_id, user_id, pdf_storage_key, docx_storage_key, violation_count, generated_at FROM reports
+WHERE id = $1 AND user_id = $2
+`
+
+type GetReportByIDAndUserIDParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetReportByIDAndUserID(ctx context.Context, arg GetReportByIDAndUserIDParams) (Report, error) {
+	row := q.db.QueryRowContext(ctx, getReportByIDAndUserID, arg.ID, arg.UserID)
+	var i Report
+	err := row.Scan(
+		&i.ID,
+		&i.InspectionID,
+		&i.UserID,
+		&i.PdfStorageKey,
+		&i.DocxStorageKey,
+		&i.ViolationCount,
+		&i.GeneratedAt,
+	)
+	return i, err
+}
+
 const listReportsByInspectionID = `-- name: ListReportsByInspectionID :many
 SELECT id, inspection_id, user_id, pdf_storage_key, docx_storage_key, violation_count, generated_at FROM reports
 WHERE inspection_id = $1

@@ -14,6 +14,10 @@ RETURNING *;
 SELECT * FROM reports
 WHERE id = $1;
 
+-- name: GetReportByIDAndUserID :one
+SELECT * FROM reports
+WHERE id = $1 AND user_id = $2;
+
 -- name: ListReportsByInspectionID :many
 SELECT * FROM reports
 WHERE inspection_id = $1

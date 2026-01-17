@@ -188,6 +188,7 @@ func run() error {
 	settingsHandler := handler.NewSettingsHandler(userService, logger)
 	clientHandler := handler.NewClientHandler(clientService, logger)
 	siteHandler := handler.NewSiteHandler(siteService, clientService, logger)
+	reportHandler := handler.NewReportHandler(repo, storageService, logger)
 
 	// ==========================================================================
 	// Create router and register routes
@@ -257,6 +258,9 @@ func run() error {
 
 	// Site routes (requires authentication) - using templ
 	siteHandler.RegisterTemplRoutes(mux, requireUser)
+
+	// Report routes (requires authentication)
+	reportHandler.RegisterRoutes(mux, requireUser)
 
 	// ==========================================================================
 	// Start server
