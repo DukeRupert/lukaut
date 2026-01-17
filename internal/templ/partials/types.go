@@ -54,6 +54,8 @@ type AnalysisStatusData struct {
 	IsAnalyzing    bool   // Whether analysis is currently running
 	HasImages      bool   // Whether inspection has any images
 	PendingImages  int64  // Number of images pending analysis
+	TotalImages    int64  // Total number of images in inspection
+	AnalyzedImages int64  // Number of images analyzed (completed/failed)
 	ViolationCount int64  // Number of violations found
 	Message        string // Status message to display
 	PollingEnabled bool   // Whether to enable htmx polling

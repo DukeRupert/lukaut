@@ -40,17 +40,33 @@ templ AnalysisStatus(data AnalysisStatusData) {
 								{ analyzeButtonText(data.PendingImages) }
 							</button>
 						} else if data.IsAnalyzing {
-							<button
-								type="button"
-								disabled
-								class="inline-flex items-center rounded-md bg-gray-300 px-3 py-2 text-sm font-semibold text-gray-500 cursor-not-allowed"
-							>
-								<svg class="-ml-0.5 mr-1.5 h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-								</svg>
-								Analyzing...
-							</button>
+							<div class="flex flex-col items-end gap-2">
+								<button
+									type="button"
+									disabled
+									class="inline-flex items-center rounded-md bg-gray-300 px-3 py-2 text-sm font-semibold text-gray-500 cursor-not-allowed"
+								>
+									<svg class="-ml-0.5 mr-1.5 h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									</svg>
+									Analyzing...
+								</button>
+								if data.TotalImages > 0 {
+									<div class="w-48">
+										<div class="flex justify-between text-xs text-gray-600 mb-1">
+											<span>{ fmt.Sprintf("%d of %d", data.AnalyzedImages, data.TotalImages) }</span>
+											<span>{ fmt.Sprintf("%d%%", progressPercent(data.AnalyzedImages, data.TotalImages)) }</span>
+										</div>
+										<div class="w-full bg-gray-200 rounded-full h-2">
+											<div
+												class="bg-navy h-2 rounded-full transition-all duration-500"
+												style={ fmt.Sprintf("width: %d%%", progressPercent(data.AnalyzedImages, data.TotalImages)) }
+											></div>
+										</div>
+									</div>
+								}
+							</div>
 						} else {
 							<button
 								type="button"
@@ -80,4 +96,12 @@ func analyzeButtonText(pendingImages int64) string {
 		return "Analyze 1 Image"
 	}
 	return fmt.Sprintf("Analyze %d Images", pendingImages)
+}
+
+// progressPercent calculates progress as a percentage.
+func progressPercent(completed, total int64) int {
+	if total == 0 {
+		return 0
+	}
+	return int((completed * 100) / total)
 }

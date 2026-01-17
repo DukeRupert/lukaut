@@ -786,6 +786,8 @@ func domainAnalysisStatusToTempl(a *AnalysisStatusData) inspections.AnalysisStat
 		IsAnalyzing:    a.IsAnalyzing,
 		HasImages:      a.HasImages,
 		PendingImages:  a.PendingImages,
+		TotalImages:    a.TotalImages,
+		AnalyzedImages: a.AnalyzedImages,
 		ViolationCount: a.ViolationCount,
 		Message:        a.Message,
 		PollingEnabled: a.PollingEnabled,

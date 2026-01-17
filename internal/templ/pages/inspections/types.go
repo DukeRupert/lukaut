@@ -158,6 +158,8 @@ type AnalysisStatusData struct {
 	IsAnalyzing    bool
 	HasImages      bool
 	PendingImages  int64
+	TotalImages    int64
+	AnalyzedImages int64
 	ViolationCount int64
 	Message        string
 	PollingEnabled bool
