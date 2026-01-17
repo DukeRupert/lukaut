@@ -40,7 +40,7 @@ templ AppLayout(data AppLayoutData) {
 			</style>
 		</head>
 		<body class="h-full">
-			<div class="min-h-full" x-data="{ sidebarOpen: false }">
+			<div class="min-h-full" x-data="keyboardShortcuts()" @keydown.window="handleKeydown($event)">
 				<!-- Mobile sidebar overlay -->
 				@MobileSidebar(data.CurrentPath)
 				<!-- Static sidebar for desktop -->
@@ -65,6 +65,93 @@ templ AppLayout(data AppLayoutData) {
 			</div>
 			<!-- Toast Container -->
 			@shared.ToastContainer("top-right")
+			<!-- Keyboard Help Modal -->
+			@shared.KeyboardHelpModal()
+			<!-- Keyboard shortcuts script -->
+			<script>
+				function keyboardShortcuts() {
+					return {
+						sidebarOpen: false,
+						helpModalOpen: false,
+						pendingKey: null,
+						pendingTimeout: null,
+
+						handleKeydown(e) {
+							// Skip if in input fields
+							if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+							if (e.target.isContentEditable) return;
+							if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+							const key = e.key;
+
+							// Handle Escape key
+							if (key === 'Escape') {
+								if (this.helpModalOpen) {
+									this.helpModalOpen = false;
+									e.preventDefault();
+								}
+								this.pendingKey = null;
+								return;
+							}
+
+							// Handle pending 'g' sequence
+							if (this.pendingKey === 'g') {
+								this.handleGoSequence(key, e);
+								return;
+							}
+
+							// Single key handlers
+							switch (key) {
+								case '?':
+									e.preventDefault();
+									this.helpModalOpen = !this.helpModalOpen;
+									break;
+								case 'c':
+									e.preventDefault();
+									window.location.href = '/clients/new';
+									break;
+								case 's':
+									e.preventDefault();
+									window.location.href = '/sites/new';
+									break;
+								case 'i':
+									e.preventDefault();
+									window.location.href = '/inspections/new';
+									break;
+								case 'g':
+									e.preventDefault();
+									this.startGoSequence();
+									break;
+							}
+						},
+
+						handleGoSequence(key, e) {
+							clearTimeout(this.pendingTimeout);
+							this.pendingKey = null;
+
+							const routes = {
+								'h': '/dashboard',
+								'i': '/inspections',
+								's': '/sites',
+								'c': '/clients',
+								'r': '/regulations'
+							};
+
+							if (routes[key]) {
+								e.preventDefault();
+								window.location.href = routes[key];
+							}
+						},
+
+						startGoSequence() {
+							this.pendingKey = 'g';
+							this.pendingTimeout = setTimeout(() => {
+								this.pendingKey = null;
+							}, 1500);
+						}
+					}
+				}
+			</script>
 		</body>
 	</html>
 }
