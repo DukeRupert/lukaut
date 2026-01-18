@@ -127,6 +127,11 @@ func (p *Provider) AnalyzeImage(ctx context.Context, params ai.AnalyzeImageParam
 		p.logger.Error("Failed to track AI usage", "error", err)
 	}
 
+	// Track aggregate cost metrics (no user label - low cardinality)
+	metrics.AITokensTotal.WithLabelValues("input").Add(float64(result.Usage.InputTokens))
+	metrics.AITokensTotal.WithLabelValues("output").Add(float64(result.Usage.OutputTokens))
+	metrics.AICostCentsTotal.Add(float64(result.Usage.CostCents))
+
 	metrics.AIAPICalls.WithLabelValues("success").Inc()
 	return result, nil
 }

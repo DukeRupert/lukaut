@@ -7,6 +7,8 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -59,6 +61,203 @@ func (q *Queries) CreateAIUsage(ctx context.Context, arg CreateAIUsageParams) (A
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getAllUsersAIUsageSummary = `-- name: GetAllUsersAIUsageSummary :many
+SELECT
+    u.id as user_id,
+    u.email,
+    u.name,
+    COALESCE(SUM(a.input_tokens), 0)::bigint as total_input_tokens,
+    COALESCE(SUM(a.output_tokens), 0)::bigint as total_output_tokens,
+    COALESCE(SUM(a.cost_cents), 0)::bigint as total_cost_cents,
+    COUNT(a.id) as request_count
+FROM users u
+LEFT JOIN ai_usage a ON u.id = a.user_id
+    AND a.created_at >= $1
+    AND a.created_at < $2
+GROUP BY u.id, u.email, u.name
+ORDER BY total_cost_cents DESC
+`
+
+type GetAllUsersAIUsageSummaryParams struct {
+	CreatedAt   sql.NullTime `json:"created_at"`
+	CreatedAt_2 sql.NullTime `json:"created_at_2"`
+}
+
+type GetAllUsersAIUsageSummaryRow struct {
+	UserID            uuid.UUID `json:"user_id"`
+	Email             string    `json:"email"`
+	Name              string    `json:"name"`
+	TotalInputTokens  int64     `json:"total_input_tokens"`
+	TotalOutputTokens int64     `json:"total_output_tokens"`
+	TotalCostCents    int64     `json:"total_cost_cents"`
+	RequestCount      int64     `json:"request_count"`
+}
+
+// Get AI usage summary for all users (for admin/billing reports)
+func (q *Queries) GetAllUsersAIUsageSummary(ctx context.Context, arg GetAllUsersAIUsageSummaryParams) ([]GetAllUsersAIUsageSummaryRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllUsersAIUsageSummary, arg.CreatedAt, arg.CreatedAt_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAllUsersAIUsageSummaryRow{}
+	for rows.Next() {
+		var i GetAllUsersAIUsageSummaryRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.Email,
+			&i.Name,
+			&i.TotalInputTokens,
+			&i.TotalOutputTokens,
+			&i.TotalCostCents,
+			&i.RequestCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getPlatformAIUsageTotal = `-- name: GetPlatformAIUsageTotal :one
+SELECT
+    COALESCE(SUM(input_tokens), 0)::bigint as total_input_tokens,
+    COALESCE(SUM(output_tokens), 0)::bigint as total_output_tokens,
+    COALESCE(SUM(cost_cents), 0)::bigint as total_cost_cents,
+    COUNT(*) as request_count
+FROM ai_usage
+WHERE created_at >= $1
+AND created_at < $2
+`
+
+type GetPlatformAIUsageTotalParams struct {
+	CreatedAt   sql.NullTime `json:"created_at"`
+	CreatedAt_2 sql.NullTime `json:"created_at_2"`
+}
+
+type GetPlatformAIUsageTotalRow struct {
+	TotalInputTokens  int64 `json:"total_input_tokens"`
+	TotalOutputTokens int64 `json:"total_output_tokens"`
+	TotalCostCents    int64 `json:"total_cost_cents"`
+	RequestCount      int64 `json:"request_count"`
+}
+
+// Get total platform AI usage (all users combined)
+func (q *Queries) GetPlatformAIUsageTotal(ctx context.Context, arg GetPlatformAIUsageTotalParams) (GetPlatformAIUsageTotalRow, error) {
+	row := q.db.QueryRowContext(ctx, getPlatformAIUsageTotal, arg.CreatedAt, arg.CreatedAt_2)
+	var i GetPlatformAIUsageTotalRow
+	err := row.Scan(
+		&i.TotalInputTokens,
+		&i.TotalOutputTokens,
+		&i.TotalCostCents,
+		&i.RequestCount,
+	)
+	return i, err
+}
+
+const getUserAIUsageByDateRange = `-- name: GetUserAIUsageByDateRange :one
+SELECT
+    COALESCE(SUM(input_tokens), 0)::bigint as total_input_tokens,
+    COALESCE(SUM(output_tokens), 0)::bigint as total_output_tokens,
+    COALESCE(SUM(cost_cents), 0)::bigint as total_cost_cents,
+    COUNT(*) as request_count
+FROM ai_usage
+WHERE user_id = $1
+AND created_at >= $2
+AND created_at < $3
+`
+
+type GetUserAIUsageByDateRangeParams struct {
+	UserID      uuid.UUID    `json:"user_id"`
+	CreatedAt   sql.NullTime `json:"created_at"`
+	CreatedAt_2 sql.NullTime `json:"created_at_2"`
+}
+
+type GetUserAIUsageByDateRangeRow struct {
+	TotalInputTokens  int64 `json:"total_input_tokens"`
+	TotalOutputTokens int64 `json:"total_output_tokens"`
+	TotalCostCents    int64 `json:"total_cost_cents"`
+	RequestCount      int64 `json:"request_count"`
+}
+
+// Get AI usage for a specific user within a date range
+func (q *Queries) GetUserAIUsageByDateRange(ctx context.Context, arg GetUserAIUsageByDateRangeParams) (GetUserAIUsageByDateRangeRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserAIUsageByDateRange, arg.UserID, arg.CreatedAt, arg.CreatedAt_2)
+	var i GetUserAIUsageByDateRangeRow
+	err := row.Scan(
+		&i.TotalInputTokens,
+		&i.TotalOutputTokens,
+		&i.TotalCostCents,
+		&i.RequestCount,
+	)
+	return i, err
+}
+
+const getUserAIUsageByDay = `-- name: GetUserAIUsageByDay :many
+SELECT
+    date_trunc('day', created_at)::date as date,
+    COALESCE(SUM(input_tokens), 0)::bigint as input_tokens,
+    COALESCE(SUM(output_tokens), 0)::bigint as output_tokens,
+    COALESCE(SUM(cost_cents), 0)::bigint as cost_cents,
+    COUNT(*) as request_count
+FROM ai_usage
+WHERE user_id = $1
+AND created_at >= $2
+AND created_at < $3
+GROUP BY date_trunc('day', created_at)
+ORDER BY date
+`
+
+type GetUserAIUsageByDayParams struct {
+	UserID      uuid.UUID    `json:"user_id"`
+	CreatedAt   sql.NullTime `json:"created_at"`
+	CreatedAt_2 sql.NullTime `json:"created_at_2"`
+}
+
+type GetUserAIUsageByDayRow struct {
+	Date         time.Time `json:"date"`
+	InputTokens  int64     `json:"input_tokens"`
+	OutputTokens int64     `json:"output_tokens"`
+	CostCents    int64     `json:"cost_cents"`
+	RequestCount int64     `json:"request_count"`
+}
+
+// Get daily AI usage breakdown for a user (for usage charts)
+func (q *Queries) GetUserAIUsageByDay(ctx context.Context, arg GetUserAIUsageByDayParams) ([]GetUserAIUsageByDayRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUserAIUsageByDay, arg.UserID, arg.CreatedAt, arg.CreatedAt_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetUserAIUsageByDayRow{}
+	for rows.Next() {
+		var i GetUserAIUsageByDayRow
+		if err := rows.Scan(
+			&i.Date,
+			&i.InputTokens,
+			&i.OutputTokens,
+			&i.CostCents,
+			&i.RequestCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getUserAIUsageThisMonth = `-- name: GetUserAIUsageThisMonth :one

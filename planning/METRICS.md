@@ -44,6 +44,15 @@ Collected automatically via middleware for all requests (except `/metrics` itsel
 | `lukaut_images_analyzed_total` | Counter | `status` | Images analyzed (`success`, `error`) |
 | `lukaut_violations_detected_total` | Counter | - | Violations detected by AI |
 
+### AI Cost Metrics
+
+Aggregate totals (no user labels to avoid cardinality issues). Use SQL queries for per-customer breakdown.
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `lukaut_ai_tokens_total` | Counter | `type` | Total tokens consumed (`input`, `output`) |
+| `lukaut_ai_cost_cents_total` | Counter | - | Total AI cost in cents |
+
 ## Example Queries
 
 ### Request rate (last 5 minutes)
@@ -74,11 +83,47 @@ sum(rate(lukaut_ai_api_calls_total{status="error"}[1h]))
 / sum(rate(lukaut_ai_api_calls_total[1h]))
 ```
 
+### Total AI cost (dollars)
+```promql
+lukaut_ai_cost_cents_total / 100
+```
+
+### AI cost rate (cents per hour)
+```promql
+rate(lukaut_ai_cost_cents_total[1h]) * 3600
+```
+
+### Token usage rate
+```promql
+sum(rate(lukaut_ai_tokens_total[1h])) by (type)
+```
+
+## Per-Customer AI Usage (SQL)
+
+For per-customer cost breakdown, use the SQL queries in `sqlc/queries/ai_usage.sql`:
+
+| Query | Description |
+|-------|-------------|
+| `GetUserAIUsageThisMonth` | Current month usage for a user |
+| `GetUserAIUsageByDateRange` | Usage for a user in date range |
+| `GetAllUsersAIUsageSummary` | All users usage summary (billing report) |
+| `GetPlatformAIUsageTotal` | Total platform usage |
+| `GetUserAIUsageByDay` | Daily breakdown for charts |
+
+Example usage in Go:
+```go
+// Get all users' AI costs for January 2024
+startDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+endDate := time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC)
+summary, err := queries.GetAllUsersAIUsageSummary(ctx, startDate, endDate)
+```
+
 ## Files
 
 - `internal/metrics/metrics.go` - Metric definitions
 - `internal/metrics/http.go` - HTTP middleware
 - `internal/metrics/worker.go` - Job metric helpers
+- `sqlc/queries/ai_usage.sql` - Per-customer reporting queries
 
 ## Adding New Metrics
 

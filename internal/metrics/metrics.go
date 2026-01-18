@@ -113,3 +113,23 @@ var (
 		},
 	)
 )
+
+// AI cost tracking metrics (aggregate totals - no user label to avoid cardinality)
+var (
+	AITokensTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "ai_tokens_total",
+			Help:      "Total AI tokens consumed",
+		},
+		[]string{"type"}, // "input" or "output"
+	)
+
+	AICostCentsTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "ai_cost_cents_total",
+			Help:      "Total AI cost in cents",
+		},
+	)
+)
