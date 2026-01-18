@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DukeRupert/lukaut/internal/metrics"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/google/uuid"
 )
@@ -167,14 +168,16 @@ func (w *Worker) processNextJob(ctx context.Context, logger *slog.Logger) error 
 	logger = logger.With("job_id", job.ID, "job_type", job.JobType, "attempt", job.Attempts+1)
 	logger.Info("Processing job")
 
+	startTime := time.Now()
 	if err := w.executeJob(ctx, job, logger); err != nil {
 		logger.Error("Job failed", "error", err)
-		w.markJobFailed(ctx, job.ID, err)
+		w.markJobFailed(ctx, job.ID, job.JobType, err)
 		return fmt.Errorf("execute job: %w", err)
 	}
 
+	duration := time.Since(startTime)
 	logger.Info("Job completed")
-	if err := w.markJobCompleted(ctx, job.ID); err != nil {
+	if err := w.markJobCompleted(ctx, job.ID, job.JobType, duration); err != nil {
 		logger.Error("Failed to mark job as completed", "error", err)
 		return err
 	}
@@ -204,17 +207,18 @@ func (w *Worker) executeJob(ctx context.Context, job repository.Job, logger *slo
 }
 
 // markJobCompleted marks a job as successfully completed.
-func (w *Worker) markJobCompleted(ctx context.Context, jobID uuid.UUID) error {
+func (w *Worker) markJobCompleted(ctx context.Context, jobID uuid.UUID, jobType string, duration time.Duration) error {
 	if err := w.queries.UpdateJobCompleted(ctx, jobID); err != nil {
 		return fmt.Errorf("update job completed: %w", err)
 	}
+	metrics.JobCompleted(jobType, duration)
 	return nil
 }
 
 // markJobFailed marks a job as failed.
 // If the error is permanent or max attempts reached, the job is marked as 'failed'.
 // Otherwise, it's rescheduled with exponential backoff.
-func (w *Worker) markJobFailed(ctx context.Context, jobID uuid.UUID, jobErr error) {
+func (w *Worker) markJobFailed(ctx context.Context, jobID uuid.UUID, jobType string, jobErr error) {
 	errorMessage := jobErr.Error()
 
 	// Check if this is a permanent error
@@ -233,4 +237,5 @@ func (w *Worker) markJobFailed(ctx context.Context, jobID uuid.UUID, jobErr erro
 	if err := w.queries.UpdateJobFailed(ctx, params); err != nil {
 		w.logger.Error("Failed to mark job as failed", "job_id", jobID, "error", err)
 	}
+	metrics.JobFailed(jobType)
 }

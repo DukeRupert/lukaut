@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/DukeRupert/lukaut/internal/domain"
+	"github.com/DukeRupert/lukaut/internal/metrics"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/google/uuid"
 )
@@ -142,6 +143,7 @@ func (s *inspectionService) Create(ctx context.Context, params domain.CreateInsp
 		"user_id", params.UserID,
 		"title", params.Title,
 	)
+	metrics.InspectionsCreated.Inc()
 
 	return inspection, nil
 }

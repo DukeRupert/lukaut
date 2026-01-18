@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/DukeRupert/lukaut/internal/ai"
+	"github.com/DukeRupert/lukaut/internal/metrics"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/google/uuid"
 )
@@ -85,24 +86,28 @@ func (p *Provider) AnalyzeImage(ctx context.Context, params ai.AnalyzeImageParam
 
 	// Validate input
 	if err := p.validateImageParams(params); err != nil {
+		metrics.AIAPICalls.WithLabelValues("error").Inc()
 		return nil, ai.WrapError("analyze image", err)
 	}
 
 	// Build the request
 	req, err := p.buildAnalyzeImageRequest(ctx, params)
 	if err != nil {
+		metrics.AIAPICalls.WithLabelValues("error").Inc()
 		return nil, ai.WrapError("build request", err)
 	}
 
 	// Execute with retry logic
 	resp, err := p.executeWithRetry(ctx, req)
 	if err != nil {
+		metrics.AIAPICalls.WithLabelValues("error").Inc()
 		return nil, ai.WrapError("execute request", err)
 	}
 
 	// Parse the response
 	result, err := p.parseAnalysisResponse(resp)
 	if err != nil {
+		metrics.AIAPICalls.WithLabelValues("error").Inc()
 		return nil, ai.WrapError("parse response", err)
 	}
 
@@ -122,6 +127,7 @@ func (p *Provider) AnalyzeImage(ctx context.Context, params ai.AnalyzeImageParam
 		p.logger.Error("Failed to track AI usage", "error", err)
 	}
 
+	metrics.AIAPICalls.WithLabelValues("success").Inc()
 	return result, nil
 }
 

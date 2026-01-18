@@ -13,6 +13,7 @@ import (
 
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/email"
+	"github.com/DukeRupert/lukaut/internal/metrics"
 	"github.com/DukeRupert/lukaut/internal/report"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/storage"
@@ -153,6 +154,7 @@ func (h *GenerateReportHandler) Handle(ctx context.Context, payload []byte) erro
 	if err != nil {
 		return fmt.Errorf("create report record: %w", err)
 	}
+	metrics.ReportsGenerated.WithLabelValues(p.Format).Inc()
 
 	// 10. Send email notification to inspector (optional - don't fail job if email fails)
 	reportURL := fmt.Sprintf("%s/reports/%s/download?format=%s", h.baseURL, dbReport.ID, p.Format)

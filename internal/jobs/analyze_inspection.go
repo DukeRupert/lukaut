@@ -13,6 +13,7 @@ import (
 
 	"github.com/DukeRupert/lukaut/internal/ai"
 	"github.com/DukeRupert/lukaut/internal/domain"
+	"github.com/DukeRupert/lukaut/internal/metrics"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/storage"
 	"github.com/DukeRupert/lukaut/internal/worker"
@@ -138,6 +139,7 @@ func (h *AnalyzeInspectionHandler) Handle(ctx context.Context, payload []byte) e
 			if err := h.analyzeImage(ctx, img, p.InspectionID, p.UserID, imgLogger); err != nil {
 				imgLogger.Error("Image analysis failed", "error", err)
 				failCount.Add(1)
+				metrics.ImagesAnalyzed.WithLabelValues("error").Inc()
 
 				// Mark image as failed
 				if markErr := h.markImageFailed(ctx, img.ID); markErr != nil {
@@ -153,6 +155,7 @@ func (h *AnalyzeInspectionHandler) Handle(ctx context.Context, payload []byte) e
 			}
 
 			successCount.Add(1)
+			metrics.ImagesAnalyzed.WithLabelValues("success").Inc()
 			imgLogger.Info("Image analysis completed successfully")
 		}(img)
 	}
@@ -304,6 +307,7 @@ func (h *AnalyzeInspectionHandler) storeViolation(
 		"confidence", violation.Confidence,
 		"severity", violation.Severity,
 	)
+	metrics.ViolationsDetected.Inc()
 
 	// Link regulations to the violation
 	if err := h.linkRegulations(ctx, createdViolation.ID, violation, logger); err != nil {

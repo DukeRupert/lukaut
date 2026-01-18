@@ -19,6 +19,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/handler"
 	"github.com/DukeRupert/lukaut/internal/invite"
 	"github.com/DukeRupert/lukaut/internal/jobs"
+	"github.com/DukeRupert/lukaut/internal/metrics"
 	"github.com/DukeRupert/lukaut/internal/middleware"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/service"
@@ -26,6 +27,7 @@ import (
 	publicpages "github.com/DukeRupert/lukaut/internal/templ/pages/public"
 	"github.com/DukeRupert/lukaut/internal/worker"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func run() error {
@@ -211,6 +213,9 @@ func run() error {
 		_, _ = w.Write([]byte("OK"))
 	})
 
+	// Prometheus metrics endpoint
+	mux.Handle("GET /metrics", promhttp.Handler())
+
 	// Public pages - using templ
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		// Only handle exact root path
@@ -263,7 +268,7 @@ func run() error {
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: mux,
+		Handler: metrics.Middleware(mux),
 	}
 
 	// Channel to listen for interrupt signals
