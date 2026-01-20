@@ -414,7 +414,18 @@ func photosAlpineData(inspectionID string) string {
 				if (xhr.status === 200) {
 					const gallery = document.getElementById('image-gallery');
 					if (gallery) {
-						gallery.outerHTML = xhr.responseText;
+						// Parse the response and replace the gallery
+						const temp = document.createElement('div');
+						temp.innerHTML = xhr.responseText;
+						const newGallery = temp.firstElementChild;
+						gallery.replaceWith(newGallery);
+						// Tell htmx to process the new element so polling works
+						if (typeof htmx !== 'undefined') {
+							htmx.process(newGallery);
+							console.log('htmx processed new gallery, has hx-trigger:', newGallery.hasAttribute('hx-trigger'));
+						}
+						// Dispatch galleryUpdated event to trigger other component refreshes
+						document.body.dispatchEvent(new CustomEvent('galleryUpdated'));
 					}
 				} else {
 					alert('Upload failed. Please try again.');

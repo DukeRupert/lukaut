@@ -168,6 +168,7 @@ func (h *AnalyzeInspectionHandler) Handle(ctx context.Context, payload []byte) e
 	if err != nil {
 		return fmt.Errorf("update inspection status to review: %w", err)
 	}
+	h.logger.Info("Updated inspection status to review", "inspection_id", p.InspectionID)
 
 	h.logger.Info("Inspection analysis completed",
 		"inspection_id", p.InspectionID,

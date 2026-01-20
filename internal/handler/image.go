@@ -480,6 +480,17 @@ func (h *ImageHandler) ListImages(w http.ResponseWriter, r *http.Request) {
 		isAnalyzing = true
 	}
 
+	// Also check for pending/running analysis job in the queue
+	// This handles the case where job is queued but hasn't started yet
+	if !isAnalyzing {
+		hasPendingJob, err := h.queries.HasPendingAnalysisJob(r.Context(), inspectionID.String())
+		if err != nil {
+			h.logger.Warn("failed to check pending analysis job", "error", err)
+		} else if hasPendingJob {
+			isAnalyzing = true
+		}
+	}
+
 	// Render image gallery partial
 	data := ImageGalleryData{
 		InspectionID: inspectionID,
