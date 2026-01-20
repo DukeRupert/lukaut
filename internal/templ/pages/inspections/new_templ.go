@@ -192,7 +192,7 @@ func InspectionForm(data FormPageData, action, submitLabel string) templ.Compone
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = ClientSelect("client_id", "client_id", data.Form.ClientID, data.Clients).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ClientSelectWithQuickCreate("client_id", "client_id", data.Form.ClientID, data.Clients).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -219,7 +219,7 @@ func InspectionForm(data FormPageData, action, submitLabel string) templ.Compone
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<p class=\"mt-2 text-sm text-gray-500\">Optionally link this inspection to a client.</p></div><div class=\"border-t border-gray-200 pt-6\"><h4 class=\"text-sm font-medium leading-6 text-gray-900 mb-4\">Inspection Location</h4><div class=\"space-y-4\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<p class=\"mt-2 text-sm text-gray-500\">Optionally link this inspection to a client, or add a new one.</p></div><div class=\"border-t border-gray-200 pt-6\"><h4 class=\"text-sm font-medium leading-6 text-gray-900 mb-4\">Inspection Location</h4><div class=\"space-y-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

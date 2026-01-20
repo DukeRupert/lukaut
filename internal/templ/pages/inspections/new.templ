@@ -43,12 +43,12 @@ templ InspectionForm(data FormPageData, action, submitLabel string) {
 		<div>
 			<label for="client_id" class="block text-sm font-medium leading-6 text-gray-900">Client</label>
 			<div class="mt-2">
-				@ClientSelect("client_id", "client_id", data.Form.ClientID, data.Clients)
+				@ClientSelectWithQuickCreate("client_id", "client_id", data.Form.ClientID, data.Clients)
 			</div>
 			if data.Errors["client_id"] != "" {
 				<p class="mt-2 text-sm text-red-600">{ data.Errors["client_id"] }</p>
 			}
-			<p class="mt-2 text-sm text-gray-500">Optionally link this inspection to a client.</p>
+			<p class="mt-2 text-sm text-gray-500">Optionally link this inspection to a client, or add a new one.</p>
 		</div>
 		// Address Section
 		<div class="border-t border-gray-200 pt-6">

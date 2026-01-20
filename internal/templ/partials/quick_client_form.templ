@@ -1,0 +1,119 @@
+package partials
+
+// QuickClientFormData contains data for the quick client creation form.
+type QuickClientFormData struct {
+	Form   QuickClientFormValues
+	Errors map[string]string
+}
+
+// QuickClientFormValues holds form field values.
+type QuickClientFormValues struct {
+	Name  string
+	Email string
+	Phone string
+}
+
+// QuickClientForm renders the inline quick client creation form.
+templ QuickClientForm(data QuickClientFormData) {
+	<div id="quick-client-form-container" class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+		<h4 class="text-sm font-medium text-gray-900 mb-3">Quick Add Client</h4>
+		<form
+			hx-post="/clients/quick"
+			hx-target="#quick-client-form-container"
+			hx-swap="outerHTML"
+			class="space-y-3"
+		>
+			// Name field (required)
+			<div>
+				<label for="quick_client_name" class="block text-sm font-medium text-gray-700">
+					Company Name <span class="text-red-500">*</span>
+				</label>
+				<input
+					type="text"
+					id="quick_client_name"
+					name="name"
+					value={ data.Form.Name }
+					required
+					class={ quickInputClass(data.Errors["name"] != "") }
+					placeholder="e.g., Acme Construction"
+				/>
+				if data.Errors["name"] != "" {
+					<p class="mt-1 text-sm text-red-600">{ data.Errors["name"] }</p>
+				}
+			</div>
+			// Email field (optional)
+			<div>
+				<label for="quick_client_email" class="block text-sm font-medium text-gray-700">
+					Email
+				</label>
+				<input
+					type="email"
+					id="quick_client_email"
+					name="email"
+					value={ data.Form.Email }
+					class={ quickInputClass(data.Errors["email"] != "") }
+					placeholder="contact@company.com"
+				/>
+				if data.Errors["email"] != "" {
+					<p class="mt-1 text-sm text-red-600">{ data.Errors["email"] }</p>
+				}
+			</div>
+			// Phone field (optional)
+			<div>
+				<label for="quick_client_phone" class="block text-sm font-medium text-gray-700">
+					Phone
+				</label>
+				<input
+					type="tel"
+					id="quick_client_phone"
+					name="phone"
+					value={ data.Form.Phone }
+					class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6"
+					placeholder="(555) 123-4567"
+				/>
+			</div>
+			// Actions
+			<div class="flex items-center justify-between pt-2">
+				<a href="/clients/new" class="text-sm text-navy hover:text-navy/80">
+					Need more fields? Full form →
+				</a>
+				<div class="flex gap-2">
+					<button
+						type="button"
+						@click="showQuickClient = false"
+						class="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+					>
+						Cancel
+					</button>
+					<button
+						type="submit"
+						class="rounded-md bg-safety-orange px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-safety-orange/90"
+					>
+						Add Client
+					</button>
+				</div>
+			</div>
+		</form>
+	</div>
+}
+
+// QuickClientSuccess renders a success message that closes the form.
+templ QuickClientSuccess(clientName string) {
+	<div
+		id="quick-client-form-container"
+		class="rounded-md bg-green-50 p-3"
+		x-init="showQuickClient = false"
+	>
+		<p class="text-sm text-green-800">
+			<span class="font-medium">{ clientName }</span> created and selected!
+		</p>
+	</div>
+}
+
+func quickInputClass(hasError bool) string {
+	base := "block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6"
+	if hasError {
+		return base + " ring-red-500"
+	}
+	return base + " ring-gray-300"
+}

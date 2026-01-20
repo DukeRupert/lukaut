@@ -221,6 +221,10 @@ func (h *ClientHandler) RegisterTemplRoutes(mux *http.ServeMux, requireUser func
 	mux.Handle("GET /clients", requireUser(http.HandlerFunc(h.IndexTempl)))
 	mux.Handle("GET /clients/new", requireUser(http.HandlerFunc(h.NewTempl)))
 	mux.Handle("POST /clients", requireUser(http.HandlerFunc(h.Create)))
+	// Quick create endpoints (for HTMX) - must be before {id} routes
+	mux.Handle("GET /clients/quick-form", requireUser(http.HandlerFunc(h.QuickCreateForm)))
+	mux.Handle("POST /clients/quick", requireUser(http.HandlerFunc(h.QuickCreate)))
+	// ID-based routes
 	mux.Handle("GET /clients/{id}", requireUser(http.HandlerFunc(h.ShowTempl)))
 	mux.Handle("GET /clients/{id}/edit", requireUser(http.HandlerFunc(h.EditTempl)))
 	mux.Handle("PUT /clients/{id}", requireUser(http.HandlerFunc(h.Update)))

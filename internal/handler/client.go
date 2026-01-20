@@ -14,6 +14,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/service"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/clients"
+	"github.com/DukeRupert/lukaut/internal/templ/partials"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
 	"github.com/google/uuid"
 )
@@ -298,6 +299,142 @@ func (h *ClientHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	// Regular request - redirect
 	http.Redirect(w, r, "/clients", http.StatusSeeOther)
+}
+
+// =============================================================================
+// GET /clients/quick-form - Quick Create Form Partial
+// =============================================================================
+
+// QuickCreateForm returns the quick client creation form partial.
+func (h *ClientHandler) QuickCreateForm(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromRequest(r)
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	data := partials.QuickClientFormData{
+		Form:   partials.QuickClientFormValues{},
+		Errors: make(map[string]string),
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := partials.QuickClientForm(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render quick client form", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// =============================================================================
+// POST /clients/quick - Quick Create Client
+// =============================================================================
+
+// QuickCreate creates a client via HTMX and returns updated select options.
+func (h *ClientHandler) QuickCreate(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromRequest(r)
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error("failed to parse form", "error", err)
+		http.Error(w, "Invalid form", http.StatusBadRequest)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	email := strings.TrimSpace(r.FormValue("email"))
+	phone := strings.TrimSpace(r.FormValue("phone"))
+
+	// Validate
+	errors := make(map[string]string)
+	if name == "" {
+		errors["name"] = "Company name is required"
+	}
+	if email != "" && !isValidEmail(email) {
+		errors["email"] = "Invalid email address"
+	}
+
+	if len(errors) > 0 {
+		// Re-render form with errors
+		data := partials.QuickClientFormData{
+			Form: partials.QuickClientFormValues{
+				Name:  name,
+				Email: email,
+				Phone: phone,
+			},
+			Errors: errors,
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if err := partials.QuickClientForm(data).Render(r.Context(), w); err != nil {
+			h.logger.Error("failed to render form with errors", "error", err)
+		}
+		return
+	}
+
+	// Create client
+	params := domain.CreateClientParams{
+		UserID: user.ID,
+		Name:   name,
+		Email:  email,
+		Phone:  phone,
+	}
+
+	client, err := h.clientService.Create(r.Context(), params)
+	if err != nil {
+		h.logger.Error("failed to create client", "error", err)
+		errors["name"] = "Failed to create client. Please try again."
+		data := partials.QuickClientFormData{
+			Form: partials.QuickClientFormValues{
+				Name:  name,
+				Email: email,
+				Phone: phone,
+			},
+			Errors: errors,
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		partials.QuickClientForm(data).Render(r.Context(), w)
+		return
+	}
+
+	// Fetch all clients for updated select
+	clientsResult, err := h.clientService.List(r.Context(), domain.ListClientsParams{
+		UserID: user.ID,
+		Limit:  1000, // Get all clients for dropdown
+		Offset: 0,
+	})
+	if err != nil {
+		h.logger.Error("failed to list clients", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Build select options
+	options := make([]partials.ClientSelectOption, len(clientsResult.Clients))
+	for i, c := range clientsResult.Clients {
+		options[i] = partials.ClientSelectOption{
+			ID:   c.ID.String(),
+			Name: c.Name,
+		}
+	}
+
+	// Return success response with OOB swap for select
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// Render success message that closes the form
+	if err := partials.QuickClientSuccess(client.Name).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render success message", "error", err)
+	}
+
+	// Render the updated select (OOB swap)
+	selectData := partials.ClientSelectOptionsData{
+		Clients:    options,
+		SelectedID: client.ID.String(), // Auto-select the new client
+	}
+	if err := partials.ClientSelectOptions(selectData).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render select options", "error", err)
+	}
 }
 
 // =============================================================================
