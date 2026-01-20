@@ -86,3 +86,56 @@ func ToImageGalleryData(inspectionID uuid.UUID, images []ImageDisplay, errors []
 		IsAnalyzing:  isAnalyzing,
 	}
 }
+
+// =============================================================================
+// Queue Review Types
+// =============================================================================
+
+// QueueViolationViewData contains data for rendering a single violation in the queue view.
+type QueueViolationViewData struct {
+	InspectionID string
+	Violation    QueueViolationDisplay
+	Position     int
+	TotalCount   int
+	HasPrev      bool
+	HasNext      bool
+	CSRFToken    string
+}
+
+// QueueViolationDisplay represents a violation for display in the queue.
+type QueueViolationDisplay struct {
+	ID             string
+	Description    string
+	AIDescription  string
+	Status         string
+	Severity       string
+	Confidence     string
+	InspectorNotes string
+	ThumbnailURL   string
+	OriginalURL    string
+	ImageID        string
+	Regulations    []QueueRegulationDisplay
+}
+
+// QueueRegulationDisplay represents a regulation linked to a violation in queue view.
+type QueueRegulationDisplay struct {
+	RegulationID   string
+	StandardNumber string
+	Title          string
+	IsPrimary      bool
+}
+
+// QueueHeaderData contains data for the queue header partial.
+type QueueHeaderData struct {
+	InspectionID string
+	Position     int
+	TotalCount   int
+	Counts       ViolationCounts
+}
+
+// QueueCompletionData contains data for the queue completion screen.
+type QueueCompletionData struct {
+	InspectionID   string
+	ConfirmedCount int
+	RejectedCount  int
+}

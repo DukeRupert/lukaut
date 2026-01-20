@@ -1,0 +1,102 @@
+package partials
+
+import (
+	"fmt"
+)
+
+// QueueHeader renders the header bar for the violation review queue.
+// This partial supports OOB swaps to update progress without full page reload.
+templ QueueHeader(data QueueHeaderData) {
+	<div id="queue-header" class="flex items-center justify-between mb-6">
+		<a
+			href={ templ.SafeURL(fmt.Sprintf("/inspections/%s", data.InspectionID)) }
+			class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+		>
+			@BackArrowIconPartial()
+			Back to Inspection
+		</a>
+		<div class="flex items-center gap-4">
+			// Progress
+			if data.TotalCount > 0 {
+				<span class="text-sm text-gray-600">
+					Reviewing <span class="font-semibold">{ fmt.Sprintf("%d", data.Position+1) }</span> of <span class="font-semibold">{ fmt.Sprintf("%d", data.TotalCount) }</span>
+				</span>
+				// Progress Bar
+				<div class="w-32 bg-gray-200 rounded-full h-2">
+					<div
+						class="bg-navy h-2 rounded-full transition-all duration-300"
+						style={ fmt.Sprintf("width: %.1f%%", float64(data.Position+1)/float64(data.TotalCount)*100) }
+					></div>
+				</div>
+			}
+			// Counts (confirmed/rejected)
+			<div class="flex items-center gap-2 text-sm">
+				<span class="text-green-600 font-medium">{ fmt.Sprintf("%d", data.Counts.Confirmed) } confirmed</span>
+				<span class="text-gray-400">|</span>
+				<span class="text-gray-500">{ fmt.Sprintf("%d", data.Counts.Rejected) } rejected</span>
+			</div>
+			// List View Link
+			<a
+				href={ templ.SafeURL(fmt.Sprintf("/inspections/%s/review", data.InspectionID)) }
+				class="text-sm text-gray-500 hover:text-gray-700"
+			>
+				Switch to list view
+			</a>
+			// Keyboard hint
+			<span class="text-xs text-gray-400">
+				Press <kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded font-semibold">Esc</kbd> to exit
+			</span>
+		</div>
+	</div>
+}
+
+// QueueHeaderOOB renders the header with OOB swap attribute for htmx updates.
+templ QueueHeaderOOB(data QueueHeaderData) {
+	<div id="queue-header" hx-swap-oob="true" class="flex items-center justify-between mb-6">
+		<a
+			href={ templ.SafeURL(fmt.Sprintf("/inspections/%s", data.InspectionID)) }
+			class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+		>
+			@BackArrowIconPartial()
+			Back to Inspection
+		</a>
+		<div class="flex items-center gap-4">
+			// Progress
+			if data.TotalCount > 0 {
+				<span class="text-sm text-gray-600">
+					Reviewing <span class="font-semibold">{ fmt.Sprintf("%d", data.Position+1) }</span> of <span class="font-semibold">{ fmt.Sprintf("%d", data.TotalCount) }</span>
+				</span>
+				// Progress Bar
+				<div class="w-32 bg-gray-200 rounded-full h-2">
+					<div
+						class="bg-navy h-2 rounded-full transition-all duration-300"
+						style={ fmt.Sprintf("width: %.1f%%", float64(data.Position+1)/float64(data.TotalCount)*100) }
+					></div>
+				</div>
+			}
+			// Counts (confirmed/rejected)
+			<div class="flex items-center gap-2 text-sm">
+				<span class="text-green-600 font-medium">{ fmt.Sprintf("%d", data.Counts.Confirmed) } confirmed</span>
+				<span class="text-gray-400">|</span>
+				<span class="text-gray-500">{ fmt.Sprintf("%d", data.Counts.Rejected) } rejected</span>
+			</div>
+			// List View Link
+			<a
+				href={ templ.SafeURL(fmt.Sprintf("/inspections/%s/review", data.InspectionID)) }
+				class="text-sm text-gray-500 hover:text-gray-700"
+			>
+				Switch to list view
+			</a>
+			// Keyboard hint
+			<span class="text-xs text-gray-400">
+				Press <kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded font-semibold">Esc</kbd> to exit
+			</span>
+		</div>
+	</div>
+}
+
+templ BackArrowIconPartial() {
+	<svg class="mr-1 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+		<path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd"></path>
+	</svg>
+}

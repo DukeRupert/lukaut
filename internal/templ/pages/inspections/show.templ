@@ -19,6 +19,7 @@ templ ShowPage(data ShowPageData) {
 		// Keyboard shortcuts wrapper
 		<div
 			x-data
+			@keydown.r.window="if (!['INPUT','TEXTAREA','SELECT'].includes($event.target.tagName) && !$event.metaKey && !$event.ctrlKey && !$event.altKey && $el.dataset.hasViolations === 'true') { window.location.href = $el.dataset.reviewUrl; $event.preventDefault(); }"
 			@keydown.v.window="if (!['INPUT','TEXTAREA','SELECT'].includes($event.target.tagName) && !$event.metaKey && !$event.ctrlKey && !$event.altKey && $el.dataset.hasViolations === 'true') { window.location.href = $el.dataset.reviewUrl; $event.preventDefault(); }"
 			data-has-violations={ fmt.Sprintf("%t", data.ViolationCounts.Total > 0) }
 			data-review-url={ fmt.Sprintf("/inspections/%s/review/queue", data.InspectionID) }

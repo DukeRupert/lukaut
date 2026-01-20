@@ -13,6 +13,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/inspections"
+	"github.com/DukeRupert/lukaut/internal/templ/partials"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
 	"github.com/DukeRupert/lukaut/internal/worker"
 	"github.com/google/uuid"
@@ -382,6 +383,7 @@ func (h *InspectionHandler) ReviewTempl(w http.ResponseWriter, r *http.Request) 
 }
 
 // ReviewQueueTempl displays the keyboard-focused queue-based violation review page using templ.
+// Supports htmx partial requests via ?pos=N query param.
 func (h *InspectionHandler) ReviewQueueTempl(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromRequest(r)
 	if user == nil {
@@ -416,12 +418,6 @@ func (h *InspectionHandler) ReviewQueueTempl(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Build violation details with regulations and thumbnail URLs
-	violationDetails := make([]inspections.ViolationDisplay, 0, len(violations))
-	for _, v := range violations {
-		violationDetails = append(violationDetails, h.domainViolationToDisplay(r.Context(), v, user.ID))
-	}
-
 	// Calculate counts
 	counts := inspections.ViolationCountsData{
 		Total: len(violations),
@@ -437,13 +433,52 @@ func (h *InspectionHandler) ReviewQueueTempl(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
+	// Parse position from query param (defaults to first pending or 0)
+	position := 0
+	if posStr := r.URL.Query().Get("pos"); posStr != "" {
+		if p, err := strconv.Atoi(posStr); err == nil && p >= 0 && p < len(violations) {
+			position = p
+		}
+	} else {
+		// Default to first pending violation
+		for i, v := range violations {
+			if v.Status == domain.ViolationStatusPending {
+				position = i
+				break
+			}
+		}
+	}
+
+	// Check if all violations have been reviewed (complete state)
+	isComplete := len(violations) > 0 && counts.Pending == 0
+
+	// Determine if this is an htmx request
+	isHTMX := r.Header.Get("HX-Request") == "true"
+
+	// Build current violation data (if any)
+	var currentViolation *inspections.ViolationDisplay
+	if len(violations) > 0 && position < len(violations) {
+		v := h.domainViolationToDisplay(r.Context(), violations[position], user.ID)
+		currentViolation = &v
+	}
+
+	// For htmx requests, return just the partials
+	if isHTMX {
+		h.renderQueuePartials(w, r, id.String(), violations, position, counts, isComplete, currentViolation)
+		return
+	}
+
+	// Full page render
 	data := inspections.ReviewQueuePageData{
 		CurrentPath:     r.URL.Path,
 		CSRFToken:       "",
 		User:            domainUserToInspectionDisplay(user),
 		Inspection:      domainInspectionToDisplay(inspection),
-		Violations:      violationDetails,
+		Violation:       currentViolation,
+		Position:        position,
+		TotalCount:      len(violations),
 		ViolationCounts: counts,
+		IsComplete:      isComplete,
 		Flash:           nil,
 	}
 
@@ -452,6 +487,125 @@ func (h *InspectionHandler) ReviewQueueTempl(w http.ResponseWriter, r *http.Requ
 		h.logger.Error("failed to render review queue page", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
+}
+
+// ReviewQueueUpdateStatus handles PUT requests to update a violation's status in queue context.
+// PUT /inspections/{id}/review/queue/violations/{vid}/status?status=confirmed|rejected&pos=N
+func (h *InspectionHandler) ReviewQueueUpdateStatus(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromRequest(r)
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	inspectionIDStr := r.PathValue("id")
+	inspectionID, err := uuid.Parse(inspectionIDStr)
+	if err != nil {
+		http.Error(w, "Invalid inspection ID", http.StatusBadRequest)
+		return
+	}
+
+	violationIDStr := r.PathValue("vid")
+	violationID, err := uuid.Parse(violationIDStr)
+	if err != nil {
+		http.Error(w, "Invalid violation ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get status from query param
+	statusStr := r.URL.Query().Get("status")
+	if statusStr != "confirmed" && statusStr != "rejected" {
+		http.Error(w, "Invalid status: must be 'confirmed' or 'rejected'", http.StatusBadRequest)
+		return
+	}
+
+	newStatus := domain.ViolationStatus(statusStr)
+
+	// Get current position from query param
+	currentPos := 0
+	if posStr := r.URL.Query().Get("pos"); posStr != "" {
+		if p, err := strconv.Atoi(posStr); err == nil && p >= 0 {
+			currentPos = p
+		}
+	}
+
+	// Update the violation status
+	err = h.violationService.UpdateStatus(r.Context(), domain.UpdateViolationStatusParams{
+		ID:     violationID,
+		UserID: user.ID,
+		Status: newStatus,
+	})
+	if err != nil {
+		code := domain.ErrorCode(err)
+		if code == domain.ENOTFOUND {
+			http.Error(w, "Violation not found", http.StatusNotFound)
+		} else {
+			h.logger.Error("failed to update violation status", "error", err, "violation_id", violationID)
+			http.Error(w, "Failed to update status", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Fetch all violations to recalculate counts and find next pending
+	violations, err := h.violationService.ListByInspection(r.Context(), inspectionID, user.ID)
+	if err != nil {
+		h.logger.Error("failed to list violations after status update", "error", err, "inspection_id", inspectionID)
+		http.Error(w, "Failed to refresh violations", http.StatusInternalServerError)
+		return
+	}
+
+	// Calculate updated counts
+	counts := inspections.ViolationCountsData{
+		Total: len(violations),
+	}
+	for _, v := range violations {
+		switch v.Status {
+		case domain.ViolationStatusPending:
+			counts.Pending++
+		case domain.ViolationStatusConfirmed:
+			counts.Confirmed++
+		case domain.ViolationStatusRejected:
+			counts.Rejected++
+		}
+	}
+
+	// Find next pending violation
+	nextPos := -1
+	// First, look for pending violations after current position
+	for i := currentPos + 1; i < len(violations); i++ {
+		if violations[i].Status == domain.ViolationStatusPending {
+			nextPos = i
+			break
+		}
+	}
+	// If none found, wrap around to beginning
+	if nextPos == -1 {
+		for i := 0; i < currentPos; i++ {
+			if violations[i].Status == domain.ViolationStatusPending {
+				nextPos = i
+				break
+			}
+		}
+	}
+
+	// Check if all violations have been reviewed (complete state)
+	isComplete := counts.Pending == 0
+
+	// If complete, use current position; otherwise use next pending
+	position := currentPos
+	if !isComplete && nextPos >= 0 {
+		position = nextPos
+	}
+
+	// Build current violation data (if any and not complete)
+	var currentViolation *inspections.ViolationDisplay
+	if len(violations) > 0 && position < len(violations) && !isComplete {
+		v := h.domainViolationToDisplay(r.Context(), violations[position], user.ID)
+		currentViolation = &v
+	}
+
+	// Render partials
+	h.renderQueuePartials(w, r, inspectionID.String(), violations, position, counts, isComplete, currentViolation)
 }
 
 // =============================================================================
@@ -688,6 +842,7 @@ func (h *InspectionHandler) RegisterTemplRoutes(mux *http.ServeMux, requireUser 
 	mux.Handle("GET /inspections/{id}/status", requireUser(http.HandlerFunc(h.GetStatus)))
 	mux.Handle("GET /inspections/{id}/review", requireUser(http.HandlerFunc(h.ReviewTempl)))
 	mux.Handle("GET /inspections/{id}/review/queue", requireUser(http.HandlerFunc(h.ReviewQueueTempl)))
+	mux.Handle("PUT /inspections/{id}/review/queue/violations/{vid}/status", requireUser(http.HandlerFunc(h.ReviewQueueUpdateStatus)))
 	mux.Handle("GET /inspections/{id}/violations-summary", requireUser(http.HandlerFunc(h.ViolationsSummary)))
 	mux.Handle("POST /inspections/{id}/reports", requireUser(http.HandlerFunc(h.GenerateReport)))
 	mux.Handle("PUT /inspections/{id}/status", requireUser(http.HandlerFunc(h.UpdateStatusTempl)))
@@ -819,6 +974,8 @@ func (h *InspectionHandler) domainViolationToDisplay(ctx context.Context, v doma
 		if err != nil {
 			h.logger.Warn("failed to generate thumbnail URL", "error", err, "image_id", *v.ImageID)
 		}
+		// Build original URL path for linking to full image
+		originalURL = fmt.Sprintf("/images/%s/original", imageID)
 	}
 
 	// Convert regulations
@@ -865,5 +1022,114 @@ func (h *InspectionHandler) renderIndexErrorTempl(w http.ResponseWriter, r *http
 	if err := inspections.IndexPage(data).Render(r.Context(), w); err != nil {
 		h.logger.Error("failed to render inspections index error", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// renderQueuePartials renders htmx partials for the review queue.
+// It renders the header (OOB) and either the violation view, completion screen, or empty state.
+func (h *InspectionHandler) renderQueuePartials(
+	w http.ResponseWriter,
+	r *http.Request,
+	inspectionID string,
+	violations []domain.Violation,
+	position int,
+	counts inspections.ViolationCountsData,
+	isComplete bool,
+	currentViolation *inspections.ViolationDisplay,
+) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// Empty state
+	if len(violations) == 0 {
+		if err := partials.QueueEmptyState(inspectionID).Render(r.Context(), w); err != nil {
+			h.logger.Error("failed to render queue empty state", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Completion screen
+	if isComplete {
+		// Render OOB header update first
+		headerData := partials.QueueHeaderData{
+			InspectionID: inspectionID,
+			Position:     position,
+			TotalCount:   len(violations),
+			Counts: partials.ViolationCounts{
+				Total:     counts.Total,
+				Pending:   counts.Pending,
+				Confirmed: counts.Confirmed,
+				Rejected:  counts.Rejected,
+			},
+		}
+		if err := partials.QueueHeaderOOB(headerData).Render(r.Context(), w); err != nil {
+			h.logger.Error("failed to render queue header OOB", "error", err)
+		}
+
+		completionData := partials.QueueCompletionData{
+			InspectionID:   inspectionID,
+			ConfirmedCount: counts.Confirmed,
+			RejectedCount:  counts.Rejected,
+		}
+		if err := partials.QueueCompletion(completionData).Render(r.Context(), w); err != nil {
+			h.logger.Error("failed to render queue completion", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Normal violation view
+	if currentViolation != nil {
+		// Render OOB header update first
+		headerData := partials.QueueHeaderData{
+			InspectionID: inspectionID,
+			Position:     position,
+			TotalCount:   len(violations),
+			Counts: partials.ViolationCounts{
+				Total:     counts.Total,
+				Pending:   counts.Pending,
+				Confirmed: counts.Confirmed,
+				Rejected:  counts.Rejected,
+			},
+		}
+		if err := partials.QueueHeaderOOB(headerData).Render(r.Context(), w); err != nil {
+			h.logger.Error("failed to render queue header OOB", "error", err)
+		}
+
+		// Convert inspections.ViolationDisplay to partials.QueueViolationDisplay
+		queueRegs := make([]partials.QueueRegulationDisplay, len(currentViolation.Regulations))
+		for i, r := range currentViolation.Regulations {
+			queueRegs[i] = partials.QueueRegulationDisplay{
+				RegulationID:   r.RegulationID,
+				StandardNumber: r.StandardNumber,
+				Title:          r.Title,
+				IsPrimary:      r.IsPrimary,
+			}
+		}
+
+		violationData := partials.QueueViolationViewData{
+			InspectionID: inspectionID,
+			Violation: partials.QueueViolationDisplay{
+				ID:             currentViolation.ID,
+				Description:    currentViolation.Description,
+				AIDescription:  currentViolation.AIDescription,
+				Status:         currentViolation.Status,
+				Severity:       currentViolation.Severity,
+				Confidence:     currentViolation.Confidence,
+				InspectorNotes: currentViolation.InspectorNotes,
+				ThumbnailURL:   currentViolation.ThumbnailURL,
+				OriginalURL:    currentViolation.OriginalURL,
+				ImageID:        currentViolation.ImageID,
+				Regulations:    queueRegs,
+			},
+			Position:   position,
+			TotalCount: len(violations),
+			HasPrev:    position > 0,
+			HasNext:    position < len(violations)-1,
+		}
+		if err := partials.QueueViolationView(violationData).Render(r.Context(), w); err != nil {
+			h.logger.Error("failed to render queue violation view", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
 	}
 }

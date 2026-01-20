@@ -64,8 +64,11 @@ type ReviewQueuePageData struct {
 	CSRFToken       string
 	User            *UserDisplay
 	Inspection      *InspectionDisplay
-	Violations      []ViolationDisplay
+	Violation       *ViolationDisplay // Current violation only (nil if empty/complete)
+	Position        int               // Current position (0-indexed)
+	TotalCount      int               // Total number of violations
 	ViolationCounts ViolationCountsData
+	IsComplete      bool // True if all violations have been reviewed
 	Flash           *shared.Flash
 }
 

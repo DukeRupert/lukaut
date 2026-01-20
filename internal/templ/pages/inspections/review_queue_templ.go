@@ -9,13 +9,14 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/DukeRupert/lukaut/internal/templ/layouts"
+	"github.com/DukeRupert/lukaut/internal/templ/partials"
 )
 
 // ReviewQueuePage renders the keyboard-driven queue-based review page.
+// Uses htmx for navigation and status updates, with minimal Alpine.js for keyboard shortcuts.
 func ReviewQueuePage(data ReviewQueuePageData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -49,31 +50,84 @@ func ReviewQueuePage(data ReviewQueuePageData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div x-data=\"violationReview()\" x-init=\"init()\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div x-data=\"queueKeyboard()\" @keydown.window=\"handleKeydown($event)\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = QueueHeaderBar(data.Inspection.ID).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = partials.QueueHeader(partials.QueueHeaderData{
+				InspectionID: data.Inspection.ID,
+				Position:     data.Position,
+				TotalCount:   data.TotalCount,
+				Counts: partials.ViolationCounts{
+					Total:     data.ViolationCounts.Total,
+					Pending:   data.ViolationCounts.Pending,
+					Confirmed: data.ViolationCounts.Confirmed,
+					Rejected:  data.ViolationCounts.Rejected,
+				},
+			}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = CompletionScreen(data.Inspection.ID).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div id=\"queue-content\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = SingleViolationView().Render(ctx, templ_7745c5c3_Buffer)
+			if data.TotalCount == 0 {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = partials.QueueEmptyState(data.Inspection.ID).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else if data.IsComplete {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = partials.QueueCompletion(partials.QueueCompletionData{
+					InspectionID:   data.Inspection.ID,
+					ConfirmedCount: data.ViolationCounts.Confirmed,
+					RejectedCount:  data.ViolationCounts.Rejected,
+				}).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else if data.Violation != nil {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = partials.QueueViolationView(partials.QueueViolationViewData{
+					InspectionID: data.Inspection.ID,
+					Violation: partials.QueueViolationDisplay{
+						ID:             data.Violation.ID,
+						Description:    data.Violation.Description,
+						AIDescription:  data.Violation.AIDescription,
+						Status:         data.Violation.Status,
+						Severity:       data.Violation.Severity,
+						Confidence:     data.Violation.Confidence,
+						InspectorNotes: data.Violation.InspectorNotes,
+						ThumbnailURL:   data.Violation.ThumbnailURL,
+						OriginalURL:    data.Violation.OriginalURL,
+						ImageID:        data.Violation.ImageID,
+						Regulations:    violationRegsToQueueRegs(data.Violation.Regulations),
+					},
+					Position:   data.Position,
+					TotalCount: data.TotalCount,
+					HasPrev:    data.Position > 0,
+					HasNext:    data.Position < data.TotalCount-1,
+				}).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></div> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = QueueEmptyState(data.Inspection.ID).Render(ctx, templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = violationsDataScript(data.Inspection.ID, data.Violations).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = queueKeyboardScript(data.Inspection.ID).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -93,8 +147,9 @@ func ReviewQueuePage(data ReviewQueuePageData) templ.Component {
 	})
 }
 
-// QueueHeaderBar renders the header with navigation and progress.
-func QueueHeaderBar(inspectionID string) templ.Component {
+// queueKeyboardScript provides the Alpine.js component for keyboard shortcuts.
+// It triggers htmx buttons programmatically rather than managing state.
+func queueKeyboardScript(inspectionID string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -115,41 +170,7 @@ func QueueHeaderBar(inspectionID string) templ.Component {
 			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"flex items-center justify-between mb-6\"><a href=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var4 templ.SafeURL
-		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/inspections/%s", inspectionID)))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/inspections/review_queue.templ`, Line: 38, Col: 69}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" class=\"inline-flex items-center text-sm text-gray-500 hover:text-gray-700\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = BackArrowIcon().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "Back to Inspection</a><div class=\"flex items-center gap-4\"><span class=\"text-sm text-gray-600\" x-show=\"!isComplete\">Reviewing <span class=\"font-semibold\" x-text=\"currentIndex + 1\"></span> of <span class=\"font-semibold\" x-text=\"violations.length\"></span></span><div class=\"w-32 bg-gray-200 rounded-full h-2\" x-show=\"!isComplete\"><div class=\"bg-navy h-2 rounded-full transition-all duration-300\" :style=\"'width: ' + ((currentIndex + 1) / violations.length * 100) + '%'\"></div></div><a href=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var5 templ.SafeURL
-		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/inspections/%s/review", inspectionID)))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/inspections/review_queue.templ`, Line: 58, Col: 77}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" class=\"text-sm text-gray-500 hover:text-gray-700\">Switch to list view</a><span class=\"text-xs text-gray-400\">Press <kbd class=\"px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded font-semibold\">Esc</kbd> to exit</span></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<script>\n\t\tconst queueInspectionID = @templ.Raw(fmt.Sprintf(\"%q\", inspectionID));\n\n\t\tfunction queueKeyboard() {\n\t\t\treturn {\n\t\t\t\thandleKeydown(e) {\n\t\t\t\t\t// Don't handle if in input field (let the edit form handle its own keys)\n\t\t\t\t\tif (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {\n\t\t\t\t\t\t// Allow Escape to cancel edit\n\t\t\t\t\t\tif (e.key === 'Escape') {\n\t\t\t\t\t\t\t// Alpine's x-on:keydown.escape on the edit form will handle this\n\t\t\t\t\t\t}\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\n\t\t\t\t\t// Don't handle with modifier keys\n\t\t\t\t\tif (e.metaKey || e.ctrlKey || e.altKey) return;\n\n\t\t\t\t\tswitch (e.key.toLowerCase()) {\n\t\t\t\t\t\tcase 'a':\n\t\t\t\t\t\t\t// Accept - click the accept button\n\t\t\t\t\t\t\tconst acceptBtn = document.getElementById('btn-accept');\n\t\t\t\t\t\t\tif (acceptBtn && !acceptBtn.disabled) {\n\t\t\t\t\t\t\t\tacceptBtn.click();\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'r':\n\t\t\t\t\t\t\t// Reject - click the reject button\n\t\t\t\t\t\t\tconst rejectBtn = document.getElementById('btn-reject');\n\t\t\t\t\t\t\tif (rejectBtn && !rejectBtn.disabled) {\n\t\t\t\t\t\t\t\trejectBtn.click();\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'e':\n\t\t\t\t\t\t\t// Edit - trigger Alpine edit mode\n\t\t\t\t\t\t\t// The edit toggle is handled by Alpine within the partial\n\t\t\t\t\t\t\t// We need to dispatch a custom event or find another way\n\t\t\t\t\t\t\t// For now, we'll find and click any edit button\n\t\t\t\t\t\t\tconst editBtnContainer = document.querySelector('[x-show=\"!editing\"]');\n\t\t\t\t\t\t\tif (editBtnContainer) {\n\t\t\t\t\t\t\t\tconst editBtn = editBtnContainer.querySelector('button[\\\\@click*=\"editing\"]');\n\t\t\t\t\t\t\t\tif (editBtn) {\n\t\t\t\t\t\t\t\t\teditBtn.click();\n\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'j':\n\t\t\t\t\t\tcase 'arrowright':\n\t\t\t\t\t\t\t// Next - click the next button\n\t\t\t\t\t\t\tconst nextBtn = document.getElementById('btn-next');\n\t\t\t\t\t\t\tif (nextBtn && !nextBtn.disabled) {\n\t\t\t\t\t\t\t\tnextBtn.click();\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'k':\n\t\t\t\t\t\tcase 'arrowleft':\n\t\t\t\t\t\t\t// Previous - click the prev button\n\t\t\t\t\t\t\tconst prevBtn = document.getElementById('btn-prev');\n\t\t\t\t\t\t\tif (prevBtn && !prevBtn.disabled) {\n\t\t\t\t\t\t\t\tprevBtn.click();\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'escape':\n\t\t\t\t\t\t\t// Exit to inspection page\n\t\t\t\t\t\t\twindow.location.href = '/inspections/' + queueInspectionID;\n\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t};\n\t\t}\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -157,625 +178,19 @@ func QueueHeaderBar(inspectionID string) templ.Component {
 	})
 }
 
-// CompletionScreen renders the screen shown when all violations are reviewed.
-func CompletionScreen(inspectionID string) templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
+// Helper function to convert violation regulations to queue format
+// This is defined in Go since templ templates can call Go functions
+func violationRegsToQueueRegs(regs []ViolationRegulationDisplay) []partials.QueueRegulationDisplay {
+	result := make([]partials.QueueRegulationDisplay, len(regs))
+	for i, r := range regs {
+		result[i] = partials.QueueRegulationDisplay{
+			RegulationID:   r.RegulationID,
+			StandardNumber: r.StandardNumber,
+			Title:          r.Title,
+			IsPrimary:      r.IsPrimary,
 		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var6 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var6 == nil {
-			templ_7745c5c3_Var6 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div x-show=\"isComplete\" x-cloak class=\"bg-white shadow sm:rounded-lg\"><div class=\"px-4 py-12 sm:p-12 text-center\"><div class=\"mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 mb-4\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = CheckCircleIcon().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div><h3 class=\"text-lg font-semibold text-gray-900 mb-2\">Review Complete!</h3><p class=\"text-sm text-gray-500 mb-6\">You've reviewed all violations for this inspection.</p><div class=\"flex justify-center gap-8 mb-8\"><div class=\"text-center\"><div class=\"text-3xl font-bold text-green-600\" x-text=\"confirmedCount\"></div><div class=\"text-sm text-gray-500\">Confirmed</div></div><div class=\"text-center\"><div class=\"text-3xl font-bold text-gray-600\" x-text=\"rejectedCount\"></div><div class=\"text-sm text-gray-500\">Rejected</div></div></div><div class=\"flex justify-center gap-3\"><a href=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var7 templ.SafeURL
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/inspections/%s", inspectionID)))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/inspections/review_queue.templ`, Line: 92, Col: 71}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" class=\"inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50\">Return to Inspection</a> <a href=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var8 templ.SafeURL
-		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/inspections/%s/report", inspectionID)))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/inspections/review_queue.templ`, Line: 98, Col: 78}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" class=\"inline-flex items-center rounded-md bg-navy px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-navy/90\">Generate Report</a></div></div></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-// SingleViolationView renders the single violation review interface.
-func SingleViolationView() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var9 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var9 == nil {
-			templ_7745c5c3_Var9 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div x-show=\"!isComplete && violations.length > 0\" x-cloak><div class=\"bg-white shadow sm:rounded-lg overflow-hidden\"><div class=\"p-6\"><div class=\"grid grid-cols-1 lg:grid-cols-2 gap-6\"><div><template x-if=\"current && current.thumbnailURL\"><div class=\"aspect-square bg-gray-100 rounded-lg overflow-hidden\"><img :src=\"current.originalURL || current.thumbnailURL\" :alt=\"current.description\" class=\"w-full h-full object-contain cursor-pointer\" @click=\"window.open(current.originalURL, '_blank')\"></div></template><template x-if=\"current && !current.thumbnailURL\"><div class=\"aspect-square bg-gray-100 rounded-lg flex items-center justify-center\"><div class=\"text-center text-gray-400\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = NoImagePlaceholder().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<p class=\"mt-2 text-sm\">No image linked</p></div></div></template></div><div class=\"flex flex-col\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = QueueStatusBadges().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div class=\"mb-4\" x-show=\"!editing\"><h3 class=\"text-lg font-semibold text-gray-900 mb-2\" x-text=\"current ? current.description : ''\"></h3><p x-show=\"current && current.aiDescription\" class=\"text-sm text-gray-500 italic\" x-text=\"current ? 'AI: ' + current.aiDescription : ''\"></p></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = QueueEditForm().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = QueueRegulations().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = QueueInspectorNotes().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div class=\"flex-1\"></div></div></div></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = QueueActionBar().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-// QueueStatusBadges renders the dynamic status badges.
-func QueueStatusBadges() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var10 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var10 == nil {
-			templ_7745c5c3_Var10 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<div class=\"flex flex-wrap gap-2 mb-4\"><span x-show=\"current && current.status === 'pending'\" class=\"inline-flex items-center rounded-md bg-yellow-50 px-2.5 py-1 text-sm font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20\">Pending Review</span> <span x-show=\"current && current.status === 'confirmed'\" class=\"inline-flex items-center rounded-md bg-green-50 px-2.5 py-1 text-sm font-medium text-green-800 ring-1 ring-inset ring-green-600/20\">Confirmed</span> <span x-show=\"current && current.status === 'rejected'\" class=\"inline-flex items-center rounded-md bg-gray-50 px-2.5 py-1 text-sm font-medium text-gray-600 ring-1 ring-inset ring-gray-500/20\">Rejected</span><span x-show=\"current && current.severity === 'critical'\" class=\"inline-flex items-center rounded-md bg-red-100 px-2.5 py-1 text-sm font-medium text-red-800\">Critical</span> <span x-show=\"current && current.severity === 'serious'\" class=\"inline-flex items-center rounded-md bg-orange-100 px-2.5 py-1 text-sm font-medium text-orange-800\">Serious</span> <span x-show=\"current && current.severity === 'other'\" class=\"inline-flex items-center rounded-md bg-yellow-100 px-2.5 py-1 text-sm font-medium text-yellow-800\">Other</span> <span x-show=\"current && current.severity === 'recommendation'\" class=\"inline-flex items-center rounded-md bg-blue-100 px-2.5 py-1 text-sm font-medium text-blue-800\">Recommendation</span><span x-show=\"current && current.confidence === 'high'\" class=\"inline-flex items-center rounded-md bg-green-50 px-2.5 py-1 text-sm font-medium text-green-700 ring-1 ring-inset ring-green-600/20\">High Confidence</span> <span x-show=\"current && current.confidence === 'medium'\" class=\"inline-flex items-center rounded-md bg-yellow-50 px-2.5 py-1 text-sm font-medium text-yellow-700 ring-1 ring-inset ring-yellow-600/20\">Medium Confidence</span> <span x-show=\"current && current.confidence === 'low'\" class=\"inline-flex items-center rounded-md bg-gray-50 px-2.5 py-1 text-sm font-medium text-gray-600 ring-1 ring-inset ring-gray-500/20\">Low Confidence</span><span x-show=\"current && current.aiDescription\" class=\"inline-flex items-center rounded-md bg-purple-50 px-2.5 py-1 text-sm font-medium text-purple-700 ring-1 ring-inset ring-purple-700/10\">AI-Detected</span> <span x-show=\"current && !current.aiDescription\" class=\"inline-flex items-center rounded-md bg-blue-50 px-2.5 py-1 text-sm font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10\">Manual</span></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-// QueueEditForm renders the edit form in queue view.
-func QueueEditForm() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var11 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var11 == nil {
-			templ_7745c5c3_Var11 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<div x-show=\"editing\" x-cloak class=\"mb-4\"><div class=\"space-y-4\"><div><label class=\"block text-sm font-medium text-gray-700 mb-1\">Description</label> <textarea x-model=\"editForm.description\" rows=\"3\" class=\"block w-full rounded-md border-gray-300 shadow-sm focus:border-navy focus:ring-navy sm:text-sm\"></textarea></div><div><label class=\"block text-sm font-medium text-gray-700 mb-1\">Severity</label> <select x-model=\"editForm.severity\" class=\"block w-full rounded-md border-gray-300 shadow-sm focus:border-navy focus:ring-navy sm:text-sm\"><option value=\"critical\">Critical</option> <option value=\"serious\">Serious</option> <option value=\"other\">Other</option> <option value=\"recommendation\">Recommendation</option></select></div><div><label class=\"block text-sm font-medium text-gray-700 mb-1\">Inspector Notes</label> <textarea x-model=\"editForm.inspectorNotes\" rows=\"2\" class=\"block w-full rounded-md border-gray-300 shadow-sm focus:border-navy focus:ring-navy sm:text-sm\"></textarea></div></div></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-// QueueRegulations renders the regulations section.
-func QueueRegulations() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var12 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var12 == nil {
-			templ_7745c5c3_Var12 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div x-show=\"current && current.regulations && current.regulations.length > 0 && !editing\" class=\"mb-4\"><h4 class=\"text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2\">Applicable OSHA Regulations</h4><ul class=\"space-y-1\"><template x-for=\"reg in (current ? current.regulations : [])\" :key=\"reg.id\"><li class=\"text-sm\"><span class=\"font-medium text-navy\" x-text=\"reg.standardNumber\"></span> <span class=\"text-gray-700\" x-text=\"' - ' + reg.title\"></span> <span x-show=\"reg.isPrimary\" class=\"ml-1 inline-flex items-center rounded-md bg-navy/10 px-1.5 py-0.5 text-xs font-medium text-navy\">Primary</span></li></template></ul></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-// QueueInspectorNotes renders the inspector notes section.
-func QueueInspectorNotes() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var13 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var13 == nil {
-			templ_7745c5c3_Var13 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div x-show=\"current && current.inspectorNotes && !editing\" class=\"mb-4\"><h4 class=\"text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2\">Inspector Notes</h4><p class=\"text-sm text-gray-700 bg-gray-50 p-3 rounded-md\" x-text=\"current ? current.inspectorNotes : ''\"></p></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-// QueueActionBar renders the navigation and action buttons.
-func QueueActionBar() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var14 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var14 == nil {
-			templ_7745c5c3_Var14 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<div class=\"bg-gray-50 px-6 py-4 border-t border-gray-200\"><div class=\"flex items-center justify-between\"><div class=\"flex items-center gap-2\"><button @click=\"prev()\" :disabled=\"currentIndex === 0\" :class=\"currentIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200'\" class=\"inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = PrevNavIcon().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<kbd class=\"hidden sm:inline px-1 py-0.5 text-xs bg-gray-100 rounded\">K</kbd></button> <button @click=\"next()\" :disabled=\"currentIndex === violations.length - 1\" :class=\"currentIndex === violations.length - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200'\" class=\"inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300\"><kbd class=\"hidden sm:inline px-1 py-0.5 text-xs bg-gray-100 rounded\">J</kbd>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = NextNavIcon().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</button></div><div class=\"flex items-center gap-3\"><template x-if=\"editing\"><div class=\"flex items-center gap-2\"><button @click=\"saveEdit()\" class=\"inline-flex items-center rounded-md bg-navy px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-navy/90\">Save Changes</button> <button @click=\"cancelEdit()\" class=\"inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50\">Cancel</button></div></template><template x-if=\"!editing\"><div class=\"flex items-center gap-2\"><button @click=\"accept()\" class=\"inline-flex items-center rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500\"><kbd class=\"mr-2 px-1.5 py-0.5 text-xs bg-green-700 rounded\">A</kbd> Accept</button> <button @click=\"reject()\" class=\"inline-flex items-center rounded-md bg-gray-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500\"><kbd class=\"mr-2 px-1.5 py-0.5 text-xs bg-gray-700 rounded\">R</kbd> Reject</button> <button @click=\"startEdit()\" class=\"inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50\"><kbd class=\"mr-2 px-1.5 py-0.5 text-xs bg-gray-100 rounded\">E</kbd> Edit</button></div></template></div></div></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-// QueueEmptyState renders the empty state when no violations exist.
-func QueueEmptyState(inspectionID string) templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var15 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var15 == nil {
-			templ_7745c5c3_Var15 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div x-show=\"violations.length === 0\" class=\"bg-white shadow sm:rounded-lg\"><div class=\"px-4 py-12 sm:p-12 text-center\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = CheckCircleOutlineIcon().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<h3 class=\"mt-2 text-sm font-semibold text-gray-900\">No violations to review</h3><p class=\"mt-1 text-sm text-gray-500\">Upload photos and run AI analysis to detect violations.</p><div class=\"mt-6\"><a href=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var16 templ.SafeURL
-		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/inspections/%s", inspectionID)))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/inspections/review_queue.templ`, Line: 370, Col: 71}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" class=\"inline-flex items-center rounded-md bg-navy px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-navy/90\">Return to Inspection</a></div></div></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-// violationsDataScript generates the JavaScript data and functions for the review queue.
-func violationsDataScript(inspectionID string, violations []ViolationDisplay) templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var17 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var17 == nil {
-			templ_7745c5c3_Var17 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<script>\n\t\tconst violationsData = @templ.Raw(violationsToJSON(violations));\n\t\tconst inspectionID = @templ.Raw(fmt.Sprintf(\"%q\", inspectionID));\n\n\t\tfunction violationReview() {\n\t\t\treturn {\n\t\t\t\tviolations: [],\n\t\t\t\tcurrentIndex: 0,\n\t\t\t\tediting: false,\n\t\t\t\teditForm: {\n\t\t\t\t\tdescription: '',\n\t\t\t\t\tseverity: '',\n\t\t\t\t\tinspectorNotes: ''\n\t\t\t\t},\n\n\t\t\t\tinit() {\n\t\t\t\t\tthis.violations = violationsData;\n\n\t\t\t\t\t// Find first pending violation\n\t\t\t\t\tconst firstPending = this.violations.findIndex(v => v.status === 'pending');\n\t\t\t\t\tif (firstPending >= 0) {\n\t\t\t\t\t\tthis.currentIndex = firstPending;\n\t\t\t\t\t}\n\n\t\t\t\t\t// Keyboard shortcuts\n\t\t\t\t\tdocument.addEventListener('keydown', (e) => this.handleKeydown(e));\n\t\t\t\t},\n\n\t\t\t\tget current() {\n\t\t\t\t\treturn this.violations[this.currentIndex] || null;\n\t\t\t\t},\n\n\t\t\t\tget isComplete() {\n\t\t\t\t\treturn this.violations.length > 0 && this.violations.every(v => v.status !== 'pending');\n\t\t\t\t},\n\n\t\t\t\tget confirmedCount() {\n\t\t\t\t\treturn this.violations.filter(v => v.status === 'confirmed').length;\n\t\t\t\t},\n\n\t\t\t\tget rejectedCount() {\n\t\t\t\t\treturn this.violations.filter(v => v.status === 'rejected').length;\n\t\t\t\t},\n\n\t\t\t\thandleKeydown(e) {\n\t\t\t\t\t// Don't handle if in input field\n\t\t\t\t\tif (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {\n\t\t\t\t\t\t// Allow Escape to cancel edit\n\t\t\t\t\t\tif (e.key === 'Escape' && this.editing) {\n\t\t\t\t\t\t\tthis.cancelEdit();\n\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t}\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\n\t\t\t\t\t// Don't handle with modifier keys (except for arrows)\n\t\t\t\t\tif (e.metaKey || e.ctrlKey || e.altKey) return;\n\n\t\t\t\t\tswitch (e.key.toLowerCase()) {\n\t\t\t\t\t\tcase 'a':\n\t\t\t\t\t\t\tif (!this.editing && !this.isComplete) {\n\t\t\t\t\t\t\t\tthis.accept();\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'r':\n\t\t\t\t\t\t\tif (!this.editing && !this.isComplete) {\n\t\t\t\t\t\t\t\tthis.reject();\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'e':\n\t\t\t\t\t\t\tif (!this.editing && !this.isComplete) {\n\t\t\t\t\t\t\t\tthis.startEdit();\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'j':\n\t\t\t\t\t\tcase 'arrowright':\n\t\t\t\t\t\t\tif (!this.editing) {\n\t\t\t\t\t\t\t\tthis.next();\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'k':\n\t\t\t\t\t\tcase 'arrowleft':\n\t\t\t\t\t\t\tif (!this.editing) {\n\t\t\t\t\t\t\t\tthis.prev();\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'escape':\n\t\t\t\t\t\t\tif (this.editing) {\n\t\t\t\t\t\t\t\tthis.cancelEdit();\n\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\twindow.location.href = '/inspections/' + inspectionID;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t}\n\t\t\t\t},\n\n\t\t\t\tnext() {\n\t\t\t\t\tif (this.currentIndex < this.violations.length - 1) {\n\t\t\t\t\t\tthis.currentIndex++;\n\t\t\t\t\t}\n\t\t\t\t},\n\n\t\t\t\tprev() {\n\t\t\t\t\tif (this.currentIndex > 0) {\n\t\t\t\t\t\tthis.currentIndex--;\n\t\t\t\t\t}\n\t\t\t\t},\n\n\t\t\t\tasync accept() {\n\t\t\t\t\tawait this.updateStatus('confirmed');\n\t\t\t\t\tthis.advanceToNext();\n\t\t\t\t},\n\n\t\t\t\tasync reject() {\n\t\t\t\t\tawait this.updateStatus('rejected');\n\t\t\t\t\tthis.advanceToNext();\n\t\t\t\t},\n\n\t\t\t\tadvanceToNext() {\n\t\t\t\t\t// Find next pending violation\n\t\t\t\t\tfor (let i = this.currentIndex + 1; i < this.violations.length; i++) {\n\t\t\t\t\t\tif (this.violations[i].status === 'pending') {\n\t\t\t\t\t\t\tthis.currentIndex = i;\n\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t\t// If none found after, check before\n\t\t\t\t\tfor (let i = 0; i < this.currentIndex; i++) {\n\t\t\t\t\t\tif (this.violations[i].status === 'pending') {\n\t\t\t\t\t\t\tthis.currentIndex = i;\n\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t\t// All reviewed - stay on current (isComplete will show completion screen)\n\t\t\t\t},\n\n\t\t\t\tasync updateStatus(status) {\n\t\t\t\t\tconst violation = this.current;\n\t\t\t\t\tif (!violation) return;\n\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst response = await fetch(`/violations/${violation.id}/status`, {\n\t\t\t\t\t\t\tmethod: 'PUT',\n\t\t\t\t\t\t\theaders: {\n\t\t\t\t\t\t\t\t'Content-Type': 'application/json',\n\t\t\t\t\t\t\t\t'Accept': 'application/json'\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tbody: JSON.stringify({ status })\n\t\t\t\t\t\t});\n\n\t\t\t\t\t\tif (response.ok) {\n\t\t\t\t\t\t\t// Update local state\n\t\t\t\t\t\t\tthis.violations[this.currentIndex].status = status;\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\tconsole.error('Failed to update status');\n\t\t\t\t\t\t}\n\t\t\t\t\t} catch (error) {\n\t\t\t\t\t\tconsole.error('Error updating status:', error);\n\t\t\t\t\t}\n\t\t\t\t},\n\n\t\t\t\tstartEdit() {\n\t\t\t\t\tif (!this.current) return;\n\t\t\t\t\tthis.editForm = {\n\t\t\t\t\t\tdescription: this.current.description,\n\t\t\t\t\t\tseverity: this.current.severity,\n\t\t\t\t\t\tinspectorNotes: this.current.inspectorNotes || ''\n\t\t\t\t\t};\n\t\t\t\t\tthis.editing = true;\n\t\t\t\t},\n\n\t\t\t\tcancelEdit() {\n\t\t\t\t\tthis.editing = false;\n\t\t\t\t},\n\n\t\t\t\tasync saveEdit() {\n\t\t\t\t\tconst violation = this.current;\n\t\t\t\t\tif (!violation) return;\n\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst response = await fetch(`/violations/${violation.id}`, {\n\t\t\t\t\t\t\tmethod: 'PUT',\n\t\t\t\t\t\t\theaders: {\n\t\t\t\t\t\t\t\t'Content-Type': 'application/x-www-form-urlencoded',\n\t\t\t\t\t\t\t\t'Accept': 'application/json'\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tbody: new URLSearchParams({\n\t\t\t\t\t\t\t\tdescription: this.editForm.description,\n\t\t\t\t\t\t\t\tseverity: this.editForm.severity,\n\t\t\t\t\t\t\t\tinspector_notes: this.editForm.inspectorNotes\n\t\t\t\t\t\t\t})\n\t\t\t\t\t\t});\n\n\t\t\t\t\t\tif (response.ok) {\n\t\t\t\t\t\t\t// Update local state\n\t\t\t\t\t\t\tthis.violations[this.currentIndex].description = this.editForm.description;\n\t\t\t\t\t\t\tthis.violations[this.currentIndex].severity = this.editForm.severity;\n\t\t\t\t\t\t\tthis.violations[this.currentIndex].inspectorNotes = this.editForm.inspectorNotes;\n\t\t\t\t\t\t\tthis.editing = false;\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\tconsole.error('Failed to save edit');\n\t\t\t\t\t\t}\n\t\t\t\t\t} catch (error) {\n\t\t\t\t\t\tconsole.error('Error saving edit:', error);\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t};\n\t\t}\n\t</script>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
-// ViolationJSON represents a violation in JSON format for JavaScript.
-type ViolationJSON struct {
-	ID             string           `json:"id"`
-	Description    string           `json:"description"`
-	AIDescription  string           `json:"aiDescription"`
-	Status         string           `json:"status"`
-	Severity       string           `json:"severity"`
-	Confidence     string           `json:"confidence"`
-	InspectorNotes string           `json:"inspectorNotes"`
-	ThumbnailURL   string           `json:"thumbnailURL"`
-	OriginalURL    string           `json:"originalURL"`
-	Regulations    []RegulationJSON `json:"regulations"`
-}
-
-// RegulationJSON represents a regulation in JSON format for JavaScript.
-type RegulationJSON struct {
-	ID             string `json:"id"`
-	StandardNumber string `json:"standardNumber"`
-	Title          string `json:"title"`
-	IsPrimary      bool   `json:"isPrimary"`
-}
-
-// violationsToJSON converts violations to JSON string for JavaScript.
-func violationsToJSON(violations []ViolationDisplay) string {
-	var jsViolations []ViolationJSON
-	for _, v := range violations {
-		var regs []RegulationJSON
-		for _, r := range v.Regulations {
-			regs = append(regs, RegulationJSON{
-				ID:             r.RegulationID,
-				StandardNumber: r.StandardNumber,
-				Title:          r.Title,
-				IsPrimary:      r.IsPrimary,
-			})
-		}
-
-		originalURL := ""
-		if v.ImageID != "" {
-			originalURL = fmt.Sprintf("/images/%s/original", v.ImageID)
-		}
-
-		jsViolations = append(jsViolations, ViolationJSON{
-			ID:             v.ID,
-			Description:    v.Description,
-			AIDescription:  v.AIDescription,
-			Status:         v.Status,
-			Severity:       v.Severity,
-			Confidence:     v.Confidence,
-			InspectorNotes: v.InspectorNotes,
-			ThumbnailURL:   v.ThumbnailURL,
-			OriginalURL:    originalURL,
-			Regulations:    regs,
-		})
 	}
-
-	data, _ := json.Marshal(jsViolations)
-	return string(data)
-}
-
-// =============================================================================
-// Additional Icons for Queue
-// =============================================================================
-func BackArrowIcon() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var18 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var18 == nil {
-			templ_7745c5c3_Var18 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<svg class=\"mr-1 h-5 w-5\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path fill-rule=\"evenodd\" d=\"M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z\" clip-rule=\"evenodd\"></path></svg>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-func CheckCircleIcon() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var19 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var19 == nil {
-			templ_7745c5c3_Var19 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<svg class=\"h-6 w-6 text-green-600\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4.5 12.75l6 6 9-13.5\"></path></svg>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-func CheckCircleOutlineIcon() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var20 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var20 == nil {
-			templ_7745c5c3_Var20 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<svg class=\"mx-auto h-12 w-12 text-gray-400\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z\"></path></svg>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-func NoImagePlaceholder() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var21 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var21 == nil {
-			templ_7745c5c3_Var21 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<svg class=\"mx-auto h-16 w-16\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1\" d=\"M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z\"></path></svg>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-func PrevNavIcon() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var22 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var22 == nil {
-			templ_7745c5c3_Var22 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<svg class=\"mr-1 h-4 w-4\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path fill-rule=\"evenodd\" d=\"M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z\" clip-rule=\"evenodd\"></path></svg>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-func NextNavIcon() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var23 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var23 == nil {
-			templ_7745c5c3_Var23 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<svg class=\"ml-1 h-4 w-4\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path fill-rule=\"evenodd\" d=\"M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z\" clip-rule=\"evenodd\"></path></svg>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
+	return result
 }
 
 var _ = templruntime.GeneratedTemplate
