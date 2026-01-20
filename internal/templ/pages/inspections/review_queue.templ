@@ -17,7 +17,9 @@ templ ReviewQueuePage(data ReviewQueuePageData) {
 		CSRFToken:   data.CSRFToken,
 		Flash:       data.Flash,
 	}) {
-		<div x-data="queueKeyboard()" @keydown.window="handleKeydown($event)">
+		// Keyboard shortcut handler
+		@queueKeyboardScript(data.Inspection.ID)
+		<div>
 			// Header Bar
 			@partials.QueueHeader(partials.QueueHeaderData{
 				InspectionID: data.Inspection.ID,
@@ -67,90 +69,77 @@ templ ReviewQueuePage(data ReviewQueuePageData) {
 				}
 			</div>
 		</div>
-		// Keyboard shortcut handler - minimal Alpine.js
-		@queueKeyboardScript(data.Inspection.ID)
 	}
 }
 
-// queueKeyboardScript provides the Alpine.js component for keyboard shortcuts.
-// It triggers htmx buttons programmatically rather than managing state.
+// queueKeyboardScript provides keyboard shortcuts using pure JavaScript.
+// It triggers htmx buttons programmatically.
 templ queueKeyboardScript(inspectionID string) {
-	<script>
-		const queueInspectionID = @templ.Raw(fmt.Sprintf("%q", inspectionID));
+	<script data-inspection-id={ inspectionID }>
+		(function() {
+			const script = document.currentScript;
+			const inspectionId = script.dataset.inspectionId;
 
-		function queueKeyboard() {
-			return {
-				handleKeydown(e) {
-					// Don't handle if in input field (let the edit form handle its own keys)
-					if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
-						// Allow Escape to cancel edit
-						if (e.key === 'Escape') {
-							// Alpine's x-on:keydown.escape on the edit form will handle this
-						}
-						return;
-					}
-
-					// Don't handle with modifier keys
-					if (e.metaKey || e.ctrlKey || e.altKey) return;
-
-					switch (e.key.toLowerCase()) {
-						case 'a':
-							// Accept - click the accept button
-							const acceptBtn = document.getElementById('btn-accept');
-							if (acceptBtn && !acceptBtn.disabled) {
-								acceptBtn.click();
-								e.preventDefault();
-							}
-							break;
-						case 'r':
-							// Reject - click the reject button
-							const rejectBtn = document.getElementById('btn-reject');
-							if (rejectBtn && !rejectBtn.disabled) {
-								rejectBtn.click();
-								e.preventDefault();
-							}
-							break;
-						case 'e':
-							// Edit - trigger Alpine edit mode
-							// The edit toggle is handled by Alpine within the partial
-							// We need to dispatch a custom event or find another way
-							// For now, we'll find and click any edit button
-							const editBtnContainer = document.querySelector('[x-show="!editing"]');
-							if (editBtnContainer) {
-								const editBtn = editBtnContainer.querySelector('button[\\@click*="editing"]');
-								if (editBtn) {
-									editBtn.click();
-									e.preventDefault();
-								}
-							}
-							break;
-						case 'j':
-						case 'arrowright':
-							// Next - click the next button
-							const nextBtn = document.getElementById('btn-next');
-							if (nextBtn && !nextBtn.disabled) {
-								nextBtn.click();
-								e.preventDefault();
-							}
-							break;
-						case 'k':
-						case 'arrowleft':
-							// Previous - click the prev button
-							const prevBtn = document.getElementById('btn-prev');
-							if (prevBtn && !prevBtn.disabled) {
-								prevBtn.click();
-								e.preventDefault();
-							}
-							break;
-						case 'escape':
-							// Exit to inspection page
-							window.location.href = '/inspections/' + queueInspectionID;
-							e.preventDefault();
-							break;
-					}
+			document.addEventListener('keydown', function(e) {
+				// Don't handle if in input field
+				if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+					return;
 				}
-			};
-		}
+
+				// Don't handle with modifier keys
+				if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+				switch (e.key.toLowerCase()) {
+					case 'a':
+						// Accept - click the accept button
+						const acceptBtn = document.getElementById('btn-accept');
+						if (acceptBtn && !acceptBtn.disabled) {
+							acceptBtn.click();
+							e.preventDefault();
+						}
+						break;
+					case 'r':
+						// Reject - click the reject button
+						const rejectBtn = document.getElementById('btn-reject');
+						if (rejectBtn && !rejectBtn.disabled) {
+							rejectBtn.click();
+							e.preventDefault();
+						}
+						break;
+					case 'e':
+						// Edit - click the edit button
+						const editBtn = document.getElementById('btn-edit');
+						if (editBtn) {
+							editBtn.click();
+							e.preventDefault();
+						}
+						break;
+					case 'j':
+					case 'arrowright':
+						// Next - click the next button
+						const nextBtn = document.getElementById('btn-next');
+						if (nextBtn && !nextBtn.disabled) {
+							nextBtn.click();
+							e.preventDefault();
+						}
+						break;
+					case 'k':
+					case 'arrowleft':
+						// Previous - click the prev button
+						const prevBtn = document.getElementById('btn-prev');
+						if (prevBtn && !prevBtn.disabled) {
+							prevBtn.click();
+							e.preventDefault();
+						}
+						break;
+					case 'escape':
+						// Exit to inspection page
+						window.location.href = '/inspections/' + inspectionId;
+						e.preventDefault();
+						break;
+				}
+			});
+		})();
 	</script>
 }
 

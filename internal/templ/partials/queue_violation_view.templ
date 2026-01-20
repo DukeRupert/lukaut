@@ -2,6 +2,8 @@ package partials
 
 import (
 	"fmt"
+
+	"github.com/DukeRupert/lukaut/internal/templ/components/button"
 )
 
 // QueueViolationView renders a single violation in the queue review context.
@@ -14,7 +16,7 @@ templ QueueViolationView(data QueueViolationViewData) {
 				// Left: Image
 				<div>
 					if data.Violation.ThumbnailURL != "" {
-						<div class="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+						<div class="bg-gray-100 rounded-lg overflow-hidden max-h-[30vh]">
 							<a
 								href={ templ.SafeURL(fmt.Sprintf("/images/%s/original", data.Violation.ImageID)) }
 								target="_blank"
@@ -25,12 +27,12 @@ templ QueueViolationView(data QueueViolationViewData) {
 										src={ data.Violation.ThumbnailURL }
 									}
 									alt={ data.Violation.Description }
-									class="w-full h-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
+									class="w-full h-full object-contain cursor-pointer hover:opacity-90 transition-opacity max-h-[30vh]"
 								/>
 							</a>
 						</div>
 					} else {
-						<div class="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
+						<div class="bg-gray-100 rounded-lg flex items-center justify-center h-48">
 							<div class="text-center text-gray-400">
 								@NoImagePlaceholderIcon()
 								<p class="mt-2 text-sm">No image linked</p>
@@ -39,23 +41,22 @@ templ QueueViolationView(data QueueViolationViewData) {
 					}
 				</div>
 				// Right: Details
-				<div class="flex flex-col" x-data="{ editing: false }">
+				<div class="flex flex-col">
 					// Status Badges
 					@queueStatusBadges(data.Violation)
 					// Description (view mode)
-					<div class="mb-4" x-show="!editing">
+					<div id="view-mode" class="mb-4">
 						<h3 class="text-lg font-semibold text-gray-900 mb-2">{ data.Violation.Description }</h3>
 						if data.Violation.AIDescription != "" {
 							<p class="text-sm text-gray-500 italic">AI: { data.Violation.AIDescription }</p>
 						}
 					</div>
-					// Edit Form (inline Alpine.js toggle)
-					<div x-show="editing" x-cloak class="mb-4">
+					// Edit Form (hidden by default)
+					<div id="edit-mode" class="mb-4 hidden">
 						<form
 							hx-put={ fmt.Sprintf("/violations/%s", data.Violation.ID) }
 							hx-target="#queue-violation-view"
 							hx-swap="outerHTML"
-							@htmx:after-request="editing = false"
 							class="space-y-4"
 						>
 							<input type="hidden" name="_method" value="PUT"/>
@@ -96,7 +97,8 @@ templ QueueViolationView(data QueueViolationViewData) {
 								</button>
 								<button
 									type="button"
-									@click="editing = false"
+									id="btn-cancel-edit"
+									onclick="document.getElementById('edit-mode').classList.add('hidden'); document.getElementById('view-mode').classList.remove('hidden'); document.getElementById('view-actions').classList.remove('hidden'); document.getElementById('edit-actions').classList.add('hidden');"
 									class="inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
 								>
 									Cancel
@@ -106,7 +108,7 @@ templ QueueViolationView(data QueueViolationViewData) {
 					</div>
 					// Regulations
 					if len(data.Violation.Regulations) > 0 {
-						<div x-show="!editing" class="mb-4">
+						<div id="regulations-section" class="mb-4">
 							<h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Applicable OSHA Regulations</h4>
 							<ul class="space-y-1">
 								for _, reg := range data.Violation.Regulations {
@@ -125,7 +127,7 @@ templ QueueViolationView(data QueueViolationViewData) {
 					}
 					// Inspector Notes Display
 					if data.Violation.InspectorNotes != "" {
-						<div x-show="!editing" class="mb-4">
+						<div id="notes-section" class="mb-4">
 							<h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Inspector Notes</h4>
 							<p class="text-sm text-gray-700 bg-gray-50 p-3 rounded-md">{ data.Violation.InspectorNotes }</p>
 						</div>
@@ -207,96 +209,79 @@ templ queueStatusBadges(v QueueViolationDisplay) {
 
 // queueActionBar renders the navigation and action buttons.
 templ queueActionBar(data QueueViolationViewData) {
-	<div class="bg-gray-50 px-6 py-5 border-t border-gray-200">
+	<div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
 		<div class="flex items-center justify-between">
 			// Navigation buttons
-			<div class="flex items-center gap-3">
-				<button
-					id="btn-prev"
-					hx-get={ fmt.Sprintf("/inspections/%s/review/queue?pos=%d", data.InspectionID, data.Position-1) }
-					hx-target="#queue-content"
-					hx-swap="innerHTML"
-					hx-push-url="true"
-					disabled?={ !data.HasPrev }
-					class={ "group inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 transition-all", templ.KV("opacity-40 cursor-not-allowed", !data.HasPrev), templ.KV("hover:bg-gray-100 hover:ring-gray-400", data.HasPrev) }
-				>
+			<div class="flex items-center gap-2">
+				@button.Button(button.Props{
+					ID:       "btn-prev",
+					Variant:  button.VariantOutline,
+					Disabled: !data.HasPrev,
+					Attributes: templ.Attributes{
+						"hx-get":      fmt.Sprintf("/inspections/%s/review/queue?pos=%d", data.InspectionID, data.Position-1),
+						"hx-target":   "#queue-content",
+						"hx-swap":     "innerHTML",
+						"hx-push-url": "true",
+					},
+				}) {
 					@PrevNavIconPartial()
-					<span class="hidden sm:inline">Previous</span>
-					<kbd class={ "ml-1 inline-flex items-center justify-center w-6 h-6 text-xs font-bold rounded border shadow-sm", templ.KV("bg-gray-100 border-gray-300 text-gray-500", !data.HasPrev), templ.KV("bg-white border-gray-400 text-gray-700 group-hover:bg-gray-50", data.HasPrev) }>K</kbd>
-				</button>
-				<button
-					id="btn-next"
-					hx-get={ fmt.Sprintf("/inspections/%s/review/queue?pos=%d", data.InspectionID, data.Position+1) }
-					hx-target="#queue-content"
-					hx-swap="innerHTML"
-					hx-push-url="true"
-					disabled?={ !data.HasNext }
-					class={ "group inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 transition-all", templ.KV("opacity-40 cursor-not-allowed", !data.HasNext), templ.KV("hover:bg-gray-100 hover:ring-gray-400", data.HasNext) }
-				>
+					<span class="hidden sm:inline">Prev</span>
+					<kbd class="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">K</kbd>
+				}
+				@button.Button(button.Props{
+					ID:       "btn-next",
+					Variant:  button.VariantOutline,
+					Disabled: !data.HasNext,
+					Attributes: templ.Attributes{
+						"hx-get":      fmt.Sprintf("/inspections/%s/review/queue?pos=%d", data.InspectionID, data.Position+1),
+						"hx-target":   "#queue-content",
+						"hx-swap":     "innerHTML",
+						"hx-push-url": "true",
+					},
+				}) {
 					<span class="hidden sm:inline">Next</span>
-					<kbd class={ "inline-flex items-center justify-center w-6 h-6 text-xs font-bold rounded border shadow-sm", templ.KV("bg-gray-100 border-gray-300 text-gray-500", !data.HasNext), templ.KV("bg-white border-gray-400 text-gray-700 group-hover:bg-gray-50", data.HasNext) }>J</kbd>
+					<kbd class="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">J</kbd>
 					@NextNavIconPartial()
-				</button>
+				}
 			</div>
 			// Primary action buttons (view mode)
-			<div class="flex items-center gap-3" x-show="!editing">
-				// Accept button - prominent green
-				<button
-					id="btn-accept"
-					hx-put={ fmt.Sprintf("/inspections/%s/review/queue/violations/%s/status?status=confirmed&pos=%d", data.InspectionID, data.Violation.ID, data.Position) }
-					hx-target="#queue-content"
-					hx-swap="innerHTML"
-					class="group inline-flex items-center gap-2 rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow-md hover:bg-green-500 hover:shadow-lg transition-all"
-				>
-					@CheckIconAction()
+			<div id="view-actions" class="flex items-center gap-2">
+				@button.Button(button.Props{
+					ID: "btn-accept",
+					Attributes: templ.Attributes{
+						"hx-put":    fmt.Sprintf("/inspections/%s/review/queue/violations/%s/status?status=confirmed&pos=%d", data.InspectionID, data.Violation.ID, data.Position),
+						"hx-target": "#queue-content",
+						"hx-swap":   "innerHTML",
+					},
+				}) {
 					Accept
-					<kbd class="inline-flex items-center justify-center w-6 h-6 text-xs font-bold bg-green-700 text-green-100 rounded border border-green-500 shadow-sm group-hover:bg-green-600">A</kbd>
-				</button>
-				// Reject button - neutral gray
-				<button
-					id="btn-reject"
-					hx-put={ fmt.Sprintf("/inspections/%s/review/queue/violations/%s/status?status=rejected&pos=%d", data.InspectionID, data.Violation.ID, data.Position) }
-					hx-target="#queue-content"
-					hx-swap="innerHTML"
-					class="group inline-flex items-center gap-2 rounded-lg bg-gray-600 px-5 py-3 text-sm font-semibold text-white shadow-md hover:bg-gray-500 hover:shadow-lg transition-all"
-				>
-					@XIconAction()
+					<kbd class="text-xs font-mono bg-primary-foreground/20 px-1.5 py-0.5 rounded">A</kbd>
+				}
+				@button.Button(button.Props{
+					ID:      "btn-reject",
+					Variant: button.VariantOutline,
+					Attributes: templ.Attributes{
+						"hx-put":    fmt.Sprintf("/inspections/%s/review/queue/violations/%s/status?status=rejected&pos=%d", data.InspectionID, data.Violation.ID, data.Position),
+						"hx-target": "#queue-content",
+						"hx-swap":   "innerHTML",
+					},
+				}) {
 					Reject
-					<kbd class="inline-flex items-center justify-center w-6 h-6 text-xs font-bold bg-gray-700 text-gray-100 rounded border border-gray-500 shadow-sm group-hover:bg-gray-600">R</kbd>
-				</button>
-				// Edit button - outlined
-				<button
-					id="btn-edit"
-					type="button"
-					@click="editing = true"
-					class="group inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 hover:ring-gray-400 transition-all"
-				>
-					@EditIconAction()
+					<kbd class="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">R</kbd>
+				}
+				@button.Button(button.Props{
+					ID:      "btn-edit",
+					Variant: button.VariantOutline,
+					Attributes: templ.Attributes{
+						"onclick": "document.getElementById('edit-mode').classList.remove('hidden'); document.getElementById('view-mode').classList.add('hidden'); document.getElementById('view-actions').classList.add('hidden');",
+					},
+				}) {
 					Edit
-					<kbd class="inline-flex items-center justify-center w-6 h-6 text-xs font-bold bg-gray-100 text-gray-600 rounded border border-gray-300 shadow-sm group-hover:bg-white">E</kbd>
-				</button>
+					<kbd class="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">E</kbd>
+				}
 			</div>
 		</div>
 	</div>
-}
-
-// Action button icons
-templ CheckIconAction() {
-	<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-		<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"></path>
-	</svg>
-}
-
-templ XIconAction() {
-	<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-		<path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"></path>
-	</svg>
-}
-
-templ EditIconAction() {
-	<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-		<path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"></path>
-	</svg>
 }
 
 // Icon components for partials

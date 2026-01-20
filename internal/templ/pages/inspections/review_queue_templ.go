@@ -50,7 +50,15 @@ func ReviewQueuePage(data ReviewQueuePageData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div x-data=\"queueKeyboard()\" @keydown.window=\"handleKeydown($event)\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = queueKeyboardScript(data.Inspection.ID).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -68,12 +76,12 @@ func ReviewQueuePage(data ReviewQueuePageData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div id=\"queue-content\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div id=\"queue-content\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if data.TotalCount == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -82,7 +90,7 @@ func ReviewQueuePage(data ReviewQueuePageData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			} else if data.IsComplete {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -95,7 +103,7 @@ func ReviewQueuePage(data ReviewQueuePageData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			} else if data.Violation != nil {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -123,11 +131,7 @@ func ReviewQueuePage(data ReviewQueuePageData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></div> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = queueKeyboardScript(data.Inspection.ID).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -147,8 +151,8 @@ func ReviewQueuePage(data ReviewQueuePageData) templ.Component {
 	})
 }
 
-// queueKeyboardScript provides the Alpine.js component for keyboard shortcuts.
-// It triggers htmx buttons programmatically rather than managing state.
+// queueKeyboardScript provides keyboard shortcuts using pure JavaScript.
+// It triggers htmx buttons programmatically.
 func queueKeyboardScript(inspectionID string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -170,7 +174,20 @@ func queueKeyboardScript(inspectionID string) templ.Component {
 			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<script>\n\t\tconst queueInspectionID = @templ.Raw(fmt.Sprintf(\"%q\", inspectionID));\n\n\t\tfunction queueKeyboard() {\n\t\t\treturn {\n\t\t\t\thandleKeydown(e) {\n\t\t\t\t\t// Don't handle if in input field (let the edit form handle its own keys)\n\t\t\t\t\tif (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {\n\t\t\t\t\t\t// Allow Escape to cancel edit\n\t\t\t\t\t\tif (e.key === 'Escape') {\n\t\t\t\t\t\t\t// Alpine's x-on:keydown.escape on the edit form will handle this\n\t\t\t\t\t\t}\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\n\t\t\t\t\t// Don't handle with modifier keys\n\t\t\t\t\tif (e.metaKey || e.ctrlKey || e.altKey) return;\n\n\t\t\t\t\tswitch (e.key.toLowerCase()) {\n\t\t\t\t\t\tcase 'a':\n\t\t\t\t\t\t\t// Accept - click the accept button\n\t\t\t\t\t\t\tconst acceptBtn = document.getElementById('btn-accept');\n\t\t\t\t\t\t\tif (acceptBtn && !acceptBtn.disabled) {\n\t\t\t\t\t\t\t\tacceptBtn.click();\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'r':\n\t\t\t\t\t\t\t// Reject - click the reject button\n\t\t\t\t\t\t\tconst rejectBtn = document.getElementById('btn-reject');\n\t\t\t\t\t\t\tif (rejectBtn && !rejectBtn.disabled) {\n\t\t\t\t\t\t\t\trejectBtn.click();\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'e':\n\t\t\t\t\t\t\t// Edit - trigger Alpine edit mode\n\t\t\t\t\t\t\t// The edit toggle is handled by Alpine within the partial\n\t\t\t\t\t\t\t// We need to dispatch a custom event or find another way\n\t\t\t\t\t\t\t// For now, we'll find and click any edit button\n\t\t\t\t\t\t\tconst editBtnContainer = document.querySelector('[x-show=\"!editing\"]');\n\t\t\t\t\t\t\tif (editBtnContainer) {\n\t\t\t\t\t\t\t\tconst editBtn = editBtnContainer.querySelector('button[\\\\@click*=\"editing\"]');\n\t\t\t\t\t\t\t\tif (editBtn) {\n\t\t\t\t\t\t\t\t\teditBtn.click();\n\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'j':\n\t\t\t\t\t\tcase 'arrowright':\n\t\t\t\t\t\t\t// Next - click the next button\n\t\t\t\t\t\t\tconst nextBtn = document.getElementById('btn-next');\n\t\t\t\t\t\t\tif (nextBtn && !nextBtn.disabled) {\n\t\t\t\t\t\t\t\tnextBtn.click();\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'k':\n\t\t\t\t\t\tcase 'arrowleft':\n\t\t\t\t\t\t\t// Previous - click the prev button\n\t\t\t\t\t\t\tconst prevBtn = document.getElementById('btn-prev');\n\t\t\t\t\t\t\tif (prevBtn && !prevBtn.disabled) {\n\t\t\t\t\t\t\t\tprevBtn.click();\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\tcase 'escape':\n\t\t\t\t\t\t\t// Exit to inspection page\n\t\t\t\t\t\t\twindow.location.href = '/inspections/' + queueInspectionID;\n\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t};\n\t\t}\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<script data-inspection-id=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var4 string
+		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(inspectionID)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/inspections/review_queue.templ`, Line: 78, Col: 42}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\">\n\t\t(function() {\n\t\t\tconst script = document.currentScript;\n\t\t\tconst inspectionId = script.dataset.inspectionId;\n\n\t\t\tdocument.addEventListener('keydown', function(e) {\n\t\t\t\t// Don't handle if in input field\n\t\t\t\tif (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {\n\t\t\t\t\treturn;\n\t\t\t\t}\n\n\t\t\t\t// Don't handle with modifier keys\n\t\t\t\tif (e.metaKey || e.ctrlKey || e.altKey) return;\n\n\t\t\t\tswitch (e.key.toLowerCase()) {\n\t\t\t\t\tcase 'a':\n\t\t\t\t\t\t// Accept - click the accept button\n\t\t\t\t\t\tconst acceptBtn = document.getElementById('btn-accept');\n\t\t\t\t\t\tif (acceptBtn && !acceptBtn.disabled) {\n\t\t\t\t\t\t\tacceptBtn.click();\n\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t}\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'r':\n\t\t\t\t\t\t// Reject - click the reject button\n\t\t\t\t\t\tconst rejectBtn = document.getElementById('btn-reject');\n\t\t\t\t\t\tif (rejectBtn && !rejectBtn.disabled) {\n\t\t\t\t\t\t\trejectBtn.click();\n\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t}\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'e':\n\t\t\t\t\t\t// Edit - click the edit button\n\t\t\t\t\t\tconst editBtn = document.getElementById('btn-edit');\n\t\t\t\t\t\tif (editBtn) {\n\t\t\t\t\t\t\teditBtn.click();\n\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t}\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'j':\n\t\t\t\t\tcase 'arrowright':\n\t\t\t\t\t\t// Next - click the next button\n\t\t\t\t\t\tconst nextBtn = document.getElementById('btn-next');\n\t\t\t\t\t\tif (nextBtn && !nextBtn.disabled) {\n\t\t\t\t\t\t\tnextBtn.click();\n\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t}\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'k':\n\t\t\t\t\tcase 'arrowleft':\n\t\t\t\t\t\t// Previous - click the prev button\n\t\t\t\t\t\tconst prevBtn = document.getElementById('btn-prev');\n\t\t\t\t\t\tif (prevBtn && !prevBtn.disabled) {\n\t\t\t\t\t\t\tprevBtn.click();\n\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t}\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'escape':\n\t\t\t\t\t\t// Exit to inspection page\n\t\t\t\t\t\twindow.location.href = '/inspections/' + inspectionId;\n\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\tbreak;\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
