@@ -5,7 +5,7 @@
 package handler
 
 import (
-	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -230,21 +230,6 @@ func (h *ViolationHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if JSON response is requested (for queue review)
-	if r.Header.Get("Accept") == "application/json" {
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":             violation.ID,
-			"status":         string(violation.Status),
-			"severity":       string(violation.Severity),
-			"description":    violation.Description,
-			"inspectorNotes": violation.InspectorNotes,
-		}); err != nil {
-			h.logger.Error("failed to encode JSON response", "error", err)
-		}
-		return
-	}
-
 	// Render the updated violation card with success toast (htmx response)
 	data := ViolationCardData{
 		Violation:   violation,
@@ -327,21 +312,6 @@ func (h *ViolationHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Check if JSON response is requested (for queue review)
-	if r.Header.Get("Accept") == "application/json" {
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":             violation.ID,
-			"status":         string(violation.Status),
-			"severity":       string(violation.Severity),
-			"description":    violation.Description,
-			"inspectorNotes": violation.InspectorNotes,
-		}); err != nil {
-			h.logger.Error("failed to encode JSON response", "error", err)
-		}
-		return
-	}
-
 	// Render the updated violation card (htmx response)
 	data := ViolationCardData{
 		Violation:   violation,
@@ -360,13 +330,9 @@ func (h *ViolationHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) 
 // PUT /violations/batch/status - Batch Update Violation Status
 // =============================================================================
 
-// BatchUpdateStatusRequest represents the request body for batch status updates.
-type BatchUpdateStatusRequest struct {
-	ViolationIDs []string `json:"violation_ids"`
-	Status       string   `json:"status"`
-}
-
 // BatchUpdateStatus handles updating multiple violations' status at once.
+// Accepts form data with violation_ids[] and status fields.
+// Returns HX-Refresh header to reload the page with updated data.
 func (h *ViolationHandler) BatchUpdateStatus(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromRequest(r)
 	if user == nil {
@@ -375,35 +341,41 @@ func (h *ViolationHandler) BatchUpdateStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Parse JSON body
-	var req BatchUpdateStatusRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.Error("failed to parse batch update request", "error", err)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error("failed to parse batch update form", "error", err)
+		http.Error(w, "Invalid form submission", http.StatusBadRequest)
 		return
 	}
 
-	// Validate status
-	status := domain.ViolationStatus(req.Status)
+	// Get violation IDs from form (supports both violation_ids and violation_ids[])
+	violationIDs := r.Form["violation_ids"]
+	if len(violationIDs) == 0 {
+		violationIDs = r.Form["violation_ids[]"]
+	}
+
+	// Get status from form
+	statusStr := r.FormValue("status")
+	status := domain.ViolationStatus(statusStr)
 	if !status.IsValid() {
 		http.Error(w, "Invalid status", http.StatusBadRequest)
 		return
 	}
 
 	// Validate we have violations to update
-	if len(req.ViolationIDs) == 0 {
+	if len(violationIDs) == 0 {
 		http.Error(w, "No violations specified", http.StatusBadRequest)
 		return
 	}
 
 	// Update each violation
 	var updated []uuid.UUID
-	var errors []string
+	var updateErrors []string
 
-	for _, idStr := range req.ViolationIDs {
+	for _, idStr := range violationIDs {
 		id, err := uuid.Parse(idStr)
 		if err != nil {
-			errors = append(errors, "Invalid violation ID: "+idStr)
+			updateErrors = append(updateErrors, "Invalid violation ID: "+idStr)
 			continue
 		}
 
@@ -417,10 +389,10 @@ func (h *ViolationHandler) BatchUpdateStatus(w http.ResponseWriter, r *http.Requ
 		if err != nil {
 			code := domain.ErrorCode(err)
 			if code == domain.ENOTFOUND {
-				errors = append(errors, "Violation not found: "+idStr)
+				updateErrors = append(updateErrors, "Violation not found: "+idStr)
 			} else {
 				h.logger.Error("failed to update violation status", "error", err, "violation_id", id)
-				errors = append(errors, "Failed to update: "+idStr)
+				updateErrors = append(updateErrors, "Failed to update: "+idStr)
 			}
 			continue
 		}
@@ -432,23 +404,26 @@ func (h *ViolationHandler) BatchUpdateStatus(w http.ResponseWriter, r *http.Requ
 		"user_id", user.ID,
 		"status", status,
 		"updated_count", len(updated),
-		"error_count", len(errors),
+		"error_count", len(updateErrors),
 	)
 
-	// Return JSON response with results
-	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
-		"updated_count": len(updated),
-		"error_count":   len(errors),
-		"status":        string(status),
-	}
-	if len(errors) > 0 {
-		response["errors"] = errors
+	// Build toast message based on results
+	var toastType, toastMessage string
+	if len(updateErrors) == 0 {
+		toastType = "success"
+		toastMessage = fmt.Sprintf("Successfully updated %d violation(s) to %s", len(updated), status)
+	} else if len(updated) > 0 {
+		toastType = "warning"
+		toastMessage = fmt.Sprintf("Updated %d violation(s), %d failed", len(updated), len(updateErrors))
+	} else {
+		toastType = "error"
+		toastMessage = "Failed to update violations"
 	}
 
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.logger.Error("failed to encode batch update response", "error", err)
-	}
+	// Set htmx headers to show toast and refresh the page
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"showToast": {"type": "%s", "message": "%s"}}`, toastType, toastMessage))
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusOK)
 }
 
 // =============================================================================
