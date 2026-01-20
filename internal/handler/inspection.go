@@ -42,7 +42,7 @@ type InspectionFormPageData struct {
 	CurrentPath string             // Current URL path
 	User        interface{}        // Authenticated user
 	Inspection  *domain.Inspection // Inspection being edited (nil for create)
-	Sites       []SiteOption       // Available sites for dropdown
+	Clients     []ClientOption     // Available clients for dropdown
 	Form        map[string]string  // Form field values
 	Errors      map[string]string  // Field-level validation errors
 	Flash       *Flash             // Flash message (if any)
@@ -119,8 +119,8 @@ type PaginationData struct {
 	NextPage    int  // Next page number
 }
 
-// SiteOption represents a site for the dropdown select.
-type SiteOption struct {
+// ClientOption represents a client for the dropdown select.
+type ClientOption struct {
 	ID   uuid.UUID
 	Name string
 }
@@ -177,7 +177,12 @@ func (h *InspectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Extract form values
 	title := strings.TrimSpace(r.FormValue("title"))
-	siteIDStr := r.FormValue("site_id")
+	clientIDStr := r.FormValue("client_id")
+	addressLine1 := strings.TrimSpace(r.FormValue("address_line1"))
+	addressLine2 := strings.TrimSpace(r.FormValue("address_line2"))
+	city := strings.TrimSpace(r.FormValue("city"))
+	state := strings.TrimSpace(r.FormValue("state"))
+	postalCode := strings.TrimSpace(r.FormValue("postal_code"))
 	inspectionDateStr := r.FormValue("inspection_date")
 	weatherConditions := strings.TrimSpace(r.FormValue("weather_conditions"))
 	temperature := strings.TrimSpace(r.FormValue("temperature"))
@@ -186,24 +191,29 @@ func (h *InspectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Store form values for re-rendering
 	formValues := map[string]string{
 		"title":              title,
-		"site_id":            siteIDStr,
+		"client_id":          clientIDStr,
+		"address_line1":      addressLine1,
+		"address_line2":      addressLine2,
+		"city":               city,
+		"state":              state,
+		"postal_code":        postalCode,
 		"inspection_date":    inspectionDateStr,
 		"weather_conditions": weatherConditions,
 		"temperature":        temperature,
 		"inspector_notes":    inspectorNotes,
 	}
 
-	// Validate and parse site_id
-	var siteID *uuid.UUID
-	if siteIDStr != "" {
-		parsed, err := uuid.Parse(siteIDStr)
+	// Validate and parse client_id
+	var clientID *uuid.UUID
+	if clientIDStr != "" {
+		parsed, err := uuid.Parse(clientIDStr)
 		if err != nil {
 			h.renderFormError(w, r, user, formValues, map[string]string{
-				"site_id": "Invalid site selected",
+				"client_id": "Invalid client selected",
 			}, nil, "", false)
 			return
 		}
-		siteID = &parsed
+		clientID = &parsed
 	}
 
 	// Parse inspection date
@@ -218,8 +228,13 @@ func (h *InspectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Create inspection
 	params := domain.CreateInspectionParams{
 		UserID:            user.ID,
-		SiteID:            siteID,
+		ClientID:          clientID,
 		Title:             title,
+		AddressLine1:      addressLine1,
+		AddressLine2:      addressLine2,
+		City:              city,
+		State:             state,
+		PostalCode:        postalCode,
 		InspectionDate:    inspectionDate,
 		WeatherConditions: weatherConditions,
 		Temperature:       temperature,
@@ -234,7 +249,7 @@ func (h *InspectionHandler) Create(w http.ResponseWriter, r *http.Request) {
 			h.renderFormError(w, r, user, formValues, nil, nil, domain.ErrorMessage(err), false)
 		case domain.ENOTFOUND:
 			h.renderFormError(w, r, user, formValues, map[string]string{
-				"site_id": "Selected site not found",
+				"client_id": "Selected client not found",
 			}, nil, "", false)
 		default:
 			h.logger.Error("failed to create inspection", "error", err, "user_id", user.ID)
@@ -277,7 +292,12 @@ func (h *InspectionHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Extract form values
 	title := strings.TrimSpace(r.FormValue("title"))
-	siteIDStr := r.FormValue("site_id")
+	clientIDStr := r.FormValue("client_id")
+	addressLine1 := strings.TrimSpace(r.FormValue("address_line1"))
+	addressLine2 := strings.TrimSpace(r.FormValue("address_line2"))
+	city := strings.TrimSpace(r.FormValue("city"))
+	state := strings.TrimSpace(r.FormValue("state"))
+	postalCode := strings.TrimSpace(r.FormValue("postal_code"))
 	inspectionDateStr := r.FormValue("inspection_date")
 	weatherConditions := strings.TrimSpace(r.FormValue("weather_conditions"))
 	temperature := strings.TrimSpace(r.FormValue("temperature"))
@@ -286,7 +306,12 @@ func (h *InspectionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Store form values for re-rendering
 	formValues := map[string]string{
 		"title":              title,
-		"site_id":            siteIDStr,
+		"client_id":          clientIDStr,
+		"address_line1":      addressLine1,
+		"address_line2":      addressLine2,
+		"city":               city,
+		"state":              state,
+		"postal_code":        postalCode,
 		"inspection_date":    inspectionDateStr,
 		"weather_conditions": weatherConditions,
 		"temperature":        temperature,
@@ -300,17 +325,17 @@ func (h *InspectionHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate and parse site_id
-	var siteID *uuid.UUID
-	if siteIDStr != "" {
-		parsed, err := uuid.Parse(siteIDStr)
+	// Validate and parse client_id
+	var clientID *uuid.UUID
+	if clientIDStr != "" {
+		parsed, err := uuid.Parse(clientIDStr)
 		if err != nil {
 			h.renderFormError(w, r, user, formValues, map[string]string{
-				"site_id": "Invalid site selected",
+				"client_id": "Invalid client selected",
 			}, inspection, "", true)
 			return
 		}
-		siteID = &parsed
+		clientID = &parsed
 	}
 
 	// Parse inspection date
@@ -326,8 +351,13 @@ func (h *InspectionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	params := domain.UpdateInspectionParams{
 		ID:                id,
 		UserID:            user.ID,
-		SiteID:            siteID,
+		ClientID:          clientID,
 		Title:             title,
+		AddressLine1:      addressLine1,
+		AddressLine2:      addressLine2,
+		City:              city,
+		State:             state,
+		PostalCode:        postalCode,
 		InspectionDate:    inspectionDate,
 		WeatherConditions: weatherConditions,
 		Temperature:       temperature,
@@ -643,18 +673,18 @@ func (h *InspectionHandler) ViolationsSummary(w http.ResponseWriter, r *http.Req
 // Helper Functions
 // =============================================================================
 
-// fetchSiteOptions fetches all sites for a user and converts them to SiteOption.
-func (h *InspectionHandler) fetchSiteOptions(ctx context.Context, userID uuid.UUID) ([]SiteOption, error) {
-	sites, err := h.queries.ListSitesByUserID(ctx, userID)
+// fetchClientOptions fetches all clients for a user and converts them to ClientOption.
+func (h *InspectionHandler) fetchClientOptions(ctx context.Context, userID uuid.UUID) ([]ClientOption, error) {
+	clients, err := h.queries.ListAllClientsByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	options := make([]SiteOption, len(sites))
-	for i, site := range sites {
-		options[i] = SiteOption{
-			ID:   site.ID,
-			Name: site.Name,
+	options := make([]ClientOption, len(clients))
+	for i, client := range clients {
+		options[i] = ClientOption{
+			ID:   client.ID,
+			Name: client.Name,
 		}
 	}
 
@@ -710,11 +740,11 @@ func (h *InspectionHandler) renderFormError(
 	flashMessage string,
 	isEdit bool,
 ) {
-	// Fetch sites for dropdown
-	sites, err := h.fetchSiteOptions(r.Context(), user.ID)
+	// Fetch clients for dropdown
+	clients, err := h.fetchClientOptions(r.Context(), user.ID)
 	if err != nil {
-		h.logger.Error("failed to fetch sites", "error", err, "user_id", user.ID)
-		sites = []SiteOption{} // Empty list on error
+		h.logger.Error("failed to fetch clients", "error", err, "user_id", user.ID)
+		clients = []ClientOption{} // Empty list on error
 	}
 
 	if formValues == nil {
@@ -737,10 +767,15 @@ func (h *InspectionHandler) renderFormError(
 		CSRFToken:   "",
 		User:        domainUserToInspectionDisplay(user),
 		Inspection:  domainInspectionToDisplay(inspection),
-		Sites:       domainSitesToOptions(sites),
+		Clients:     domainClientsToOptions(clients),
 		Form: inspections.InspectionFormValues{
 			Title:             formValues["title"],
-			SiteID:            formValues["site_id"],
+			ClientID:          formValues["client_id"],
+			AddressLine1:      formValues["address_line1"],
+			AddressLine2:      formValues["address_line2"],
+			City:              formValues["city"],
+			State:             formValues["state"],
+			PostalCode:        formValues["postal_code"],
 			InspectionDate:    formValues["inspection_date"],
 			WeatherConditions: formValues["weather_conditions"],
 			Temperature:       formValues["temperature"],

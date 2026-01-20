@@ -8,7 +8,7 @@ type DisplayClient struct {
 	Name      string
 	Email     string
 	Phone     string
-	SiteCount int
+	InspectionCount int
 }
 
 // ClientDetail contains full client data for detail view
@@ -23,7 +23,7 @@ type ClientDetail struct {
 	State        string
 	PostalCode   string
 	Notes        string
-	SiteCount    int
+	InspectionCount    int
 	HasAddress   bool
 }
 

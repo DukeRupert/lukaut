@@ -51,7 +51,7 @@ type ClientService interface {
 
 	// Delete deletes a client by ID.
 	// Returns domain.ENOTFOUND if client does not exist or doesn't belong to user.
-	// Returns domain.EINVALID if client has associated sites.
+	// Returns domain.EINVALID if client has associated inspections.
 	Delete(ctx context.Context, id, userID uuid.UUID) error
 }
 
@@ -146,8 +146,8 @@ func (s *clientService) validateCreateParams(params domain.CreateClientParams) e
 func (s *clientService) GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.Client, error) {
 	const op = "client.get"
 
-	// Get client with site count
-	row, err := s.queries.GetClientWithSiteCount(ctx, repository.GetClientWithSiteCountParams{
+	// Get client with inspection count
+	row, err := s.queries.GetClientWithInspectionCount(ctx, repository.GetClientWithInspectionCountParams{
 		ID:     id,
 		UserID: userID,
 	})
@@ -159,7 +159,7 @@ func (s *clientService) GetByID(ctx context.Context, id, userID uuid.UUID) (*dom
 	}
 
 	// Convert to domain type
-	return s.rowWithSiteCountToClient(row), nil
+	return s.rowWithInspectionCountToClient(row), nil
 }
 
 // =============================================================================
@@ -177,7 +177,7 @@ func (s *clientService) List(ctx context.Context, params domain.ListClientsParam
 	}
 
 	// Get paginated results
-	rows, err := s.queries.ListClientsWithSiteCountByUserID(ctx, repository.ListClientsWithSiteCountByUserIDParams{
+	rows, err := s.queries.ListClientsWithInspectionCountByUserID(ctx, repository.ListClientsWithInspectionCountByUserIDParams{
 		UserID: params.UserID,
 		Limit:  params.Limit,
 		Offset: params.Offset,
@@ -189,7 +189,7 @@ func (s *clientService) List(ctx context.Context, params domain.ListClientsParam
 	// Convert to domain types
 	clients := make([]domain.Client, 0, len(rows))
 	for _, row := range rows {
-		clients = append(clients, *s.rowWithSiteCountListToClient(row))
+		clients = append(clients, *s.rowWithInspectionCountListToClient(row))
 	}
 
 	return &domain.ListClientsResult{
@@ -293,7 +293,7 @@ func (s *clientService) Delete(ctx context.Context, id, userID uuid.UUID) error 
 	const op = "client.delete"
 
 	// Verify client exists and belongs to user
-	_, err := s.queries.GetClientByIDAndUserID(ctx, repository.GetClientByIDAndUserIDParams{
+	client, err := s.queries.GetClientWithInspectionCount(ctx, repository.GetClientWithInspectionCountParams{
 		ID:     id,
 		UserID: userID,
 	})
@@ -304,13 +304,9 @@ func (s *clientService) Delete(ctx context.Context, id, userID uuid.UUID) error 
 		return domain.Internal(err, op, "failed to get client")
 	}
 
-	// Check if client is associated with any sites
-	siteCount, err := s.queries.CountSitesByClientID(ctx, uuid.NullUUID{UUID: id, Valid: true})
-	if err != nil {
-		return domain.Internal(err, op, "failed to count sites")
-	}
-	if siteCount > 0 {
-		return domain.Invalid(op, "cannot delete client that is associated with sites")
+	// Check if client is associated with any inspections
+	if client.InspectionCount > 0 {
+		return domain.Invalid(op, "cannot delete client that is associated with inspections")
 	}
 
 	// Delete the client
@@ -362,8 +358,8 @@ func (s *clientService) rowToClient(row repository.Client) *domain.Client {
 	}
 }
 
-// rowWithSiteCountToClient converts a GetClientWithSiteCount row to a domain Client.
-func (s *clientService) rowWithSiteCountToClient(row repository.GetClientWithSiteCountRow) *domain.Client {
+// rowWithInspectionCountToClient converts a GetClientWithInspectionCount row to a domain Client.
+func (s *clientService) rowWithInspectionCountToClient(row repository.GetClientWithInspectionCountRow) *domain.Client {
 	createdAt := time.Time{}
 	if row.CreatedAt.Valid {
 		createdAt = row.CreatedAt.Time
@@ -374,25 +370,25 @@ func (s *clientService) rowWithSiteCountToClient(row repository.GetClientWithSit
 	}
 
 	return &domain.Client{
-		ID:           row.ID,
-		UserID:       row.UserID,
-		Name:         row.Name,
-		Email:        domain.NullStringValue(row.Email),
-		Phone:        domain.NullStringValue(row.Phone),
-		AddressLine1: domain.NullStringValue(row.AddressLine1),
-		AddressLine2: domain.NullStringValue(row.AddressLine2),
-		City:         domain.NullStringValue(row.City),
-		State:        domain.NullStringValue(row.State),
-		PostalCode:   domain.NullStringValue(row.PostalCode),
-		Notes:        domain.NullStringValue(row.Notes),
-		CreatedAt:    createdAt,
-		UpdatedAt:    updatedAt,
-		SiteCount:    int(row.SiteCount),
+		ID:              row.ID,
+		UserID:          row.UserID,
+		Name:            row.Name,
+		Email:           domain.NullStringValue(row.Email),
+		Phone:           domain.NullStringValue(row.Phone),
+		AddressLine1:    domain.NullStringValue(row.AddressLine1),
+		AddressLine2:    domain.NullStringValue(row.AddressLine2),
+		City:            domain.NullStringValue(row.City),
+		State:           domain.NullStringValue(row.State),
+		PostalCode:      domain.NullStringValue(row.PostalCode),
+		Notes:           domain.NullStringValue(row.Notes),
+		CreatedAt:       createdAt,
+		UpdatedAt:       updatedAt,
+		InspectionCount: int(row.InspectionCount),
 	}
 }
 
-// rowWithSiteCountListToClient converts a ListClientsWithSiteCountByUserID row to a domain Client.
-func (s *clientService) rowWithSiteCountListToClient(row repository.ListClientsWithSiteCountByUserIDRow) *domain.Client {
+// rowWithInspectionCountListToClient converts a ListClientsWithInspectionCountByUserID row to a domain Client.
+func (s *clientService) rowWithInspectionCountListToClient(row repository.ListClientsWithInspectionCountByUserIDRow) *domain.Client {
 	createdAt := time.Time{}
 	if row.CreatedAt.Valid {
 		createdAt = row.CreatedAt.Time
@@ -403,19 +399,19 @@ func (s *clientService) rowWithSiteCountListToClient(row repository.ListClientsW
 	}
 
 	return &domain.Client{
-		ID:           row.ID,
-		UserID:       row.UserID,
-		Name:         row.Name,
-		Email:        domain.NullStringValue(row.Email),
-		Phone:        domain.NullStringValue(row.Phone),
-		AddressLine1: domain.NullStringValue(row.AddressLine1),
-		AddressLine2: domain.NullStringValue(row.AddressLine2),
-		City:         domain.NullStringValue(row.City),
-		State:        domain.NullStringValue(row.State),
-		PostalCode:   domain.NullStringValue(row.PostalCode),
-		Notes:        domain.NullStringValue(row.Notes),
-		CreatedAt:    createdAt,
-		UpdatedAt:    updatedAt,
-		SiteCount:    int(row.SiteCount),
+		ID:              row.ID,
+		UserID:          row.UserID,
+		Name:            row.Name,
+		Email:           domain.NullStringValue(row.Email),
+		Phone:           domain.NullStringValue(row.Phone),
+		AddressLine1:    domain.NullStringValue(row.AddressLine1),
+		AddressLine2:    domain.NullStringValue(row.AddressLine2),
+		City:            domain.NullStringValue(row.City),
+		State:           domain.NullStringValue(row.State),
+		PostalCode:      domain.NullStringValue(row.PostalCode),
+		Notes:           domain.NullStringValue(row.Notes),
+		CreatedAt:       createdAt,
+		UpdatedAt:       updatedAt,
+		InspectionCount: int(row.InspectionCount),
 	}
 }

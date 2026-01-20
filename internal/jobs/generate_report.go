@@ -223,42 +223,27 @@ func (h *GenerateReportHandler) aggregateReportData(
 		return nil, fmt.Errorf("fetch user: %w", err)
 	}
 
-	// Fetch inspection with site info
-	inspection, err := h.queries.GetInspectionWithSiteByIDAndUserID(ctx, repository.GetInspectionWithSiteByIDAndUserIDParams{
+	// Fetch inspection with client info
+	inspection, err := h.queries.GetInspectionWithClientByIDAndUserID(ctx, repository.GetInspectionWithClientByIDAndUserIDParams{
 		ID:     inspectionID,
 		UserID: userID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("fetch inspection with site: %w", err)
+		return nil, fmt.Errorf("fetch inspection with client: %w", err)
 	}
 
-	// Fetch site details to get postal code and client
-	var sitePostalCode string
+	// Fetch client details if inspection has client_id
 	var clientName, clientEmail, clientPhone string
-
-	if inspection.SiteID.Valid {
-		site, err := h.queries.GetSiteByID(ctx, inspection.SiteID.UUID)
+	if inspection.ClientID.Valid {
+		client, err := h.queries.GetClientByID(ctx, inspection.ClientID.UUID)
 		if err == nil {
-			sitePostalCode = site.PostalCode
-
-			// Fetch client info if site has client_id
-			if site.ClientID.Valid {
-				client, err := h.queries.GetClientByID(ctx, site.ClientID.UUID)
-				if err == nil {
-					clientName = client.Name
-					clientEmail = domain.NullStringValue(client.Email)
-					clientPhone = domain.NullStringValue(client.Phone)
-				} else {
-					h.logger.Warn("Failed to fetch client for site",
-						"site_id", inspection.SiteID.UUID,
-						"client_id", site.ClientID.UUID,
-						"error", err,
-					)
-				}
-			}
+			clientName = client.Name
+			clientEmail = domain.NullStringValue(client.Email)
+			clientPhone = domain.NullStringValue(client.Phone)
 		} else {
-			h.logger.Warn("Failed to fetch site details",
-				"site_id", inspection.SiteID.UUID,
+			h.logger.Warn("Failed to fetch client for inspection",
+				"inspection_id", inspectionID,
+				"client_id", inspection.ClientID.UUID,
 				"error", err,
 			)
 		}
@@ -369,12 +354,12 @@ func (h *GenerateReportHandler) aggregateReportData(
 		Temperature:       domain.NullStringValue(inspection.Temperature),
 		InspectorNotes:    domain.NullStringValue(inspection.InspectorNotes),
 
-		// Site info
-		SiteName:       inspection.SiteName,
-		SiteAddress:    inspection.SiteAddress,
-		SiteCity:       inspection.SiteCity,
-		SiteState:      inspection.SiteState,
-		SitePostalCode: sitePostalCode,
+		// Location info (from inspection's address fields)
+		SiteName:       inspection.Title, // Use inspection title as the location name
+		SiteAddress:    inspection.AddressLine1,
+		SiteCity:       inspection.City,
+		SiteState:      inspection.State,
+		SitePostalCode: inspection.PostalCode,
 
 		// Client info
 		ClientName:  clientName,

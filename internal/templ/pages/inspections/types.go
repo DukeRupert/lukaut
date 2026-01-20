@@ -23,7 +23,7 @@ type FormPageData struct {
 	CSRFToken   string
 	User        *UserDisplay
 	Inspection  *InspectionDisplay
-	Sites       []SiteOption
+	Clients     []ClientOption
 	Form        InspectionFormValues
 	Errors      map[string]string
 	Flash       *shared.Flash
@@ -84,7 +84,9 @@ type UserDisplay struct {
 type InspectionListItem struct {
 	ID             string
 	Title          string
-	SiteName       string
+	City           string // Address city for quick location reference
+	State          string // Address state
+	ClientName     string // Associated client name (if any)
 	InspectionDate string
 	Status         string
 	ViolationCount int
@@ -94,11 +96,13 @@ type InspectionListItem struct {
 type InspectionDisplay struct {
 	ID                string
 	Title             string
-	SiteID            string
-	SiteName          string
-	SiteAddress       string
-	SiteCity          string
-	SiteState         string
+	ClientID          string
+	ClientName        string
+	AddressLine1      string
+	AddressLine2      string
+	City              string
+	State             string
+	PostalCode        string
 	InspectionDate    string
 	Status            string
 	WeatherConditions string
@@ -108,18 +112,36 @@ type InspectionDisplay struct {
 	UpdatedAt         string
 }
 
+// FullAddress returns the formatted full address for display.
+func (i *InspectionDisplay) FullAddress() string {
+	if i == nil {
+		return ""
+	}
+	addr := i.AddressLine1
+	if i.AddressLine2 != "" {
+		addr += ", " + i.AddressLine2
+	}
+	addr += ", " + i.City + ", " + i.State + " " + i.PostalCode
+	return addr
+}
+
 // InspectionFormValues contains form field values for create/edit.
 type InspectionFormValues struct {
 	Title             string
-	SiteID            string
+	ClientID          string
+	AddressLine1      string
+	AddressLine2      string
+	City              string
+	State             string
+	PostalCode        string
 	InspectionDate    string
 	WeatherConditions string
 	Temperature       string
 	InspectorNotes    string
 }
 
-// SiteOption represents a site for dropdown selection.
-type SiteOption struct {
+// ClientOption represents a client for dropdown selection.
+type ClientOption struct {
 	ID   string
 	Name string
 }
@@ -171,17 +193,17 @@ type AnalysisStatusData struct {
 
 // ViolationDisplay contains a violation with related data for display.
 type ViolationDisplay struct {
-	ID              string
-	Description     string
-	AIDescription   string
-	Status          string
-	Severity        string
-	Confidence      string
-	InspectorNotes  string
-	ThumbnailURL    string
-	OriginalURL     string
-	ImageID         string
-	Regulations     []ViolationRegulationDisplay
+	ID             string
+	Description    string
+	AIDescription  string
+	Status         string
+	Severity       string
+	Confidence     string
+	InspectorNotes string
+	ThumbnailURL   string
+	OriginalURL    string
+	ImageID        string
+	Regulations    []ViolationRegulationDisplay
 }
 
 // ViolationRegulationDisplay represents a regulation linked to a violation.

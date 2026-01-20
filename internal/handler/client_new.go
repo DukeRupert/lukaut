@@ -57,7 +57,7 @@ func (h *ClientHandler) IndexTempl(w http.ResponseWriter, r *http.Request) {
 			Name:      c.Name,
 			Email:     c.Email,
 			Phone:     c.Phone,
-			SiteCount: c.SiteCount,
+			InspectionCount: c.InspectionCount,
 		}
 	}
 
@@ -260,7 +260,7 @@ func domainClientToDetail(c *domain.Client) *clients.ClientDetail {
 		State:        c.State,
 		PostalCode:   c.PostalCode,
 		Notes:        c.Notes,
-		SiteCount:    c.SiteCount,
+		InspectionCount:    c.InspectionCount,
 		HasAddress:   hasAddress,
 	}
 }

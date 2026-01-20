@@ -188,17 +188,81 @@ templ TextArea(id, name, value, placeholder string, rows int) {
 	>{ value }</textarea>
 }
 
-// SiteSelect renders the site dropdown.
-templ SiteSelect(id, name, selectedID string, sites []SiteOption) {
+// ClientSelect renders the client dropdown.
+templ ClientSelect(id, name, selectedID string, clients []ClientOption) {
 	<select
 		name={ name }
 		id={ id }
 		class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6"
 	>
-		<option value="">-- No site --</option>
-		for _, site := range sites {
-			<option value={ site.ID } selected?={ site.ID == selectedID }>{ site.Name }</option>
+		<option value="">-- No client --</option>
+		for _, client := range clients {
+			<option value={ client.ID } selected?={ client.ID == selectedID }>{ client.Name }</option>
 		}
+	</select>
+}
+
+// StateSelect renders a US state dropdown.
+templ StateSelect(id, name, selectedValue string, required, hasError bool) {
+	<select
+		name={ name }
+		id={ id }
+		if required {
+			required
+		}
+		class={ inputClass(hasError) }
+	>
+		<option value="">Select a state</option>
+		<option value="AL" selected?={ selectedValue == "AL" }>Alabama</option>
+		<option value="AK" selected?={ selectedValue == "AK" }>Alaska</option>
+		<option value="AZ" selected?={ selectedValue == "AZ" }>Arizona</option>
+		<option value="AR" selected?={ selectedValue == "AR" }>Arkansas</option>
+		<option value="CA" selected?={ selectedValue == "CA" }>California</option>
+		<option value="CO" selected?={ selectedValue == "CO" }>Colorado</option>
+		<option value="CT" selected?={ selectedValue == "CT" }>Connecticut</option>
+		<option value="DE" selected?={ selectedValue == "DE" }>Delaware</option>
+		<option value="FL" selected?={ selectedValue == "FL" }>Florida</option>
+		<option value="GA" selected?={ selectedValue == "GA" }>Georgia</option>
+		<option value="HI" selected?={ selectedValue == "HI" }>Hawaii</option>
+		<option value="ID" selected?={ selectedValue == "ID" }>Idaho</option>
+		<option value="IL" selected?={ selectedValue == "IL" }>Illinois</option>
+		<option value="IN" selected?={ selectedValue == "IN" }>Indiana</option>
+		<option value="IA" selected?={ selectedValue == "IA" }>Iowa</option>
+		<option value="KS" selected?={ selectedValue == "KS" }>Kansas</option>
+		<option value="KY" selected?={ selectedValue == "KY" }>Kentucky</option>
+		<option value="LA" selected?={ selectedValue == "LA" }>Louisiana</option>
+		<option value="ME" selected?={ selectedValue == "ME" }>Maine</option>
+		<option value="MD" selected?={ selectedValue == "MD" }>Maryland</option>
+		<option value="MA" selected?={ selectedValue == "MA" }>Massachusetts</option>
+		<option value="MI" selected?={ selectedValue == "MI" }>Michigan</option>
+		<option value="MN" selected?={ selectedValue == "MN" }>Minnesota</option>
+		<option value="MS" selected?={ selectedValue == "MS" }>Mississippi</option>
+		<option value="MO" selected?={ selectedValue == "MO" }>Missouri</option>
+		<option value="MT" selected?={ selectedValue == "MT" }>Montana</option>
+		<option value="NE" selected?={ selectedValue == "NE" }>Nebraska</option>
+		<option value="NV" selected?={ selectedValue == "NV" }>Nevada</option>
+		<option value="NH" selected?={ selectedValue == "NH" }>New Hampshire</option>
+		<option value="NJ" selected?={ selectedValue == "NJ" }>New Jersey</option>
+		<option value="NM" selected?={ selectedValue == "NM" }>New Mexico</option>
+		<option value="NY" selected?={ selectedValue == "NY" }>New York</option>
+		<option value="NC" selected?={ selectedValue == "NC" }>North Carolina</option>
+		<option value="ND" selected?={ selectedValue == "ND" }>North Dakota</option>
+		<option value="OH" selected?={ selectedValue == "OH" }>Ohio</option>
+		<option value="OK" selected?={ selectedValue == "OK" }>Oklahoma</option>
+		<option value="OR" selected?={ selectedValue == "OR" }>Oregon</option>
+		<option value="PA" selected?={ selectedValue == "PA" }>Pennsylvania</option>
+		<option value="RI" selected?={ selectedValue == "RI" }>Rhode Island</option>
+		<option value="SC" selected?={ selectedValue == "SC" }>South Carolina</option>
+		<option value="SD" selected?={ selectedValue == "SD" }>South Dakota</option>
+		<option value="TN" selected?={ selectedValue == "TN" }>Tennessee</option>
+		<option value="TX" selected?={ selectedValue == "TX" }>Texas</option>
+		<option value="UT" selected?={ selectedValue == "UT" }>Utah</option>
+		<option value="VT" selected?={ selectedValue == "VT" }>Vermont</option>
+		<option value="VA" selected?={ selectedValue == "VA" }>Virginia</option>
+		<option value="WA" selected?={ selectedValue == "WA" }>Washington</option>
+		<option value="WV" selected?={ selectedValue == "WV" }>West Virginia</option>
+		<option value="WI" selected?={ selectedValue == "WI" }>Wisconsin</option>
+		<option value="WY" selected?={ selectedValue == "WY" }>Wyoming</option>
 	</select>
 }
 

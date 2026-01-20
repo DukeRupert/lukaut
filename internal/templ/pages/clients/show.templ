@@ -28,9 +28,9 @@ templ ShowPage(data ShowPageData) {
 			@ClientHeader(data.Client)
 			// Client Details
 			@ClientDetails(data.Client)
-			// Associated Sites
-			if data.Client.SiteCount > 0 {
-				@AssociatedSites(data.Client.SiteCount)
+			// Associated Inspections
+			if data.Client.InspectionCount > 0 {
+				@AssociatedInspections(data.Client.InspectionCount)
 			}
 		</div>
 	}
@@ -43,15 +43,15 @@ templ ClientHeader(client *ClientDetail) {
 			<div class="flex items-center justify-between">
 				<div>
 					<h2 class="text-xl font-bold text-gray-900">{ client.Name }</h2>
-					if client.SiteCount > 0 {
+					if client.InspectionCount > 0 {
 						<p class="mt-1 text-sm text-gray-500">
-							{ fmt.Sprintf("%d associated site", client.SiteCount) }
-							if client.SiteCount != 1 {
+							{ fmt.Sprintf("%d associated inspection", client.InspectionCount) }
+							if client.InspectionCount != 1 {
 								s
 							}
 						</p>
 					} else {
-						<p class="mt-1 text-sm text-gray-500">No associated sites</p>
+						<p class="mt-1 text-sm text-gray-500">No associated inspections</p>
 					}
 				</div>
 				<div class="flex gap-3">
@@ -62,7 +62,7 @@ templ ClientHeader(client *ClientDetail) {
 						@editIcon()
 						Edit
 					</a>
-					if client.SiteCount == 0 {
+					if client.InspectionCount == 0 {
 						<button
 							type="button"
 							hx-delete={ fmt.Sprintf("/clients/%s", client.ID) }
@@ -150,14 +150,14 @@ templ ClientDetails(client *ClientDetail) {
 	</div>
 }
 
-// AssociatedSites renders the associated sites section
-templ AssociatedSites(siteCount int) {
+// AssociatedInspections renders the associated inspections section
+templ AssociatedInspections(inspectionCount int) {
 	<div class="mt-6 bg-white shadow sm:rounded-lg">
 		<div class="px-4 py-5 sm:p-6">
-			<h3 class="text-base font-semibold text-gray-900 mb-4">Associated Sites</h3>
+			<h3 class="text-base font-semibold text-gray-900 mb-4">Associated Inspections</h3>
 			<p class="text-sm text-gray-500">
-				This client is associated with { fmt.Sprintf("%d site", siteCount) }
-				if siteCount != 1 {
+				This client is associated with { fmt.Sprintf("%d inspection", inspectionCount) }
+				if inspectionCount != 1 {
 					s
 				}
 				.

@@ -24,18 +24,6 @@ func (q *Queries) CountClientsByUserID(ctx context.Context, userID uuid.UUID) (i
 	return count, err
 }
 
-const countSitesByClientID = `-- name: CountSitesByClientID :one
-SELECT COUNT(*) FROM sites
-WHERE client_id = $1
-`
-
-func (q *Queries) CountSitesByClientID(ctx context.Context, clientID uuid.NullUUID) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countSitesByClientID, clientID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createClient = `-- name: CreateClient :one
 INSERT INTO clients (
     user_id,
@@ -181,7 +169,7 @@ func (q *Queries) GetClientByIDAndUserID(ctx context.Context, arg GetClientByIDA
 	return i, err
 }
 
-const getClientWithSiteCount = `-- name: GetClientWithSiteCount :one
+const getClientWithInspectionCount = `-- name: GetClientWithInspectionCount :one
 SELECT
     c.id,
     c.user_id,
@@ -196,39 +184,39 @@ SELECT
     c.notes,
     c.created_at,
     c.updated_at,
-    COALESCE(COUNT(s.id), 0)::int AS site_count
+    COALESCE(COUNT(i.id), 0)::int AS inspection_count
 FROM clients c
-LEFT JOIN sites s ON s.client_id = c.id
+LEFT JOIN inspections i ON i.client_id = c.id
 WHERE c.id = $1 AND c.user_id = $2
 GROUP BY c.id, c.user_id, c.name, c.email, c.phone, c.address_line1, c.address_line2,
          c.city, c.state, c.postal_code, c.notes, c.created_at, c.updated_at
 `
 
-type GetClientWithSiteCountParams struct {
+type GetClientWithInspectionCountParams struct {
 	ID     uuid.UUID `json:"id"`
 	UserID uuid.UUID `json:"user_id"`
 }
 
-type GetClientWithSiteCountRow struct {
-	ID           uuid.UUID      `json:"id"`
-	UserID       uuid.UUID      `json:"user_id"`
-	Name         string         `json:"name"`
-	Email        sql.NullString `json:"email"`
-	Phone        sql.NullString `json:"phone"`
-	AddressLine1 sql.NullString `json:"address_line1"`
-	AddressLine2 sql.NullString `json:"address_line2"`
-	City         sql.NullString `json:"city"`
-	State        sql.NullString `json:"state"`
-	PostalCode   sql.NullString `json:"postal_code"`
-	Notes        sql.NullString `json:"notes"`
-	CreatedAt    sql.NullTime   `json:"created_at"`
-	UpdatedAt    sql.NullTime   `json:"updated_at"`
-	SiteCount    int32          `json:"site_count"`
+type GetClientWithInspectionCountRow struct {
+	ID              uuid.UUID      `json:"id"`
+	UserID          uuid.UUID      `json:"user_id"`
+	Name            string         `json:"name"`
+	Email           sql.NullString `json:"email"`
+	Phone           sql.NullString `json:"phone"`
+	AddressLine1    sql.NullString `json:"address_line1"`
+	AddressLine2    sql.NullString `json:"address_line2"`
+	City            sql.NullString `json:"city"`
+	State           sql.NullString `json:"state"`
+	PostalCode      sql.NullString `json:"postal_code"`
+	Notes           sql.NullString `json:"notes"`
+	CreatedAt       sql.NullTime   `json:"created_at"`
+	UpdatedAt       sql.NullTime   `json:"updated_at"`
+	InspectionCount int32          `json:"inspection_count"`
 }
 
-func (q *Queries) GetClientWithSiteCount(ctx context.Context, arg GetClientWithSiteCountParams) (GetClientWithSiteCountRow, error) {
-	row := q.db.QueryRowContext(ctx, getClientWithSiteCount, arg.ID, arg.UserID)
-	var i GetClientWithSiteCountRow
+func (q *Queries) GetClientWithInspectionCount(ctx context.Context, arg GetClientWithInspectionCountParams) (GetClientWithInspectionCountRow, error) {
+	row := q.db.QueryRowContext(ctx, getClientWithInspectionCount, arg.ID, arg.UserID)
+	var i GetClientWithInspectionCountRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -243,7 +231,7 @@ func (q *Queries) GetClientWithSiteCount(ctx context.Context, arg GetClientWithS
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.SiteCount,
+		&i.InspectionCount,
 	)
 	return i, err
 }
@@ -341,7 +329,7 @@ func (q *Queries) ListClientsByUserID(ctx context.Context, arg ListClientsByUser
 	return items, nil
 }
 
-const listClientsWithSiteCountByUserID = `-- name: ListClientsWithSiteCountByUserID :many
+const listClientsWithInspectionCountByUserID = `-- name: ListClientsWithInspectionCountByUserID :many
 SELECT
     c.id,
     c.user_id,
@@ -356,9 +344,9 @@ SELECT
     c.notes,
     c.created_at,
     c.updated_at,
-    COALESCE(COUNT(s.id), 0)::int AS site_count
+    COALESCE(COUNT(i.id), 0)::int AS inspection_count
 FROM clients c
-LEFT JOIN sites s ON s.client_id = c.id
+LEFT JOIN inspections i ON i.client_id = c.id
 WHERE c.user_id = $1
 GROUP BY c.id, c.user_id, c.name, c.email, c.phone, c.address_line1, c.address_line2,
          c.city, c.state, c.postal_code, c.notes, c.created_at, c.updated_at
@@ -366,38 +354,38 @@ ORDER BY c.name ASC
 LIMIT $2 OFFSET $3
 `
 
-type ListClientsWithSiteCountByUserIDParams struct {
+type ListClientsWithInspectionCountByUserIDParams struct {
 	UserID uuid.UUID `json:"user_id"`
 	Limit  int32     `json:"limit"`
 	Offset int32     `json:"offset"`
 }
 
-type ListClientsWithSiteCountByUserIDRow struct {
-	ID           uuid.UUID      `json:"id"`
-	UserID       uuid.UUID      `json:"user_id"`
-	Name         string         `json:"name"`
-	Email        sql.NullString `json:"email"`
-	Phone        sql.NullString `json:"phone"`
-	AddressLine1 sql.NullString `json:"address_line1"`
-	AddressLine2 sql.NullString `json:"address_line2"`
-	City         sql.NullString `json:"city"`
-	State        sql.NullString `json:"state"`
-	PostalCode   sql.NullString `json:"postal_code"`
-	Notes        sql.NullString `json:"notes"`
-	CreatedAt    sql.NullTime   `json:"created_at"`
-	UpdatedAt    sql.NullTime   `json:"updated_at"`
-	SiteCount    int32          `json:"site_count"`
+type ListClientsWithInspectionCountByUserIDRow struct {
+	ID              uuid.UUID      `json:"id"`
+	UserID          uuid.UUID      `json:"user_id"`
+	Name            string         `json:"name"`
+	Email           sql.NullString `json:"email"`
+	Phone           sql.NullString `json:"phone"`
+	AddressLine1    sql.NullString `json:"address_line1"`
+	AddressLine2    sql.NullString `json:"address_line2"`
+	City            sql.NullString `json:"city"`
+	State           sql.NullString `json:"state"`
+	PostalCode      sql.NullString `json:"postal_code"`
+	Notes           sql.NullString `json:"notes"`
+	CreatedAt       sql.NullTime   `json:"created_at"`
+	UpdatedAt       sql.NullTime   `json:"updated_at"`
+	InspectionCount int32          `json:"inspection_count"`
 }
 
-func (q *Queries) ListClientsWithSiteCountByUserID(ctx context.Context, arg ListClientsWithSiteCountByUserIDParams) ([]ListClientsWithSiteCountByUserIDRow, error) {
-	rows, err := q.db.QueryContext(ctx, listClientsWithSiteCountByUserID, arg.UserID, arg.Limit, arg.Offset)
+func (q *Queries) ListClientsWithInspectionCountByUserID(ctx context.Context, arg ListClientsWithInspectionCountByUserIDParams) ([]ListClientsWithInspectionCountByUserIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, listClientsWithInspectionCountByUserID, arg.UserID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListClientsWithSiteCountByUserIDRow{}
+	items := []ListClientsWithInspectionCountByUserIDRow{}
 	for rows.Next() {
-		var i ListClientsWithSiteCountByUserIDRow
+		var i ListClientsWithInspectionCountByUserIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -412,7 +400,7 @@ func (q *Queries) ListClientsWithSiteCountByUserID(ctx context.Context, arg List
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.SiteCount,
+			&i.InspectionCount,
 		); err != nil {
 			return nil, err
 		}

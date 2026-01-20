@@ -115,7 +115,7 @@ func AppLayout(data AppLayoutData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<!-- Keyboard shortcuts script --><script>\n\t\t\t\tfunction keyboardShortcuts() {\n\t\t\t\t\treturn {\n\t\t\t\t\t\tsidebarOpen: false,\n\t\t\t\t\t\thelpModalOpen: false,\n\t\t\t\t\t\tpendingKey: null,\n\t\t\t\t\t\tpendingTimeout: null,\n\n\t\t\t\t\t\thandleKeydown(e) {\n\t\t\t\t\t\t\t// Skip if in input fields\n\t\t\t\t\t\t\tif (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;\n\t\t\t\t\t\t\tif (e.target.isContentEditable) return;\n\t\t\t\t\t\t\tif (e.metaKey || e.ctrlKey || e.altKey) return;\n\n\t\t\t\t\t\t\tconst key = e.key;\n\n\t\t\t\t\t\t\t// Handle Escape key\n\t\t\t\t\t\t\tif (key === 'Escape') {\n\t\t\t\t\t\t\t\tif (this.helpModalOpen) {\n\t\t\t\t\t\t\t\t\tthis.helpModalOpen = false;\n\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\tthis.pendingKey = null;\n\t\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t\t}\n\n\t\t\t\t\t\t\t// Handle pending 'g' sequence\n\t\t\t\t\t\t\tif (this.pendingKey === 'g') {\n\t\t\t\t\t\t\t\tthis.handleGoSequence(key, e);\n\t\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t\t}\n\n\t\t\t\t\t\t\t// Single key handlers\n\t\t\t\t\t\t\tswitch (key) {\n\t\t\t\t\t\t\t\tcase '?':\n\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t\tthis.helpModalOpen = !this.helpModalOpen;\n\t\t\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\t\t\tcase 'c':\n\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t\twindow.location.href = '/clients/new';\n\t\t\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\t\t\tcase 's':\n\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t\twindow.location.href = '/sites/new';\n\t\t\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\t\t\tcase 'i':\n\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t\twindow.location.href = '/inspections/new';\n\t\t\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\t\t\tcase 'g':\n\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t\tthis.startGoSequence();\n\t\t\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t},\n\n\t\t\t\t\t\thandleGoSequence(key, e) {\n\t\t\t\t\t\t\tclearTimeout(this.pendingTimeout);\n\t\t\t\t\t\t\tthis.pendingKey = null;\n\n\t\t\t\t\t\t\tconst routes = {\n\t\t\t\t\t\t\t\t'h': '/dashboard',\n\t\t\t\t\t\t\t\t'i': '/inspections',\n\t\t\t\t\t\t\t\t's': '/sites',\n\t\t\t\t\t\t\t\t'c': '/clients',\n\t\t\t\t\t\t\t\t'r': '/regulations'\n\t\t\t\t\t\t\t};\n\n\t\t\t\t\t\t\tif (routes[key]) {\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\twindow.location.href = routes[key];\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t},\n\n\t\t\t\t\t\tstartGoSequence() {\n\t\t\t\t\t\t\tthis.pendingKey = 'g';\n\t\t\t\t\t\t\tthis.pendingTimeout = setTimeout(() => {\n\t\t\t\t\t\t\t\tthis.pendingKey = null;\n\t\t\t\t\t\t\t}, 1500);\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t</script></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<!-- Keyboard shortcuts script --><script>\n\t\t\t\tfunction keyboardShortcuts() {\n\t\t\t\t\treturn {\n\t\t\t\t\t\tsidebarOpen: false,\n\t\t\t\t\t\thelpModalOpen: false,\n\t\t\t\t\t\tpendingKey: null,\n\t\t\t\t\t\tpendingTimeout: null,\n\n\t\t\t\t\t\thandleKeydown(e) {\n\t\t\t\t\t\t\t// Skip if in input fields\n\t\t\t\t\t\t\tif (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;\n\t\t\t\t\t\t\tif (e.target.isContentEditable) return;\n\t\t\t\t\t\t\tif (e.metaKey || e.ctrlKey || e.altKey) return;\n\n\t\t\t\t\t\t\tconst key = e.key;\n\n\t\t\t\t\t\t\t// Handle Escape key\n\t\t\t\t\t\t\tif (key === 'Escape') {\n\t\t\t\t\t\t\t\tif (this.helpModalOpen) {\n\t\t\t\t\t\t\t\t\tthis.helpModalOpen = false;\n\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\tthis.pendingKey = null;\n\t\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t\t}\n\n\t\t\t\t\t\t\t// Handle pending 'g' sequence\n\t\t\t\t\t\t\tif (this.pendingKey === 'g') {\n\t\t\t\t\t\t\t\tthis.handleGoSequence(key, e);\n\t\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t\t}\n\n\t\t\t\t\t\t\t// Single key handlers\n\t\t\t\t\t\t\tswitch (key) {\n\t\t\t\t\t\t\t\tcase '?':\n\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t\tthis.helpModalOpen = !this.helpModalOpen;\n\t\t\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\t\t\tcase 'c':\n\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t\twindow.location.href = '/clients/new';\n\t\t\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\t\t\t\tcase 'i':\n\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t\twindow.location.href = '/inspections/new';\n\t\t\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\t\t\tcase 'g':\n\t\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\t\tthis.startGoSequence();\n\t\t\t\t\t\t\t\t\tbreak;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t},\n\n\t\t\t\t\t\thandleGoSequence(key, e) {\n\t\t\t\t\t\t\tclearTimeout(this.pendingTimeout);\n\t\t\t\t\t\t\tthis.pendingKey = null;\n\n\t\t\t\t\t\t\tconst routes = {\n\t\t\t\t\t\t\t\t'h': '/dashboard',\n\t\t\t\t\t\t\t\t'i': '/inspections',\n\t\t\t\t\t\t\t\t'c': '/clients',\n\t\t\t\t\t\t\t\t'r': '/regulations'\n\t\t\t\t\t\t\t};\n\n\t\t\t\t\t\t\tif (routes[key]) {\n\t\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\t\twindow.location.href = routes[key];\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t},\n\n\t\t\t\t\t\tstartGoSequence() {\n\t\t\t\t\t\t\tthis.pendingKey = 'g';\n\t\t\t\t\t\t\tthis.pendingTimeout = setTimeout(() => {\n\t\t\t\t\t\t\t\tthis.pendingKey = null;\n\t\t\t\t\t\t\t}, 1500);\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t</script></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -195,10 +195,6 @@ func Sidebar(currentPath string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = NavItem("/sites", "Sites", currentPath, iconSites()).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
 		templ_7745c5c3_Err = NavItem("/clients", "Clients", currentPath, iconClients()).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -261,7 +257,7 @@ func NavItem(href string, label string, currentPath string, icon templ.Component
 		var templ_7745c5c3_Var7 templ.SafeURL
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(href))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 232, Col: 29}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 226, Col: 29}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -291,7 +287,7 @@ func NavItem(href string, label string, currentPath string, icon templ.Component
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 236, Col: 10}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 230, Col: 10}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -398,7 +394,7 @@ func UserMenu(user *UserInfo, csrfToken string) templ.Component {
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(userInitial(user))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 289, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 283, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -411,7 +407,7 @@ func UserMenu(user *UserInfo, csrfToken string) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(userName(user))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 293, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 287, Col: 21}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -429,7 +425,7 @@ func UserMenu(user *UserInfo, csrfToken string) templ.Component {
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(csrfToken)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 315, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 309, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 			if templ_7745c5c3_Err != nil {

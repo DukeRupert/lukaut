@@ -51,16 +51,54 @@ templ EditInspectionForm(data FormPageData) {
 		@FormField("title", "Title", data.Errors["title"], true) {
 			@TextInput("title", "title", "text", data.Form.Title, "", true, data.Errors["title"] != "")
 		}
-		// Site
+		// Client
 		<div>
-			<label for="site_id" class="block text-sm font-medium leading-6 text-gray-900">Site</label>
+			<label for="client_id" class="block text-sm font-medium leading-6 text-gray-900">Client</label>
 			<div class="mt-2">
-				@SiteSelect("site_id", "site_id", data.Form.SiteID, data.Sites)
+				@ClientSelect("client_id", "client_id", data.Form.ClientID, data.Clients)
 			</div>
-			if data.Errors["site_id"] != "" {
-				<p class="mt-2 text-sm text-red-600">{ data.Errors["site_id"] }</p>
+			if data.Errors["client_id"] != "" {
+				<p class="mt-2 text-sm text-red-600">{ data.Errors["client_id"] }</p>
 			}
-			<p class="mt-2 text-sm text-gray-500">Optionally link this inspection to a site.</p>
+			<p class="mt-2 text-sm text-gray-500">Optionally link this inspection to a client.</p>
+		</div>
+		// Address Section
+		<div class="border-t border-gray-200 pt-6">
+			<h4 class="text-sm font-medium leading-6 text-gray-900 mb-4">Inspection Location</h4>
+			<div class="space-y-4">
+				// Address Line 1
+				@FormField("address_line1", "Address Line 1", data.Errors["address_line1"], true) {
+					@TextInput("address_line1", "address_line1", "text", data.Form.AddressLine1, "Street address", true, data.Errors["address_line1"] != "")
+				}
+				// Address Line 2
+				<div>
+					<label for="address_line2" class="block text-sm font-medium leading-6 text-gray-900">Address Line 2</label>
+					<div class="mt-2">
+						@TextInput("address_line2", "address_line2", "text", data.Form.AddressLine2, "Apt, suite, unit, etc. (optional)", false, false)
+					</div>
+				</div>
+				// City, State, Postal Code (3-column grid)
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+					// City
+					<div class="sm:col-span-1">
+						@FormField("city", "City", data.Errors["city"], true) {
+							@TextInput("city", "city", "text", data.Form.City, "", true, data.Errors["city"] != "")
+						}
+					</div>
+					// State
+					<div class="sm:col-span-1">
+						@FormField("state", "State", data.Errors["state"], true) {
+							@StateSelect("state", "state", data.Form.State, true, data.Errors["state"] != "")
+						}
+					</div>
+					// Postal Code
+					<div class="sm:col-span-1">
+						@FormField("postal_code", "Postal Code", data.Errors["postal_code"], true) {
+							@TextInput("postal_code", "postal_code", "text", data.Form.PostalCode, "", true, data.Errors["postal_code"] != "")
+						}
+					</div>
+				</div>
+			</div>
 		</div>
 		// Inspection Date
 		@FormField("inspection_date", "Inspection Date", data.Errors["inspection_date"], true) {

@@ -86,11 +86,11 @@ func (h *InspectionHandler) NewTempl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch sites for dropdown
-	siteOptions, err := h.fetchSiteOptions(r.Context(), user.ID)
+	// Fetch clients for dropdown
+	clientOptions, err := h.fetchClientOptions(r.Context(), user.ID)
 	if err != nil {
-		h.logger.Error("failed to fetch sites", "error", err, "user_id", user.ID)
-		h.renderIndexErrorTempl(w, r, user, "Failed to load sites. Please try again.")
+		h.logger.Error("failed to fetch clients", "error", err, "user_id", user.ID)
+		h.renderIndexErrorTempl(w, r, user, "Failed to load clients. Please try again.")
 		return
 	}
 
@@ -99,7 +99,7 @@ func (h *InspectionHandler) NewTempl(w http.ResponseWriter, r *http.Request) {
 		CSRFToken:   "",
 		User:        domainUserToInspectionDisplay(user),
 		Inspection:  nil,
-		Sites:       domainSitesToOptions(siteOptions),
+		Clients:     domainClientsToOptions(clientOptions),
 		Form: inspections.InspectionFormValues{
 			InspectionDate: time.Now().Format("2006-01-02"),
 		},
@@ -142,16 +142,16 @@ func (h *InspectionHandler) EditTempl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch sites for dropdown
-	siteOptions, err := h.fetchSiteOptions(r.Context(), user.ID)
+	// Fetch clients for dropdown
+	clientOptions, err := h.fetchClientOptions(r.Context(), user.ID)
 	if err != nil {
-		h.logger.Error("failed to fetch sites", "error", err, "user_id", user.ID)
-		siteOptions = []SiteOption{}
+		h.logger.Error("failed to fetch clients", "error", err, "user_id", user.ID)
+		clientOptions = []ClientOption{}
 	}
 
-	siteIDStr := ""
-	if inspection.SiteID != nil {
-		siteIDStr = inspection.SiteID.String()
+	clientIDStr := ""
+	if inspection.ClientID != nil {
+		clientIDStr = inspection.ClientID.String()
 	}
 
 	data := inspections.FormPageData{
@@ -159,10 +159,15 @@ func (h *InspectionHandler) EditTempl(w http.ResponseWriter, r *http.Request) {
 		CSRFToken:   "",
 		User:        domainUserToInspectionDisplay(user),
 		Inspection:  domainInspectionToDisplay(inspection),
-		Sites:       domainSitesToOptions(siteOptions),
+		Clients:     domainClientsToOptions(clientOptions),
 		Form: inspections.InspectionFormValues{
 			Title:             inspection.Title,
-			SiteID:            siteIDStr,
+			ClientID:          clientIDStr,
+			AddressLine1:      inspection.AddressLine1,
+			AddressLine2:      inspection.AddressLine2,
+			City:              inspection.City,
+			State:             inspection.State,
+			PostalCode:        inspection.PostalCode,
 			InspectionDate:    inspection.InspectionDate.Format("2006-01-02"),
 			WeatherConditions: inspection.WeatherConditions,
 			Temperature:       inspection.Temperature,
@@ -349,15 +354,12 @@ func (h *InspectionHandler) ReviewTempl(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	// Fetch client email if inspection has a site with a client
+	// Fetch client email if inspection has a client
 	var clientEmail string
-	if inspection.SiteID != nil {
-		site, err := h.queries.GetSiteByID(r.Context(), *inspection.SiteID)
-		if err == nil && site.ClientID.Valid {
-			client, err := h.queries.GetClientByID(r.Context(), site.ClientID.UUID)
-			if err == nil && client.Email.Valid {
-				clientEmail = client.Email.String
-			}
+	if inspection.ClientID != nil {
+		client, err := h.queries.GetClientByID(r.Context(), *inspection.ClientID)
+		if err == nil && client.Email.Valid {
+			clientEmail = client.Email.String
 		}
 	}
 
@@ -712,7 +714,9 @@ func domainInspectionToListItem(i *domain.Inspection) inspections.InspectionList
 	return inspections.InspectionListItem{
 		ID:             i.ID.String(),
 		Title:          i.Title,
-		SiteName:       i.SiteName,
+		City:           i.City,
+		State:          i.State,
+		ClientName:     i.ClientName,
 		InspectionDate: i.InspectionDate.Format("Jan 2, 2006"),
 		Status:         string(i.Status),
 		ViolationCount: i.ViolationCount,
@@ -725,19 +729,21 @@ func domainInspectionToDisplay(i *domain.Inspection) *inspections.InspectionDisp
 		return nil
 	}
 
-	siteID := ""
-	if i.SiteID != nil {
-		siteID = i.SiteID.String()
+	clientID := ""
+	if i.ClientID != nil {
+		clientID = i.ClientID.String()
 	}
 
 	return &inspections.InspectionDisplay{
 		ID:                i.ID.String(),
 		Title:             i.Title,
-		SiteID:            siteID,
-		SiteName:          i.SiteName,
-		SiteAddress:       i.SiteAddress,
-		SiteCity:          i.SiteCity,
-		SiteState:         i.SiteState,
+		ClientID:          clientID,
+		ClientName:        i.ClientName,
+		AddressLine1:      i.AddressLine1,
+		AddressLine2:      i.AddressLine2,
+		City:              i.City,
+		State:             i.State,
+		PostalCode:        i.PostalCode,
 		InspectionDate:    i.InspectionDate.Format("Jan 2, 2006"),
 		Status:            string(i.Status),
 		WeatherConditions: i.WeatherConditions,
@@ -748,13 +754,13 @@ func domainInspectionToDisplay(i *domain.Inspection) *inspections.InspectionDisp
 	}
 }
 
-// domainSitesToOptions converts []SiteOption to []inspections.SiteOption
-func domainSitesToOptions(sites []SiteOption) []inspections.SiteOption {
-	options := make([]inspections.SiteOption, len(sites))
-	for i, s := range sites {
-		options[i] = inspections.SiteOption{
-			ID:   s.ID.String(),
-			Name: s.Name,
+// domainClientsToOptions converts []ClientOption to []inspections.ClientOption
+func domainClientsToOptions(clients []ClientOption) []inspections.ClientOption {
+	options := make([]inspections.ClientOption, len(clients))
+	for i, c := range clients {
+		options[i] = inspections.ClientOption{
+			ID:   c.ID.String(),
+			Name: c.Name,
 		}
 	}
 	return options

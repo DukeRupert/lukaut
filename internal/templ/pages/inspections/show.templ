@@ -49,10 +49,10 @@ templ ShowHeader(inspection *InspectionDisplay) {
 					@CalendarIcon()
 					{ inspection.InspectionDate }
 				</div>
-				if inspection.SiteName != "" {
+				if inspection.City != "" && inspection.State != "" {
 					<div class="mt-2 flex items-center text-sm text-gray-500">
 						@LocationIcon()
-						{ inspection.SiteName }
+						{ inspection.City }, { inspection.State }
 					</div>
 				}
 				<div class="mt-2 flex items-center text-sm">
@@ -84,23 +84,30 @@ templ DetailsCard(inspection *InspectionDisplay) {
 		<div class="px-4 py-5 sm:p-6">
 			<h3 class="text-base font-semibold leading-6 text-gray-900 mb-4">Inspection Details</h3>
 			<dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-				if inspection.SiteName != "" {
+				if inspection.ClientName != "" {
 					<div class="sm:col-span-1">
-						<dt class="text-sm font-medium text-gray-500">Site</dt>
-						<dd class="mt-1 text-sm text-gray-900">{ inspection.SiteName }</dd>
-						if inspection.SiteAddress != "" {
-							<dd class="mt-1 text-sm text-gray-500">
-								{ inspection.SiteAddress }
-								<br/>
-								{ inspection.SiteCity }, { inspection.SiteState }
-							</dd>
-						}
+						<dt class="text-sm font-medium text-gray-500">Client</dt>
+						<dd class="mt-1 text-sm text-gray-900">{ inspection.ClientName }</dd>
 					</div>
 				}
 				<div class="sm:col-span-1">
 					<dt class="text-sm font-medium text-gray-500">Inspection Date</dt>
 					<dd class="mt-1 text-sm text-gray-900">{ inspection.InspectionDate }</dd>
 				</div>
+				if inspection.AddressLine1 != "" {
+					<div class="sm:col-span-2">
+						<dt class="text-sm font-medium text-gray-500">Location</dt>
+						<dd class="mt-1 text-sm text-gray-900">
+							{ inspection.AddressLine1 }
+							if inspection.AddressLine2 != "" {
+								<br/>
+								{ inspection.AddressLine2 }
+							}
+							<br/>
+							{ inspection.City }, { inspection.State } { inspection.PostalCode }
+						</dd>
+					</div>
+				}
 				if inspection.WeatherConditions != "" {
 					<div class="sm:col-span-1">
 						<dt class="text-sm font-medium text-gray-500">Weather Conditions</dt>

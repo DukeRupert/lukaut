@@ -76,8 +76,8 @@ func ShowPage(data ShowPageData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.Client.SiteCount > 0 {
-				templ_7745c5c3_Err = AssociatedSites(data.Client.SiteCount).Render(ctx, templ_7745c5c3_Buffer)
+			if data.Client.InspectionCount > 0 {
+				templ_7745c5c3_Err = AssociatedInspections(data.Client.InspectionCount).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -141,15 +141,15 @@ func ClientHeader(client *ClientDetail) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if client.SiteCount > 0 {
+		if client.InspectionCount > 0 {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<p class=\"mt-1 text-sm text-gray-500\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d associated site", client.SiteCount))
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d associated inspection", client.InspectionCount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/clients/show.templ`, Line: 48, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/clients/show.templ`, Line: 48, Col: 72}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -159,7 +159,7 @@ func ClientHeader(client *ClientDetail) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if client.SiteCount != 1 {
+			if client.InspectionCount != 1 {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "s")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -170,7 +170,7 @@ func ClientHeader(client *ClientDetail) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<p class=\"mt-1 text-sm text-gray-500\">No associated sites</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<p class=\"mt-1 text-sm text-gray-500\">No associated inspections</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -200,7 +200,7 @@ func ClientHeader(client *ClientDetail) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if client.SiteCount == 0 {
+		if client.InspectionCount == 0 {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<button type=\"button\" hx-delete=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -430,8 +430,8 @@ func ClientDetails(client *ClientDetail) templ.Component {
 	})
 }
 
-// AssociatedSites renders the associated sites section
-func AssociatedSites(siteCount int) templ.Component {
+// AssociatedInspections renders the associated inspections section
+func AssociatedInspections(inspectionCount int) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -452,14 +452,14 @@ func AssociatedSites(siteCount int) templ.Component {
 			templ_7745c5c3_Var17 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<div class=\"mt-6 bg-white shadow sm:rounded-lg\"><div class=\"px-4 py-5 sm:p-6\"><h3 class=\"text-base font-semibold text-gray-900 mb-4\">Associated Sites</h3><p class=\"text-sm text-gray-500\">This client is associated with ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<div class=\"mt-6 bg-white shadow sm:rounded-lg\"><div class=\"px-4 py-5 sm:p-6\"><h3 class=\"text-base font-semibold text-gray-900 mb-4\">Associated Inspections</h3><p class=\"text-sm text-gray-500\">This client is associated with ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var18 string
-		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d site", siteCount))
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d inspection", inspectionCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/clients/show.templ`, Line: 159, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/clients/show.templ`, Line: 159, Col: 82}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
@@ -469,7 +469,7 @@ func AssociatedSites(siteCount int) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if siteCount != 1 {
+		if inspectionCount != 1 {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "s ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

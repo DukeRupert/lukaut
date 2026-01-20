@@ -17,7 +17,7 @@ import (
 // Client represents a construction company's client (e.g., general contractor, property owner).
 //
 // This is the domain representation designed for use in business logic.
-// Clients can be associated with multiple Sites.
+// Clients can be associated with multiple Inspections.
 type Client struct {
 	ID           uuid.UUID // Unique identifier
 	UserID       uuid.UUID // Owner of the client record
@@ -34,7 +34,7 @@ type Client struct {
 	UpdatedAt    time.Time // When client was last modified
 
 	// Computed fields (not stored in database, populated by queries/services)
-	SiteCount int // Number of sites associated with this client
+	InspectionCount int // Number of inspections associated with this client
 }
 
 // HasAddress returns true if the client has any address information.

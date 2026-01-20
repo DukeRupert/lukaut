@@ -33,7 +33,7 @@ LIMIT $2 OFFSET $3;
 SELECT COUNT(*) FROM clients
 WHERE user_id = $1;
 
--- name: ListClientsWithSiteCountByUserID :many
+-- name: ListClientsWithInspectionCountByUserID :many
 SELECT
     c.id,
     c.user_id,
@@ -48,16 +48,16 @@ SELECT
     c.notes,
     c.created_at,
     c.updated_at,
-    COALESCE(COUNT(s.id), 0)::int AS site_count
+    COALESCE(COUNT(i.id), 0)::int AS inspection_count
 FROM clients c
-LEFT JOIN sites s ON s.client_id = c.id
+LEFT JOIN inspections i ON i.client_id = c.id
 WHERE c.user_id = $1
 GROUP BY c.id, c.user_id, c.name, c.email, c.phone, c.address_line1, c.address_line2,
          c.city, c.state, c.postal_code, c.notes, c.created_at, c.updated_at
 ORDER BY c.name ASC
 LIMIT $2 OFFSET $3;
 
--- name: GetClientWithSiteCount :one
+-- name: GetClientWithInspectionCount :one
 SELECT
     c.id,
     c.user_id,
@@ -72,9 +72,9 @@ SELECT
     c.notes,
     c.created_at,
     c.updated_at,
-    COALESCE(COUNT(s.id), 0)::int AS site_count
+    COALESCE(COUNT(i.id), 0)::int AS inspection_count
 FROM clients c
-LEFT JOIN sites s ON s.client_id = c.id
+LEFT JOIN inspections i ON i.client_id = c.id
 WHERE c.id = $1 AND c.user_id = $2
 GROUP BY c.id, c.user_id, c.name, c.email, c.phone, c.address_line1, c.address_line2,
          c.city, c.state, c.postal_code, c.notes, c.created_at, c.updated_at;
@@ -114,10 +114,6 @@ WHERE id = $1;
 -- name: DeleteClientByIDAndUserID :exec
 DELETE FROM clients
 WHERE id = $1 AND user_id = $2;
-
--- name: CountSitesByClientID :one
-SELECT COUNT(*) FROM sites
-WHERE client_id = $1;
 
 -- name: ListAllClientsByUserID :many
 SELECT * FROM clients

@@ -67,7 +67,6 @@ type Image struct {
 type Inspection struct {
 	ID                uuid.UUID      `json:"id"`
 	UserID            uuid.UUID      `json:"user_id"`
-	SiteID            uuid.NullUUID  `json:"site_id"`
 	Title             string         `json:"title"`
 	Status            string         `json:"status"`
 	InspectionDate    time.Time      `json:"inspection_date"`
@@ -76,6 +75,12 @@ type Inspection struct {
 	InspectorNotes    sql.NullString `json:"inspector_notes"`
 	CreatedAt         sql.NullTime   `json:"created_at"`
 	UpdatedAt         sql.NullTime   `json:"updated_at"`
+	AddressLine1      string         `json:"address_line1"`
+	AddressLine2      sql.NullString `json:"address_line2"`
+	City              string         `json:"city"`
+	State             string         `json:"state"`
+	PostalCode        string         `json:"postal_code"`
+	ClientID          uuid.NullUUID  `json:"client_id"`
 }
 
 type Job struct {
@@ -135,24 +140,6 @@ type Session struct {
 	TokenHash string       `json:"token_hash"`
 	ExpiresAt time.Time    `json:"expires_at"`
 	CreatedAt sql.NullTime `json:"created_at"`
-}
-
-type Site struct {
-	ID           uuid.UUID      `json:"id"`
-	UserID       uuid.UUID      `json:"user_id"`
-	Name         string         `json:"name"`
-	AddressLine1 string         `json:"address_line1"`
-	AddressLine2 sql.NullString `json:"address_line2"`
-	City         string         `json:"city"`
-	State        string         `json:"state"`
-	PostalCode   string         `json:"postal_code"`
-	ClientName   sql.NullString `json:"client_name"`
-	ClientEmail  sql.NullString `json:"client_email"`
-	ClientPhone  sql.NullString `json:"client_phone"`
-	Notes        sql.NullString `json:"notes"`
-	CreatedAt    sql.NullTime   `json:"created_at"`
-	UpdatedAt    sql.NullTime   `json:"updated_at"`
-	ClientID     uuid.NullUUID  `json:"client_id"`
 }
 
 type User struct {

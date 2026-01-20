@@ -31,7 +31,7 @@ import (
 type InspectionService interface {
 	// Create creates a new inspection.
 	// Returns domain.EINVALID for validation errors.
-	// Returns domain.ENOTFOUND if site_id is provided but site doesn't exist or belong to user.
+	// Returns domain.ENOTFOUND if client_id is provided but client doesn't exist or belong to user.
 	Create(ctx context.Context, params domain.CreateInspectionParams) (*domain.Inspection, error)
 
 	// GetByID retrieves an inspection by ID and user ID (for authorization).
@@ -100,30 +100,35 @@ func (s *inspectionService) Create(ctx context.Context, params domain.CreateInsp
 		return nil, err
 	}
 
-	// If site_id is provided, verify it exists and belongs to the user
-	if params.SiteID != nil {
-		_, err := s.queries.GetSiteByIDAndUserID(ctx, repository.GetSiteByIDAndUserIDParams{
-			ID:     *params.SiteID,
+	// If client_id is provided, verify it exists and belongs to the user
+	if params.ClientID != nil {
+		_, err := s.queries.GetClientByIDAndUserID(ctx, repository.GetClientByIDAndUserIDParams{
+			ID:     *params.ClientID,
 			UserID: params.UserID,
 		})
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return nil, domain.NotFound(op, "site", params.SiteID.String())
+				return nil, domain.NotFound(op, "client", params.ClientID.String())
 			}
-			return nil, domain.Internal(err, op, "failed to verify site")
+			return nil, domain.Internal(err, op, "failed to verify client")
 		}
 	}
 
 	// Create the inspection
 	row, err := s.queries.CreateInspection(ctx, repository.CreateInspectionParams{
 		UserID:            params.UserID,
-		SiteID:            domain.ToNullUUID(params.SiteID),
+		ClientID:          domain.ToNullUUID(params.ClientID),
 		Title:             params.Title,
 		Status:            string(domain.InspectionStatusDraft),
 		InspectionDate:    params.InspectionDate,
 		WeatherConditions: domain.ToNullString(params.WeatherConditions),
 		Temperature:       domain.ToNullString(params.Temperature),
 		InspectorNotes:    domain.ToNullString(params.InspectorNotes),
+		AddressLine1:      params.AddressLine1,
+		AddressLine2:      domain.ToNullString(params.AddressLine2),
+		City:              params.City,
+		State:             params.State,
+		PostalCode:        params.PostalCode,
 	})
 	if err != nil {
 		return nil, domain.Internal(err, op, "failed to create inspection")
@@ -154,6 +159,20 @@ func (s *inspectionService) validateCreateParams(params domain.CreateInspectionP
 		return domain.Invalid(op, "title must be 200 characters or less")
 	}
 
+	// Address fields are required
+	if strings.TrimSpace(params.AddressLine1) == "" {
+		return domain.Invalid(op, "address is required")
+	}
+	if strings.TrimSpace(params.City) == "" {
+		return domain.Invalid(op, "city is required")
+	}
+	if strings.TrimSpace(params.State) == "" {
+		return domain.Invalid(op, "state is required")
+	}
+	if strings.TrimSpace(params.PostalCode) == "" {
+		return domain.Invalid(op, "postal code is required")
+	}
+
 	// Inspection date cannot be more than 1 year in the future
 	oneYearFromNow := time.Now().AddDate(1, 0, 0)
 	if params.InspectionDate.After(oneYearFromNow) {
@@ -171,8 +190,8 @@ func (s *inspectionService) validateCreateParams(params domain.CreateInspectionP
 func (s *inspectionService) GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.Inspection, error) {
 	const op = "inspection.get"
 
-	// Get inspection with site information
-	row, err := s.queries.GetInspectionWithSiteByIDAndUserID(ctx, repository.GetInspectionWithSiteByIDAndUserIDParams{
+	// Get inspection with client information
+	row, err := s.queries.GetInspectionWithClientByIDAndUserID(ctx, repository.GetInspectionWithClientByIDAndUserIDParams{
 		ID:     id,
 		UserID: userID,
 	})
@@ -196,19 +215,21 @@ func (s *inspectionService) GetByID(ctx context.Context, id, userID uuid.UUID) (
 	inspection := &domain.Inspection{
 		ID:                row.ID,
 		UserID:            row.UserID,
-		SiteID:            nullUUIDToPtr(row.SiteID),
+		ClientID:          nullUUIDToPtr(row.ClientID),
 		Title:             row.Title,
 		Status:            domain.InspectionStatus(row.Status),
 		InspectionDate:    row.InspectionDate,
 		WeatherConditions: domain.NullStringValue(row.WeatherConditions),
 		Temperature:       domain.NullStringValue(row.Temperature),
 		InspectorNotes:    domain.NullStringValue(row.InspectorNotes),
+		AddressLine1:      row.AddressLine1,
+		AddressLine2:      domain.NullStringValue(row.AddressLine2),
+		City:              row.City,
+		State:             row.State,
+		PostalCode:        row.PostalCode,
 		CreatedAt:         createdAt,
 		UpdatedAt:         updatedAt,
-		SiteName:          row.SiteName,
-		SiteAddress:       row.SiteAddress,
-		SiteCity:          row.SiteCity,
-		SiteState:         row.SiteState,
+		ClientName:        row.ClientName,
 	}
 
 	return inspection, nil
@@ -229,7 +250,7 @@ func (s *inspectionService) List(ctx context.Context, params domain.ListInspecti
 	}
 
 	// Get paginated results
-	rows, err := s.queries.ListInspectionsWithSiteByUserID(ctx, repository.ListInspectionsWithSiteByUserIDParams{
+	rows, err := s.queries.ListInspectionsWithClientByUserID(ctx, repository.ListInspectionsWithClientByUserIDParams{
 		UserID: params.UserID,
 		Limit:  params.Limit,
 		Offset: params.Offset,
@@ -253,13 +274,18 @@ func (s *inspectionService) List(ctx context.Context, params domain.ListInspecti
 		inspections = append(inspections, domain.Inspection{
 			ID:             row.ID,
 			UserID:         row.UserID,
-			SiteID:         nullUUIDToPtr(row.SiteID),
+			ClientID:       nullUUIDToPtr(row.ClientID),
 			Title:          row.Title,
 			Status:         domain.InspectionStatus(row.Status),
 			InspectionDate: row.InspectionDate,
+			AddressLine1:   row.AddressLine1,
+			AddressLine2:   domain.NullStringValue(row.AddressLine2),
+			City:           row.City,
+			State:          row.State,
+			PostalCode:     row.PostalCode,
 			CreatedAt:      createdAt,
 			UpdatedAt:      updatedAt,
-			SiteName:       row.SiteName,
+			ClientName:     row.ClientName,
 			ViolationCount: int(row.ViolationCount),
 		})
 	}
@@ -303,17 +329,17 @@ func (s *inspectionService) Update(ctx context.Context, params domain.UpdateInsp
 		return domain.Invalid(op, "cannot edit inspection while analysis is in progress")
 	}
 
-	// If site_id is provided, verify it exists and belongs to the user
-	if params.SiteID != nil {
-		_, err := s.queries.GetSiteByIDAndUserID(ctx, repository.GetSiteByIDAndUserIDParams{
-			ID:     *params.SiteID,
+	// If client_id is provided, verify it exists and belongs to the user
+	if params.ClientID != nil {
+		_, err := s.queries.GetClientByIDAndUserID(ctx, repository.GetClientByIDAndUserIDParams{
+			ID:     *params.ClientID,
 			UserID: params.UserID,
 		})
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return domain.NotFound(op, "site", params.SiteID.String())
+				return domain.NotFound(op, "client", params.ClientID.String())
 			}
-			return domain.Internal(err, op, "failed to verify site")
+			return domain.Internal(err, op, "failed to verify client")
 		}
 	}
 
@@ -322,11 +348,16 @@ func (s *inspectionService) Update(ctx context.Context, params domain.UpdateInsp
 		ID:                params.ID,
 		UserID:            params.UserID,
 		Title:             params.Title,
-		SiteID:            domain.ToNullUUID(params.SiteID),
+		ClientID:          domain.ToNullUUID(params.ClientID),
 		InspectionDate:    params.InspectionDate,
 		WeatherConditions: domain.ToNullString(params.WeatherConditions),
 		Temperature:       domain.ToNullString(params.Temperature),
 		InspectorNotes:    domain.ToNullString(params.InspectorNotes),
+		AddressLine1:      params.AddressLine1,
+		AddressLine2:      domain.ToNullString(params.AddressLine2),
+		City:              params.City,
+		State:             params.State,
+		PostalCode:        params.PostalCode,
 	})
 	if err != nil {
 		return domain.Internal(err, op, "failed to update inspection")
@@ -351,6 +382,20 @@ func (s *inspectionService) validateUpdateParams(params domain.UpdateInspectionP
 	}
 	if len(title) > 200 {
 		return domain.Invalid(op, "title must be 200 characters or less")
+	}
+
+	// Address fields are required
+	if strings.TrimSpace(params.AddressLine1) == "" {
+		return domain.Invalid(op, "address is required")
+	}
+	if strings.TrimSpace(params.City) == "" {
+		return domain.Invalid(op, "city is required")
+	}
+	if strings.TrimSpace(params.State) == "" {
+		return domain.Invalid(op, "state is required")
+	}
+	if strings.TrimSpace(params.PostalCode) == "" {
+		return domain.Invalid(op, "postal code is required")
 	}
 
 	// Inspection date cannot be more than 1 year in the future
@@ -468,13 +513,18 @@ func (s *inspectionService) rowToInspection(row repository.Inspection) *domain.I
 	return &domain.Inspection{
 		ID:                row.ID,
 		UserID:            row.UserID,
-		SiteID:            nullUUIDToPtr(row.SiteID),
+		ClientID:          nullUUIDToPtr(row.ClientID),
 		Title:             row.Title,
 		Status:            domain.InspectionStatus(row.Status),
 		InspectionDate:    row.InspectionDate,
 		WeatherConditions: domain.NullStringValue(row.WeatherConditions),
 		Temperature:       domain.NullStringValue(row.Temperature),
 		InspectorNotes:    domain.NullStringValue(row.InspectorNotes),
+		AddressLine1:      row.AddressLine1,
+		AddressLine2:      domain.NullStringValue(row.AddressLine2),
+		City:              row.City,
+		State:             row.State,
+		PostalCode:        row.PostalCode,
 		CreatedAt:         createdAt,
 		UpdatedAt:         updatedAt,
 	}

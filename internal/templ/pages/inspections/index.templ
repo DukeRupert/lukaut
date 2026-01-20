@@ -43,7 +43,7 @@ templ IndexPage(data ListPageData) {
 								<thead class="bg-gray-50">
 									<tr>
 										<th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Title</th>
-										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Site</th>
+										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Location</th>
 										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Date</th>
 										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
 										<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Violations</th>
@@ -59,10 +59,10 @@ templ IndexPage(data ListPageData) {
 												<a href={ templ.SafeURL(fmt.Sprintf("/inspections/%s", inspection.ID)) } class="hover:text-navy">{ inspection.Title }</a>
 											</td>
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-												if inspection.SiteName != "" {
-													{ inspection.SiteName }
+												if inspection.City != "" && inspection.State != "" {
+													{ inspection.City }, { inspection.State }
 												} else {
-													<span class="text-gray-400 italic">No site</span>
+													<span class="text-gray-400 italic">No location</span>
 												}
 											</td>
 											<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ inspection.InspectionDate }</td>

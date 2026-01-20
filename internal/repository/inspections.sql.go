@@ -28,46 +28,60 @@ func (q *Queries) CountInspectionsByUserID(ctx context.Context, userID uuid.UUID
 const createInspection = `-- name: CreateInspection :one
 INSERT INTO inspections (
     user_id,
-    site_id,
+    client_id,
     title,
     status,
     inspection_date,
     weather_conditions,
     temperature,
-    inspector_notes
+    inspector_notes,
+    address_line1,
+    address_line2,
+    city,
+    state,
+    postal_code
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
 )
-RETURNING id, user_id, site_id, title, status, inspection_date, weather_conditions, temperature, inspector_notes, created_at, updated_at
+RETURNING id, user_id, title, status, inspection_date, weather_conditions, temperature, inspector_notes, created_at, updated_at, address_line1, address_line2, city, state, postal_code, client_id
 `
 
 type CreateInspectionParams struct {
 	UserID            uuid.UUID      `json:"user_id"`
-	SiteID            uuid.NullUUID  `json:"site_id"`
+	ClientID          uuid.NullUUID  `json:"client_id"`
 	Title             string         `json:"title"`
 	Status            string         `json:"status"`
 	InspectionDate    time.Time      `json:"inspection_date"`
 	WeatherConditions sql.NullString `json:"weather_conditions"`
 	Temperature       sql.NullString `json:"temperature"`
 	InspectorNotes    sql.NullString `json:"inspector_notes"`
+	AddressLine1      string         `json:"address_line1"`
+	AddressLine2      sql.NullString `json:"address_line2"`
+	City              string         `json:"city"`
+	State             string         `json:"state"`
+	PostalCode        string         `json:"postal_code"`
 }
 
 func (q *Queries) CreateInspection(ctx context.Context, arg CreateInspectionParams) (Inspection, error) {
 	row := q.db.QueryRowContext(ctx, createInspection,
 		arg.UserID,
-		arg.SiteID,
+		arg.ClientID,
 		arg.Title,
 		arg.Status,
 		arg.InspectionDate,
 		arg.WeatherConditions,
 		arg.Temperature,
 		arg.InspectorNotes,
+		arg.AddressLine1,
+		arg.AddressLine2,
+		arg.City,
+		arg.State,
+		arg.PostalCode,
 	)
 	var i Inspection
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.SiteID,
 		&i.Title,
 		&i.Status,
 		&i.InspectionDate,
@@ -76,6 +90,12 @@ func (q *Queries) CreateInspection(ctx context.Context, arg CreateInspectionPara
 		&i.InspectorNotes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.City,
+		&i.State,
+		&i.PostalCode,
+		&i.ClientID,
 	)
 	return i, err
 }
@@ -106,7 +126,7 @@ func (q *Queries) DeleteInspectionByIDAndUserID(ctx context.Context, arg DeleteI
 }
 
 const getInspectionByID = `-- name: GetInspectionByID :one
-SELECT id, user_id, site_id, title, status, inspection_date, weather_conditions, temperature, inspector_notes, created_at, updated_at FROM inspections
+SELECT id, user_id, title, status, inspection_date, weather_conditions, temperature, inspector_notes, created_at, updated_at, address_line1, address_line2, city, state, postal_code, client_id FROM inspections
 WHERE id = $1
 `
 
@@ -116,7 +136,6 @@ func (q *Queries) GetInspectionByID(ctx context.Context, id uuid.UUID) (Inspecti
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.SiteID,
 		&i.Title,
 		&i.Status,
 		&i.InspectionDate,
@@ -125,12 +144,18 @@ func (q *Queries) GetInspectionByID(ctx context.Context, id uuid.UUID) (Inspecti
 		&i.InspectorNotes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.City,
+		&i.State,
+		&i.PostalCode,
+		&i.ClientID,
 	)
 	return i, err
 }
 
 const getInspectionByIDAndUserID = `-- name: GetInspectionByIDAndUserID :one
-SELECT id, user_id, site_id, title, status, inspection_date, weather_conditions, temperature, inspector_notes, created_at, updated_at FROM inspections
+SELECT id, user_id, title, status, inspection_date, weather_conditions, temperature, inspector_notes, created_at, updated_at, address_line1, address_line2, city, state, postal_code, client_id FROM inspections
 WHERE id = $1 AND user_id = $2
 `
 
@@ -145,7 +170,6 @@ func (q *Queries) GetInspectionByIDAndUserID(ctx context.Context, arg GetInspect
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.SiteID,
 		&i.Title,
 		&i.Status,
 		&i.InspectionDate,
@@ -154,80 +178,92 @@ func (q *Queries) GetInspectionByIDAndUserID(ctx context.Context, arg GetInspect
 		&i.InspectorNotes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.City,
+		&i.State,
+		&i.PostalCode,
+		&i.ClientID,
 	)
 	return i, err
 }
 
-const getInspectionWithSiteByIDAndUserID = `-- name: GetInspectionWithSiteByIDAndUserID :one
+const getInspectionWithClientByIDAndUserID = `-- name: GetInspectionWithClientByIDAndUserID :one
 SELECT
     i.id,
     i.user_id,
-    i.site_id,
+    i.client_id,
     i.title,
     i.status,
     i.inspection_date,
     i.weather_conditions,
     i.temperature,
     i.inspector_notes,
+    i.address_line1,
+    i.address_line2,
+    i.city,
+    i.state,
+    i.postal_code,
     i.created_at,
     i.updated_at,
-    COALESCE(s.name, '') AS site_name,
-    COALESCE(s.address_line1, '') AS site_address,
-    COALESCE(s.city, '') AS site_city,
-    COALESCE(s.state, '') AS site_state
+    COALESCE(c.name, '') AS client_name
 FROM inspections i
-LEFT JOIN sites s ON s.id = i.site_id
+LEFT JOIN clients c ON c.id = i.client_id
 WHERE i.id = $1 AND i.user_id = $2
 `
 
-type GetInspectionWithSiteByIDAndUserIDParams struct {
+type GetInspectionWithClientByIDAndUserIDParams struct {
 	ID     uuid.UUID `json:"id"`
 	UserID uuid.UUID `json:"user_id"`
 }
 
-type GetInspectionWithSiteByIDAndUserIDRow struct {
+type GetInspectionWithClientByIDAndUserIDRow struct {
 	ID                uuid.UUID      `json:"id"`
 	UserID            uuid.UUID      `json:"user_id"`
-	SiteID            uuid.NullUUID  `json:"site_id"`
+	ClientID          uuid.NullUUID  `json:"client_id"`
 	Title             string         `json:"title"`
 	Status            string         `json:"status"`
 	InspectionDate    time.Time      `json:"inspection_date"`
 	WeatherConditions sql.NullString `json:"weather_conditions"`
 	Temperature       sql.NullString `json:"temperature"`
 	InspectorNotes    sql.NullString `json:"inspector_notes"`
+	AddressLine1      string         `json:"address_line1"`
+	AddressLine2      sql.NullString `json:"address_line2"`
+	City              string         `json:"city"`
+	State             string         `json:"state"`
+	PostalCode        string         `json:"postal_code"`
 	CreatedAt         sql.NullTime   `json:"created_at"`
 	UpdatedAt         sql.NullTime   `json:"updated_at"`
-	SiteName          string         `json:"site_name"`
-	SiteAddress       string         `json:"site_address"`
-	SiteCity          string         `json:"site_city"`
-	SiteState         string         `json:"site_state"`
+	ClientName        string         `json:"client_name"`
 }
 
-func (q *Queries) GetInspectionWithSiteByIDAndUserID(ctx context.Context, arg GetInspectionWithSiteByIDAndUserIDParams) (GetInspectionWithSiteByIDAndUserIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getInspectionWithSiteByIDAndUserID, arg.ID, arg.UserID)
-	var i GetInspectionWithSiteByIDAndUserIDRow
+func (q *Queries) GetInspectionWithClientByIDAndUserID(ctx context.Context, arg GetInspectionWithClientByIDAndUserIDParams) (GetInspectionWithClientByIDAndUserIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getInspectionWithClientByIDAndUserID, arg.ID, arg.UserID)
+	var i GetInspectionWithClientByIDAndUserIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.SiteID,
+		&i.ClientID,
 		&i.Title,
 		&i.Status,
 		&i.InspectionDate,
 		&i.WeatherConditions,
 		&i.Temperature,
 		&i.InspectorNotes,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.City,
+		&i.State,
+		&i.PostalCode,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.SiteName,
-		&i.SiteAddress,
-		&i.SiteCity,
-		&i.SiteState,
+		&i.ClientName,
 	)
 	return i, err
 }
 
 const listInspectionsByUserID = `-- name: ListInspectionsByUserID :many
-SELECT id, user_id, site_id, title, status, inspection_date, weather_conditions, temperature, inspector_notes, created_at, updated_at FROM inspections
+SELECT id, user_id, title, status, inspection_date, weather_conditions, temperature, inspector_notes, created_at, updated_at, address_line1, address_line2, city, state, postal_code, client_id FROM inspections
 WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -251,7 +287,6 @@ func (q *Queries) ListInspectionsByUserID(ctx context.Context, arg ListInspectio
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.SiteID,
 			&i.Title,
 			&i.Status,
 			&i.InspectionDate,
@@ -260,6 +295,12 @@ func (q *Queries) ListInspectionsByUserID(ctx context.Context, arg ListInspectio
 			&i.InspectorNotes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AddressLine1,
+			&i.AddressLine2,
+			&i.City,
+			&i.State,
+			&i.PostalCode,
+			&i.ClientID,
 		); err != nil {
 			return nil, err
 		}
@@ -274,75 +315,92 @@ func (q *Queries) ListInspectionsByUserID(ctx context.Context, arg ListInspectio
 	return items, nil
 }
 
-const listInspectionsWithSiteByUserID = `-- name: ListInspectionsWithSiteByUserID :many
+const listInspectionsWithClientByUserID = `-- name: ListInspectionsWithClientByUserID :many
 SELECT
     i.id,
     i.user_id,
-    i.site_id,
+    i.client_id,
     i.title,
     i.status,
     i.inspection_date,
     i.weather_conditions,
     i.temperature,
     i.inspector_notes,
+    i.address_line1,
+    i.address_line2,
+    i.city,
+    i.state,
+    i.postal_code,
     i.created_at,
     i.updated_at,
-    COALESCE(s.name, '') AS site_name,
+    COALESCE(c.name, '') AS client_name,
     COALESCE(COUNT(v.id), 0)::int AS violation_count
 FROM inspections i
-LEFT JOIN sites s ON s.id = i.site_id
+LEFT JOIN clients c ON c.id = i.client_id
 LEFT JOIN violations v ON v.inspection_id = i.id
 WHERE i.user_id = $1
-GROUP BY i.id, i.user_id, i.site_id, i.title, i.status, i.inspection_date,
-         i.weather_conditions, i.temperature, i.inspector_notes, i.created_at, i.updated_at, s.name
+GROUP BY i.id, i.user_id, i.client_id, i.title, i.status, i.inspection_date,
+         i.weather_conditions, i.temperature, i.inspector_notes,
+         i.address_line1, i.address_line2, i.city, i.state, i.postal_code,
+         i.created_at, i.updated_at, c.name
 ORDER BY i.created_at DESC
 LIMIT $2 OFFSET $3
 `
 
-type ListInspectionsWithSiteByUserIDParams struct {
+type ListInspectionsWithClientByUserIDParams struct {
 	UserID uuid.UUID `json:"user_id"`
 	Limit  int32     `json:"limit"`
 	Offset int32     `json:"offset"`
 }
 
-type ListInspectionsWithSiteByUserIDRow struct {
+type ListInspectionsWithClientByUserIDRow struct {
 	ID                uuid.UUID      `json:"id"`
 	UserID            uuid.UUID      `json:"user_id"`
-	SiteID            uuid.NullUUID  `json:"site_id"`
+	ClientID          uuid.NullUUID  `json:"client_id"`
 	Title             string         `json:"title"`
 	Status            string         `json:"status"`
 	InspectionDate    time.Time      `json:"inspection_date"`
 	WeatherConditions sql.NullString `json:"weather_conditions"`
 	Temperature       sql.NullString `json:"temperature"`
 	InspectorNotes    sql.NullString `json:"inspector_notes"`
+	AddressLine1      string         `json:"address_line1"`
+	AddressLine2      sql.NullString `json:"address_line2"`
+	City              string         `json:"city"`
+	State             string         `json:"state"`
+	PostalCode        string         `json:"postal_code"`
 	CreatedAt         sql.NullTime   `json:"created_at"`
 	UpdatedAt         sql.NullTime   `json:"updated_at"`
-	SiteName          string         `json:"site_name"`
+	ClientName        string         `json:"client_name"`
 	ViolationCount    int32          `json:"violation_count"`
 }
 
-func (q *Queries) ListInspectionsWithSiteByUserID(ctx context.Context, arg ListInspectionsWithSiteByUserIDParams) ([]ListInspectionsWithSiteByUserIDRow, error) {
-	rows, err := q.db.QueryContext(ctx, listInspectionsWithSiteByUserID, arg.UserID, arg.Limit, arg.Offset)
+func (q *Queries) ListInspectionsWithClientByUserID(ctx context.Context, arg ListInspectionsWithClientByUserIDParams) ([]ListInspectionsWithClientByUserIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, listInspectionsWithClientByUserID, arg.UserID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListInspectionsWithSiteByUserIDRow{}
+	items := []ListInspectionsWithClientByUserIDRow{}
 	for rows.Next() {
-		var i ListInspectionsWithSiteByUserIDRow
+		var i ListInspectionsWithClientByUserIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.SiteID,
+			&i.ClientID,
 			&i.Title,
 			&i.Status,
 			&i.InspectionDate,
 			&i.WeatherConditions,
 			&i.Temperature,
 			&i.InspectorNotes,
+			&i.AddressLine1,
+			&i.AddressLine2,
+			&i.City,
+			&i.State,
+			&i.PostalCode,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.SiteName,
+			&i.ClientName,
 			&i.ViolationCount,
 		); err != nil {
 			return nil, err
@@ -362,13 +420,18 @@ const listRecentInspectionsWithViolationCount = `-- name: ListRecentInspectionsW
 SELECT
     i.id,
     i.user_id,
-    i.site_id,
+    i.client_id,
     i.title,
     i.status,
     i.inspection_date,
     i.weather_conditions,
     i.temperature,
     i.inspector_notes,
+    i.address_line1,
+    i.address_line2,
+    i.city,
+    i.state,
+    i.postal_code,
     i.created_at,
     i.updated_at,
     COALESCE(COUNT(v.id), 0)::int AS violation_count
@@ -388,13 +451,18 @@ type ListRecentInspectionsWithViolationCountParams struct {
 type ListRecentInspectionsWithViolationCountRow struct {
 	ID                uuid.UUID      `json:"id"`
 	UserID            uuid.UUID      `json:"user_id"`
-	SiteID            uuid.NullUUID  `json:"site_id"`
+	ClientID          uuid.NullUUID  `json:"client_id"`
 	Title             string         `json:"title"`
 	Status            string         `json:"status"`
 	InspectionDate    time.Time      `json:"inspection_date"`
 	WeatherConditions sql.NullString `json:"weather_conditions"`
 	Temperature       sql.NullString `json:"temperature"`
 	InspectorNotes    sql.NullString `json:"inspector_notes"`
+	AddressLine1      string         `json:"address_line1"`
+	AddressLine2      sql.NullString `json:"address_line2"`
+	City              string         `json:"city"`
+	State             string         `json:"state"`
+	PostalCode        string         `json:"postal_code"`
 	CreatedAt         sql.NullTime   `json:"created_at"`
 	UpdatedAt         sql.NullTime   `json:"updated_at"`
 	ViolationCount    int32          `json:"violation_count"`
@@ -412,13 +480,18 @@ func (q *Queries) ListRecentInspectionsWithViolationCount(ctx context.Context, a
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.SiteID,
+			&i.ClientID,
 			&i.Title,
 			&i.Status,
 			&i.InspectionDate,
 			&i.WeatherConditions,
 			&i.Temperature,
 			&i.InspectorNotes,
+			&i.AddressLine1,
+			&i.AddressLine2,
+			&i.City,
+			&i.State,
+			&i.PostalCode,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ViolationCount,
@@ -439,11 +512,16 @@ func (q *Queries) ListRecentInspectionsWithViolationCount(ctx context.Context, a
 const updateInspection = `-- name: UpdateInspection :exec
 UPDATE inspections
 SET title = $2,
-    site_id = $3,
+    client_id = $3,
     inspection_date = $4,
     weather_conditions = $5,
     temperature = $6,
     inspector_notes = $7,
+    address_line1 = $8,
+    address_line2 = $9,
+    city = $10,
+    state = $11,
+    postal_code = $12,
     updated_at = NOW()
 WHERE id = $1
 `
@@ -451,22 +529,32 @@ WHERE id = $1
 type UpdateInspectionParams struct {
 	ID                uuid.UUID      `json:"id"`
 	Title             string         `json:"title"`
-	SiteID            uuid.NullUUID  `json:"site_id"`
+	ClientID          uuid.NullUUID  `json:"client_id"`
 	InspectionDate    time.Time      `json:"inspection_date"`
 	WeatherConditions sql.NullString `json:"weather_conditions"`
 	Temperature       sql.NullString `json:"temperature"`
 	InspectorNotes    sql.NullString `json:"inspector_notes"`
+	AddressLine1      string         `json:"address_line1"`
+	AddressLine2      sql.NullString `json:"address_line2"`
+	City              string         `json:"city"`
+	State             string         `json:"state"`
+	PostalCode        string         `json:"postal_code"`
 }
 
 func (q *Queries) UpdateInspection(ctx context.Context, arg UpdateInspectionParams) error {
 	_, err := q.db.ExecContext(ctx, updateInspection,
 		arg.ID,
 		arg.Title,
-		arg.SiteID,
+		arg.ClientID,
 		arg.InspectionDate,
 		arg.WeatherConditions,
 		arg.Temperature,
 		arg.InspectorNotes,
+		arg.AddressLine1,
+		arg.AddressLine2,
+		arg.City,
+		arg.State,
+		arg.PostalCode,
 	)
 	return err
 }
@@ -474,11 +562,16 @@ func (q *Queries) UpdateInspection(ctx context.Context, arg UpdateInspectionPara
 const updateInspectionByIDAndUserID = `-- name: UpdateInspectionByIDAndUserID :exec
 UPDATE inspections
 SET title = $3,
-    site_id = $4,
+    client_id = $4,
     inspection_date = $5,
     weather_conditions = $6,
     temperature = $7,
     inspector_notes = $8,
+    address_line1 = $9,
+    address_line2 = $10,
+    city = $11,
+    state = $12,
+    postal_code = $13,
     updated_at = NOW()
 WHERE id = $1 AND user_id = $2
 `
@@ -487,11 +580,16 @@ type UpdateInspectionByIDAndUserIDParams struct {
 	ID                uuid.UUID      `json:"id"`
 	UserID            uuid.UUID      `json:"user_id"`
 	Title             string         `json:"title"`
-	SiteID            uuid.NullUUID  `json:"site_id"`
+	ClientID          uuid.NullUUID  `json:"client_id"`
 	InspectionDate    time.Time      `json:"inspection_date"`
 	WeatherConditions sql.NullString `json:"weather_conditions"`
 	Temperature       sql.NullString `json:"temperature"`
 	InspectorNotes    sql.NullString `json:"inspector_notes"`
+	AddressLine1      string         `json:"address_line1"`
+	AddressLine2      sql.NullString `json:"address_line2"`
+	City              string         `json:"city"`
+	State             string         `json:"state"`
+	PostalCode        string         `json:"postal_code"`
 }
 
 func (q *Queries) UpdateInspectionByIDAndUserID(ctx context.Context, arg UpdateInspectionByIDAndUserIDParams) error {
@@ -499,11 +597,16 @@ func (q *Queries) UpdateInspectionByIDAndUserID(ctx context.Context, arg UpdateI
 		arg.ID,
 		arg.UserID,
 		arg.Title,
-		arg.SiteID,
+		arg.ClientID,
 		arg.InspectionDate,
 		arg.WeatherConditions,
 		arg.Temperature,
 		arg.InspectorNotes,
+		arg.AddressLine1,
+		arg.AddressLine2,
+		arg.City,
+		arg.State,
+		arg.PostalCode,
 	)
 	return err
 }

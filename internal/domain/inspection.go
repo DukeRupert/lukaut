@@ -89,7 +89,7 @@ func (s InspectionStatus) CanTransitionTo(target InspectionStatus) bool {
 type Inspection struct {
 	ID                uuid.UUID        // Unique identifier
 	UserID            uuid.UUID        // Owner of the inspection
-	SiteID            *uuid.UUID       // Optional: Associated site
+	ClientID          *uuid.UUID       // Optional: Associated client
 	Title             string           // Inspection title/name
 	Status            InspectionStatus // Current status
 	InspectionDate    time.Time        // Date when inspection was/will be conducted
@@ -99,17 +99,31 @@ type Inspection struct {
 	CreatedAt         time.Time        // When inspection was created
 	UpdatedAt         time.Time        // When inspection was last modified
 
+	// Address fields (required)
+	AddressLine1 string // Street address
+	AddressLine2 string // Optional: Apt, suite, etc.
+	City         string // City
+	State        string // State
+	PostalCode   string // Postal/ZIP code
+
 	// Computed fields (not stored in database, populated by queries/services)
 	ViolationCount int    // Number of violations found in this inspection
-	SiteName       string // Name of associated site (if any)
-	SiteAddress    string // Full address of site (for display)
-	SiteCity       string // City of site
-	SiteState      string // State of site
+	ClientName     string // Name of associated client (if any)
 }
 
-// HasSite returns true if the inspection is associated with a site.
-func (i *Inspection) HasSite() bool {
-	return i.SiteID != nil
+// HasClient returns true if the inspection is associated with a client.
+func (i *Inspection) HasClient() bool {
+	return i.ClientID != nil
+}
+
+// FullAddress returns the formatted full address.
+func (i *Inspection) FullAddress() string {
+	addr := i.AddressLine1
+	if i.AddressLine2 != "" {
+		addr += ", " + i.AddressLine2
+	}
+	addr += ", " + i.City + ", " + i.State + " " + i.PostalCode
+	return addr
 }
 
 // IsEditable returns true if the inspection can be edited.
@@ -138,24 +152,34 @@ func (i *Inspection) CanGenerateReport() bool {
 // CreateInspectionParams contains validated parameters for creating an inspection.
 type CreateInspectionParams struct {
 	UserID            uuid.UUID  // Owner of the inspection (from auth context)
-	SiteID            *uuid.UUID // Optional: Associated site
+	ClientID          *uuid.UUID // Optional: Associated client
 	Title             string     // Required: Inspection title
 	InspectionDate    time.Time  // Required: Date of inspection
 	WeatherConditions string     // Optional
 	Temperature       string     // Optional
 	InspectorNotes    string     // Optional
+	AddressLine1      string     // Required: Street address
+	AddressLine2      string     // Optional: Apt, suite, etc.
+	City              string     // Required: City
+	State             string     // Required: State
+	PostalCode        string     // Required: Postal/ZIP code
 }
 
 // UpdateInspectionParams contains validated parameters for updating an inspection.
 type UpdateInspectionParams struct {
 	ID                uuid.UUID  // Inspection to update
 	UserID            uuid.UUID  // Owner (for authorization)
-	SiteID            *uuid.UUID // Optional: Associated site
+	ClientID          *uuid.UUID // Optional: Associated client
 	Title             string     // Required: Inspection title
 	InspectionDate    time.Time  // Required: Date of inspection
 	WeatherConditions string     // Optional
 	Temperature       string     // Optional
 	InspectorNotes    string     // Optional
+	AddressLine1      string     // Required: Street address
+	AddressLine2      string     // Optional: Apt, suite, etc.
+	City              string     // Required: City
+	State             string     // Required: State
+	PostalCode        string     // Required: Postal/ZIP code
 }
 
 // ListInspectionsParams contains parameters for listing inspections.
