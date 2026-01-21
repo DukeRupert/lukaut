@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 
 	"github.com/DukeRupert/lukaut/internal/domain"
@@ -64,7 +65,7 @@ func (g *PDFGenerator) Generate(ctx context.Context, data *domain.ReportData, w 
 	g.addCoverPage(pdf, data)
 	g.addExecutiveSummary(pdf, data)
 	g.addSiteInformation(pdf, data)
-	g.addFindings(pdf, data)
+	g.addFindings(ctx, pdf, data)
 
 	// Only add appendix if there are regulations to show
 	if g.hasRegulations(data) {
@@ -327,7 +328,7 @@ func (g *PDFGenerator) addSiteInformation(pdf *fpdf.Fpdf, data *domain.ReportDat
 // Findings Section
 // =============================================================================
 
-func (g *PDFGenerator) addFindings(pdf *fpdf.Fpdf, data *domain.ReportData) {
+func (g *PDFGenerator) addFindings(ctx context.Context, pdf *fpdf.Fpdf, data *domain.ReportData) {
 	pdf.AddPage()
 	g.addSectionHeader(pdf, "Inspection Findings")
 
@@ -339,11 +340,11 @@ func (g *PDFGenerator) addFindings(pdf *fpdf.Fpdf, data *domain.ReportData) {
 
 	for i, violation := range data.Violations {
 		// Check if we need a new page (leave room for at least basic violation info)
-		if pdf.GetY() > 230 {
+		if pdf.GetY() > 200 {
 			pdf.AddPage()
 		}
 
-		g.addViolation(pdf, data, violation, i+1)
+		g.addViolation(ctx, pdf, violation, i+1)
 
 		// Add spacing between violations
 		if i < len(data.Violations)-1 {
@@ -357,7 +358,7 @@ func (g *PDFGenerator) addFindings(pdf *fpdf.Fpdf, data *domain.ReportData) {
 	}
 }
 
-func (g *PDFGenerator) addViolation(pdf *fpdf.Fpdf, data *domain.ReportData, violation domain.ReportViolation, number int) {
+func (g *PDFGenerator) addViolation(ctx context.Context, pdf *fpdf.Fpdf, violation domain.ReportViolation, number int) {
 	// Violation header with severity indicator
 	r, gr, b := HexToRGB(SeverityColor(violation.Severity))
 	pdf.SetFillColor(r, gr, b)
@@ -381,6 +382,20 @@ func (g *PDFGenerator) addViolation(pdf *fpdf.Fpdf, data *domain.ReportData, vio
 	// Reset text color
 	r, gr, b = HexToRGB(BrandColors.TextDark)
 	pdf.SetTextColor(r, gr, b)
+
+	// Embed violation image if available
+	if violation.ThumbnailURL != "" {
+		imgData, err := DownloadImage(ctx, violation.ThumbnailURL)
+		if err != nil {
+			slog.Warn("Failed to download violation image for PDF",
+				"violation_number", number,
+				"error", err,
+			)
+		} else if imgData != nil {
+			g.embedImage(pdf, imgData, number)
+			pdf.Ln(4)
+		}
+	}
 
 	// Description
 	pdf.SetFont("Helvetica", "B", 10)
@@ -433,6 +448,70 @@ func (g *PDFGenerator) addViolation(pdf *fpdf.Fpdf, data *domain.ReportData, vio
 		pdf.SetFont("Helvetica", "I", 10)
 		pdf.MultiCell(g.contentWidth, 5, violation.InspectorNotes, "", "L", false)
 	}
+}
+
+// embedImage adds an image to the PDF at the current position.
+func (g *PDFGenerator) embedImage(pdf *fpdf.Fpdf, imgData *ImageData, violationNum int) {
+	// Determine image type from content type
+	var imageType string
+	switch imgData.ContentType {
+	case "image/jpeg", "image/jpg":
+		imageType = "JPEG"
+	case "image/png":
+		imageType = "PNG"
+	case "image/gif":
+		imageType = "GIF"
+	default:
+		imageType = "JPEG" // Default fallback
+	}
+
+	// Register the image with a unique name
+	imageName := fmt.Sprintf("violation_%d", violationNum)
+	reader := bytes.NewReader(imgData.Data)
+
+	opts := fpdf.ImageOptions{
+		ImageType:             imageType,
+		ReadDpi:               true,
+		AllowNegativePosition: false,
+	}
+
+	pdf.RegisterImageOptionsReader(imageName, opts, reader)
+
+	// Calculate image dimensions to fit within content width
+	// Max width: content width, Max height: 60mm to keep violations compact
+	maxWidth := g.contentWidth
+	maxHeight := 60.0
+
+	// Get image info for aspect ratio calculation
+	imgInfo := pdf.GetImageInfo(imageName)
+	if imgInfo == nil {
+		return
+	}
+
+	// Calculate scaled dimensions maintaining aspect ratio
+	imgWidth := imgInfo.Width()
+	imgHeight := imgInfo.Height()
+
+	// Scale to fit within max dimensions
+	scale := 1.0
+	if imgWidth > maxWidth {
+		scale = maxWidth / imgWidth
+	}
+	if imgHeight*scale > maxHeight {
+		scale = maxHeight / imgHeight
+	}
+
+	finalWidth := imgWidth * scale
+	finalHeight := imgHeight * scale
+
+	// Add image label
+	pdf.SetFont("Helvetica", "B", 10)
+	pdf.Cell(0, 6, "Photo Evidence:")
+	pdf.Ln(6)
+
+	// Place the image
+	pdf.ImageOptions(imageName, g.margin, pdf.GetY(), finalWidth, finalHeight, false, opts, 0, "")
+	pdf.SetY(pdf.GetY() + finalHeight + 4)
 }
 
 // =============================================================================

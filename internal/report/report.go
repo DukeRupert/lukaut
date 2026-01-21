@@ -6,8 +6,12 @@
 package report
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"io"
+	"net/http"
+	"time"
 
 	"github.com/DukeRupert/lukaut/internal/domain"
 )
@@ -147,4 +151,57 @@ func FormatDate(t interface{ Format(string) string }) string {
 // FormatDateTime formats a datetime for display in reports.
 func FormatDateTime(t interface{ Format(string) string }) string {
 	return t.Format("January 2, 2006 at 3:04 PM")
+}
+
+// =============================================================================
+// Image Download Helper
+// =============================================================================
+
+// ImageData holds downloaded image data for embedding in reports.
+type ImageData struct {
+	Data        []byte
+	ContentType string
+}
+
+// httpClient is a shared client with reasonable timeouts for image downloads.
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
+
+// DownloadImage fetches an image from a URL and returns its data.
+// Returns nil if the URL is empty or download fails (non-fatal for reports).
+func DownloadImage(ctx context.Context, url string) (*ImageData, error) {
+	if url == "" {
+		return nil, nil
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("download image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download failed with status: %d", resp.StatusCode)
+	}
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, resp.Body); err != nil {
+		return nil, fmt.Errorf("read image data: %w", err)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "image/jpeg" // Default fallback
+	}
+
+	return &ImageData{
+		Data:        buf.Bytes(),
+		ContentType: contentType,
+	}, nil
 }

@@ -5,9 +5,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/unidoc/unioffice/color"
+	"github.com/unidoc/unioffice/common"
 	"github.com/unidoc/unioffice/document"
 	"github.com/unidoc/unioffice/measurement"
 )
@@ -43,7 +45,7 @@ func (g *DOCXGenerator) Generate(ctx context.Context, data *domain.ReportData, w
 	g.addCoverSection(doc, data)
 	g.addExecutiveSummary(doc, data)
 	g.addSiteInformation(doc, data)
-	g.addFindings(doc, data)
+	g.addFindings(ctx, doc, data)
 
 	if g.hasRegulations(data) {
 		g.addAppendix(doc, data)
@@ -254,7 +256,7 @@ func (g *DOCXGenerator) addSiteInformation(doc *document.Document, data *domain.
 // Findings Section
 // =============================================================================
 
-func (g *DOCXGenerator) addFindings(doc *document.Document, data *domain.ReportData) {
+func (g *DOCXGenerator) addFindings(ctx context.Context, doc *document.Document, data *domain.ReportData) {
 	g.addSectionHeader(doc, "Inspection Findings")
 
 	if len(data.Violations) == 0 {
@@ -266,7 +268,7 @@ func (g *DOCXGenerator) addFindings(doc *document.Document, data *domain.ReportD
 	}
 
 	for i, violation := range data.Violations {
-		g.addViolation(doc, violation, i+1)
+		g.addViolation(ctx, doc, violation, i+1)
 
 		if i < len(data.Violations)-1 {
 			// Add separator between violations (using spacing)
@@ -281,7 +283,7 @@ func (g *DOCXGenerator) addFindings(doc *document.Document, data *domain.ReportD
 	doc.AddParagraph().AddRun().AddPageBreak()
 }
 
-func (g *DOCXGenerator) addViolation(doc *document.Document, violation domain.ReportViolation, number int) {
+func (g *DOCXGenerator) addViolation(ctx context.Context, doc *document.Document, violation domain.ReportViolation, number int) {
 	// Violation header
 	header := doc.AddParagraph()
 	headerRun := header.AddRun()
@@ -298,6 +300,19 @@ func (g *DOCXGenerator) addViolation(doc *document.Document, violation domain.Re
 	r, g_, b := HexToRGB(SeverityColor(violation.Severity))
 	sevValue.Properties().SetColor(color.RGB(uint8(r), uint8(g_), uint8(b)))
 	sevValue.AddText(SeverityLabel(violation.Severity))
+
+	// Embed violation image if available
+	if violation.ThumbnailURL != "" {
+		imgData, err := DownloadImage(ctx, violation.ThumbnailURL)
+		if err != nil {
+			slog.Warn("Failed to download violation image for DOCX",
+				"violation_number", number,
+				"error", err,
+			)
+		} else if imgData != nil {
+			g.embedImage(doc, imgData, number)
+		}
+	}
 
 	// Description
 	descLabel := doc.AddParagraph()
@@ -348,6 +363,70 @@ func (g *DOCXGenerator) addViolation(doc *document.Document, violation domain.Re
 	}
 
 	doc.AddParagraph() // Spacing
+}
+
+// embedImage adds an image to the DOCX document.
+func (g *DOCXGenerator) embedImage(doc *document.Document, imgData *ImageData, violationNum int) {
+	// Add image label
+	labelPara := doc.AddParagraph()
+	labelRun := labelPara.AddRun()
+	labelRun.Properties().SetBold(true)
+	labelRun.AddText("Photo Evidence:")
+
+	// Create image from bytes
+	imgRef, err := common.ImageFromBytes(imgData.Data)
+	if err != nil {
+		slog.Warn("Failed to create image reference for DOCX",
+			"violation_number", violationNum,
+			"error", err,
+		)
+		return
+	}
+
+	// Add image to document
+	docImg, err := doc.AddImage(imgRef)
+	if err != nil {
+		slog.Warn("Failed to add image to DOCX document",
+			"violation_number", violationNum,
+			"error", err,
+		)
+		return
+	}
+
+	// Add paragraph with inline image
+	imgPara := doc.AddParagraph()
+	inline, err := imgPara.AddRun().AddDrawingInline(docImg)
+	if err != nil {
+		slog.Warn("Failed to add inline drawing to DOCX",
+			"violation_number", violationNum,
+			"error", err,
+		)
+		return
+	}
+
+	// Set image size (max 5 inches wide, maintain aspect ratio)
+	maxWidth := measurement.Distance(5 * measurement.Inch)
+	maxHeight := measurement.Distance(3 * measurement.Inch)
+
+	imgSize := imgRef.Size
+	width := measurement.Distance(imgSize.X) * measurement.Pixel72
+	height := measurement.Distance(imgSize.Y) * measurement.Pixel72
+
+	// Scale down if needed while maintaining aspect ratio
+	if width > maxWidth {
+		scale := float64(maxWidth) / float64(width)
+		width = maxWidth
+		height = measurement.Distance(float64(height) * scale)
+	}
+	if height > maxHeight {
+		scale := float64(maxHeight) / float64(height)
+		height = maxHeight
+		width = measurement.Distance(float64(width) * scale)
+	}
+
+	inline.SetSize(width, height)
+
+	doc.AddParagraph() // Spacing after image
 }
 
 // =============================================================================
