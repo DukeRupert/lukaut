@@ -1,6 +1,7 @@
 package clients
 
 import (
+	"github.com/DukeRupert/lukaut/internal/templ/components/pagination"
 	"github.com/DukeRupert/lukaut/internal/templ/layouts"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
 )
@@ -18,15 +19,20 @@ templ IndexPage(data ListPageData) {
 		@shared.InlineFlash(data.Flash)
 		// Page header
 		@PageHeader("Clients", "Manage your construction company clients.", "New Client", "/clients/new")
-		if len(data.Clients) > 0 {
-			// Clients table
-			@ClientsTable(data.Clients)
-			// Pagination
-			@Pagination(data.Pagination, "/clients")
-		} else {
-			// Empty state
-			@EmptyState("No clients yet", "Get started by adding your first client.", "New Client", "/clients/new")
-		}
+		// Content area for htmx partial swaps
+		<div id="content-area">
+			if len(data.Clients) > 0 {
+				@ClientsTable(data.Clients)
+				@pagination.Pagination(data.Pagination, pagination.Config{
+					BaseURL:  "/clients",
+					TargetID: "content-area",
+					UseHtmx:  true,
+					PushURL:  true,
+				})
+			} else {
+				@EmptyState("No clients yet", "Get started by adding your first client.", "New Client", "/clients/new")
+			}
+		</div>
 	}
 }
 

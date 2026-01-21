@@ -13,6 +13,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/DukeRupert/lukaut/internal/templ/components/pagination"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/clients"
 	"github.com/DukeRupert/lukaut/internal/templ/partials"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
@@ -466,7 +467,7 @@ func (h *ClientHandler) renderError(w http.ResponseWriter, r *http.Request, mess
 		CSRFToken:   "",
 		User:        domainUserToClientDisplay(user),
 		Clients:     []clients.DisplayClient{},
-		Pagination:  clients.PaginationData{},
+		Pagination:  pagination.Data{},
 		Flash: &shared.Flash{
 			Type:    shared.FlashError,
 			Message: message,

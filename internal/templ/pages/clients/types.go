@@ -1,6 +1,9 @@
 package clients
 
-import "github.com/DukeRupert/lukaut/internal/templ/shared"
+import (
+	"github.com/DukeRupert/lukaut/internal/templ/components/pagination"
+	"github.com/DukeRupert/lukaut/internal/templ/shared"
+)
 
 // DisplayClient contains client data formatted for display
 type DisplayClient struct {
@@ -40,18 +43,6 @@ type ClientFormValues struct {
 	Notes        string
 }
 
-// PaginationData contains pagination information
-type PaginationData struct {
-	CurrentPage int
-	TotalPages  int
-	PerPage     int
-	Total       int
-	HasPrevious bool
-	HasNext     bool
-	PrevPage    int
-	NextPage    int
-}
-
 // UserDisplay contains user info for display
 type UserDisplay struct {
 	Name               string
@@ -65,7 +56,7 @@ type ListPageData struct {
 	CSRFToken   string
 	User        *UserDisplay
 	Clients     []DisplayClient
-	Pagination  PaginationData
+	Pagination  pagination.Data
 	Flash       *shared.Flash
 }
 

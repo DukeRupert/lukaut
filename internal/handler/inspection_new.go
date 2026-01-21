@@ -13,6 +13,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/repository"
+	"github.com/DukeRupert/lukaut/internal/templ/components/pagination"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/inspections"
 	"github.com/DukeRupert/lukaut/internal/templ/partials"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
@@ -62,18 +63,44 @@ func (h *InspectionHandler) IndexTempl(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build pagination data
-	pagination := buildPaginationData(result)
+	paginationData := buildPaginationData(result)
+	sharedPagination := pagination.Data{
+		CurrentPage: paginationData.CurrentPage,
+		TotalPages:  paginationData.TotalPages,
+		PerPage:     paginationData.PerPage,
+		Total:       paginationData.Total,
+		HasPrevious: paginationData.HasPrevious,
+		HasNext:     paginationData.HasNext,
+		PrevPage:    paginationData.PrevPage,
+		NextPage:    paginationData.NextPage,
+	}
 
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// Check if this is an htmx request - return just the table partial
+	if r.Header.Get("HX-Request") == "true" {
+		partialData := inspections.TablePartialData{
+			Inspections: displayInspections,
+			Pagination:  sharedPagination,
+			BaseURL:     "/inspections",
+		}
+		if err := inspections.TablePartial(partialData).Render(r.Context(), w); err != nil {
+			h.logger.Error("failed to render inspections table partial", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Full page render
 	data := inspections.ListPageData{
 		CurrentPath: r.URL.Path,
 		CSRFToken:   "",
 		User:        domainUserToInspectionDisplay(user),
 		Inspections: displayInspections,
-		Pagination:  domainPaginationToTempl(pagination),
+		Pagination:  sharedPagination,
 		Flash:       nil,
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := inspections.IndexPage(data).Render(r.Context(), w); err != nil {
 		h.logger.Error("failed to render inspections index", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -881,9 +908,9 @@ func domainClientsToOptions(clients []ClientOption) []inspections.ClientOption {
 	return options
 }
 
-// domainPaginationToTempl converts PaginationData to inspections.PaginationData
-func domainPaginationToTempl(p PaginationData) inspections.PaginationData {
-	return inspections.PaginationData{
+// domainPaginationToShared converts PaginationData to shared pagination.Data
+func domainPaginationToShared(p PaginationData) pagination.Data {
+	return pagination.Data{
 		CurrentPage: p.CurrentPage,
 		TotalPages:  p.TotalPages,
 		PerPage:     p.PerPage,
@@ -971,7 +998,7 @@ func (h *InspectionHandler) renderIndexErrorTempl(w http.ResponseWriter, r *http
 		CSRFToken:   "",
 		User:        domainUserToInspectionDisplay(user),
 		Inspections: []inspections.InspectionListItem{},
-		Pagination:  inspections.PaginationData{},
+		Pagination:  pagination.Data{},
 		Flash: &shared.Flash{
 			Type:    shared.FlashError,
 			Message: message,

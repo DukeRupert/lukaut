@@ -9,6 +9,7 @@ import (
 
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
+	"github.com/DukeRupert/lukaut/internal/templ/components/pagination"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/clients"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
 	"github.com/google/uuid"
@@ -53,16 +54,16 @@ func (h *ClientHandler) IndexTempl(w http.ResponseWriter, r *http.Request) {
 	displayClients := make([]clients.DisplayClient, len(result.Clients))
 	for i, c := range result.Clients {
 		displayClients[i] = clients.DisplayClient{
-			ID:        c.ID.String(),
-			Name:      c.Name,
-			Email:     c.Email,
-			Phone:     c.Phone,
+			ID:              c.ID.String(),
+			Name:            c.Name,
+			Email:           c.Email,
+			Phone:           c.Phone,
 			InspectionCount: c.InspectionCount,
 		}
 	}
 
 	// Build pagination data
-	pagination := clients.PaginationData{
+	paginationData := pagination.Data{
 		CurrentPage: result.CurrentPage(),
 		TotalPages:  result.TotalPages(),
 		PerPage:     int(result.Limit),
@@ -73,16 +74,32 @@ func (h *ClientHandler) IndexTempl(w http.ResponseWriter, r *http.Request) {
 		NextPage:    result.CurrentPage() + 1,
 	}
 
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// Check if this is an htmx request - return just the table partial
+	if r.Header.Get("HX-Request") == "true" {
+		partialData := clients.TablePartialData{
+			Clients:    displayClients,
+			Pagination: paginationData,
+			BaseURL:    "/clients",
+		}
+		if err := clients.TablePartial(partialData).Render(r.Context(), w); err != nil {
+			h.logger.Error("failed to render clients table partial", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Full page render
 	data := clients.ListPageData{
 		CurrentPath: r.URL.Path,
 		CSRFToken:   "",
 		User:        domainUserToClientDisplay(user),
 		Clients:     displayClients,
-		Pagination:  pagination,
+		Pagination:  paginationData,
 		Flash:       nil,
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := clients.IndexPage(data).Render(r.Context(), w); err != nil {
 		h.logger.Error("failed to render clients index", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -276,7 +293,7 @@ func (h *ClientHandler) renderIndexErrorTempl(w http.ResponseWriter, r *http.Req
 		CSRFToken:   "",
 		User:        domainUserToClientDisplay(user),
 		Clients:     []clients.DisplayClient{},
-		Pagination:  clients.PaginationData{},
+		Pagination:  pagination.Data{},
 		Flash: &shared.Flash{
 			Type:    shared.FlashError,
 			Message: message,

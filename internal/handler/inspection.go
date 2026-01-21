@@ -16,6 +16,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/DukeRupert/lukaut/internal/templ/components/pagination"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/inspections"
 	"github.com/DukeRupert/lukaut/internal/templ/partials"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
@@ -716,7 +717,7 @@ func (h *InspectionHandler) renderError(w http.ResponseWriter, r *http.Request, 
 		CSRFToken:   "",
 		User:        domainUserToInspectionDisplay(user),
 		Inspections: []inspections.InspectionListItem{},
-		Pagination:  inspections.PaginationData{},
+		Pagination:  pagination.Data{},
 		Flash: &shared.Flash{
 			Type:    shared.FlashError,
 			Message: message,

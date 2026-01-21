@@ -1,0 +1,83 @@
+package clients
+
+import (
+	"fmt"
+
+	"github.com/DukeRupert/lukaut/internal/templ/components/pagination"
+)
+
+// TablePartialData contains data for the table partial (htmx swap target).
+type TablePartialData struct {
+	Clients    []DisplayClient
+	Pagination pagination.Data
+	BaseURL    string
+}
+
+// TablePartial renders just the table and pagination (for htmx partial swaps).
+templ TablePartial(data TablePartialData) {
+	if len(data.Clients) > 0 {
+		@ClientsTableHtmx(data.Clients)
+		@pagination.Pagination(data.Pagination, pagination.Config{
+			BaseURL:  data.BaseURL,
+			TargetID: "content-area",
+			UseHtmx:  true,
+			PushURL:  true,
+		})
+	} else {
+		@EmptyState("No clients yet", "Get started by adding your first client.", "New Client", "/clients/new")
+	}
+}
+
+// ClientsTableHtmx renders just the clients table (without the outer wrapper for htmx).
+templ ClientsTableHtmx(clients []DisplayClient) {
+	<div class="flow-root">
+		<div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+			<div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+				<div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+					<table class="min-w-full divide-y divide-gray-300">
+						<thead class="bg-gray-50">
+							<tr>
+								<th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Name</th>
+								<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Email</th>
+								<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Phone</th>
+								<th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Inspections</th>
+								<th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
+									<span class="sr-only">Actions</span>
+								</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-gray-200 bg-white">
+							for _, client := range clients {
+								<tr>
+									<td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+										<a href={ templ.SafeURL(fmt.Sprintf("/clients/%s", client.ID)) } class="hover:text-primary">{ client.Name }</a>
+									</td>
+									<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+										if client.Email != "" {
+											{ client.Email }
+										} else {
+											<span class="text-gray-400 italic">-</span>
+										}
+									</td>
+									<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+										if client.Phone != "" {
+											{ client.Phone }
+										} else {
+											<span class="text-gray-400 italic">-</span>
+										}
+									</td>
+									<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{ fmt.Sprintf("%d", client.InspectionCount) }</td>
+									<td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+										<a href={ templ.SafeURL(fmt.Sprintf("/clients/%s", client.ID)) } class="text-primary hover:text-primary/80">
+											View<span class="sr-only">, { client.Name }</span>
+										</a>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+}
