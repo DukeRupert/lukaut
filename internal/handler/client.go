@@ -395,7 +395,9 @@ func (h *ClientHandler) QuickCreate(w http.ResponseWriter, r *http.Request) {
 			Errors: errors,
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		partials.QuickClientForm(data).Render(r.Context(), w)
+		if err := partials.QuickClientForm(data).Render(r.Context(), w); err != nil {
+			h.logger.Error("failed to render quick client form", "error", err)
+		}
 		return
 	}
 
@@ -441,23 +443,6 @@ func (h *ClientHandler) QuickCreate(w http.ResponseWriter, r *http.Request) {
 // =============================================================================
 // Helper Functions
 // =============================================================================
-
-// buildClientPaginationData builds pagination data from a client list result.
-func buildClientPaginationData(result *domain.ListClientsResult) PaginationData {
-	currentPage := result.CurrentPage()
-	totalPages := result.TotalPages()
-
-	return PaginationData{
-		CurrentPage: currentPage,
-		TotalPages:  totalPages,
-		PerPage:     int(result.Limit),
-		Total:       int(result.Total),
-		HasPrevious: result.HasPrevious(),
-		HasNext:     result.HasMore(),
-		PrevPage:    currentPage - 1,
-		NextPage:    currentPage + 1,
-	}
-}
 
 // renderError renders a generic error page using templ.
 func (h *ClientHandler) renderError(w http.ResponseWriter, r *http.Request, message string) {

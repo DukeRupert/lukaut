@@ -175,7 +175,7 @@ func (h *RegulationHandler) AddToViolation(w http.ResponseWriter, r *http.Reques
 		// Already linked
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Regulation already linked"))
+		_, _ = w.Write([]byte("Regulation already linked"))
 		return
 	}
 
@@ -203,7 +203,7 @@ func (h *RegulationHandler) AddToViolation(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("HX-Trigger", "regulationLinked")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("Regulation added successfully"))
+	_, _ = w.Write([]byte("Regulation added successfully"))
 }
 
 // =============================================================================
@@ -279,7 +279,7 @@ func (h *RegulationHandler) RemoveFromViolation(w http.ResponseWriter, r *http.R
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("HX-Trigger", "regulationUnlinked")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Regulation removed successfully"))
+	_, _ = w.Write([]byte("Regulation removed successfully"))
 }
 
 // =============================================================================

@@ -35,21 +35,21 @@ type FormPageData struct {
 
 // ShowPageData contains data for the inspection detail page.
 type ShowPageData struct {
-	CurrentPath     string
-	CSRFToken       string
-	User            *UserDisplay
-	Inspection      *InspectionDisplay
-	InspectionID    string
-	CanUpload       bool
-	IsAnalyzing     bool
-	GalleryData     ImageGalleryData
-	AnalysisStatus  AnalysisStatusData
-	Violations      []ViolationDisplay
-	ViolationCounts ViolationCountsData
-	Reports         []ReportDisplay
-	ClientEmail     string // Pre-populated client email for report delivery
-	CanGenerateReport bool // True if inspection has confirmed violations
-	Flash           *shared.Flash
+	CurrentPath       string
+	CSRFToken         string
+	User              *UserDisplay
+	Inspection        *InspectionDisplay
+	InspectionID      string
+	CanUpload         bool
+	IsAnalyzing       bool
+	GalleryData       ImageGalleryData
+	AnalysisStatus    AnalysisStatusData
+	Violations        []ViolationDisplay
+	ViolationCounts   ViolationCountsData
+	Reports           []ReportDisplay
+	ClientEmail       string // Pre-populated client email for report delivery
+	CanGenerateReport bool   // True if inspection has confirmed violations
+	Flash             *shared.Flash
 }
 
 // ReviewPageData contains data for the violation review page.

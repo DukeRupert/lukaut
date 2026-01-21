@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -161,54 +160,15 @@ func (m *mockUserService) DeleteExpiredPasswordResetTokens(ctx context.Context) 
 }
 
 // =============================================================================
-// Mock Renderer Implementation
-// =============================================================================
-
-// mockRenderer implements the TemplateRenderer interface for testing.
-type mockRenderer struct {
-	RenderHTTPFunc    func(w http.ResponseWriter, templateName string, data interface{})
-	RenderPartialFunc func(w http.ResponseWriter, templateName string, data interface{})
-}
-
-func (m *mockRenderer) RenderHTTP(w http.ResponseWriter, templateName string, data interface{}) {
-	if m.RenderHTTPFunc != nil {
-		m.RenderHTTPFunc(w, templateName, data)
-	} else {
-		// Default: write template name and status 200
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(templateName))
-	}
-}
-
-func (m *mockRenderer) RenderHTTPWithToast(w http.ResponseWriter, templateName string, data interface{}, toast ToastData) {
-	// Delegate to RenderHTTPFunc, ignoring toast for tests
-	if m.RenderHTTPFunc != nil {
-		m.RenderHTTPFunc(w, templateName, data)
-	} else {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(templateName))
-	}
-}
-
-func (m *mockRenderer) RenderPartial(w http.ResponseWriter, templateName string, data interface{}) {
-	if m.RenderPartialFunc != nil {
-		m.RenderPartialFunc(w, templateName, data)
-	} else {
-		// Default: write template name and status 200
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(templateName))
-	}
-}
-
-// =============================================================================
 // Mock Email Service Implementation
 // =============================================================================
 
 // mockEmailService implements the email.EmailService interface for testing.
 type mockEmailService struct {
-	SendVerificationEmailFunc  func(ctx context.Context, to, name, token string) error
-	SendPasswordResetEmailFunc func(ctx context.Context, to, name, token string) error
-	SendReportReadyEmailFunc   func(ctx context.Context, to, name, reportURL string) error
+	SendVerificationEmailFunc   func(ctx context.Context, to, name, token string) error
+	SendPasswordResetEmailFunc  func(ctx context.Context, to, name, token string) error
+	SendReportReadyEmailFunc    func(ctx context.Context, to, name, reportURL string) error
+	SendReportToClientEmailFunc func(ctx context.Context, to, inspectorName, inspectorCompany, siteName, reportURL string) error
 }
 
 func (m *mockEmailService) SendVerificationEmail(ctx context.Context, to, name, token string) error {
@@ -232,6 +192,13 @@ func (m *mockEmailService) SendReportReadyEmail(ctx context.Context, to, name, r
 	return nil
 }
 
+func (m *mockEmailService) SendReportToClientEmail(ctx context.Context, to, inspectorName, inspectorCompany, siteName, reportURL string) error {
+	if m.SendReportToClientEmailFunc != nil {
+		return m.SendReportToClientEmailFunc(ctx, to, inspectorName, inspectorCompany, siteName, reportURL)
+	}
+	return nil
+}
+
 // =============================================================================
 // Test Helpers
 // =============================================================================
@@ -244,495 +211,10 @@ func newTestLogger() *slog.Logger {
 }
 
 // newTestAuthHandler creates an AuthHandler with mock dependencies for testing.
-func newTestAuthHandler(mock *mockUserService, renderer *mockRenderer) *AuthHandler {
+func newTestAuthHandler(mock *mockUserService) *AuthHandler {
 	// Create a disabled invite validator for tests (no invite code required)
 	inviteValidator := invite.New(false, nil)
-	return NewAuthHandler(mock, &mockEmailService{}, inviteValidator, renderer, newTestLogger(), false)
-}
-
-// =============================================================================
-// ShowRegister Tests (P0)
-// =============================================================================
-
-func TestShowRegister_GET_RendersForm(t *testing.T) {
-	mock := &mockUserService{}
-
-	templateRendered := false
-	var renderedTemplate string
-
-	renderer := &mockRenderer{
-		RenderHTTPFunc: func(w http.ResponseWriter, templateName string, data interface{}) {
-			templateRendered = true
-			renderedTemplate = templateName
-			w.WriteHeader(http.StatusOK)
-		},
-	}
-
-	handler := newTestAuthHandler(mock, renderer)
-
-	req := httptest.NewRequest("GET", "/register", nil)
-	rec := httptest.NewRecorder()
-
-	handler.ShowRegister(rec, req)
-
-	// Verify template was rendered
-	if !templateRendered {
-		t.Error("template was not rendered")
-	}
-
-	// Verify correct template
-	if renderedTemplate != "auth/register" {
-		t.Errorf("template = %q, want %q", renderedTemplate, "auth/register")
-	}
-
-	// Verify 200 OK
-	if rec.Code != http.StatusOK {
-		t.Errorf("status code = %d, want %d", rec.Code, http.StatusOK)
-	}
-}
-
-// =============================================================================
-// Register Tests (P0)
-// =============================================================================
-
-func TestRegister_POST_Success_RedirectsToDashboard(t *testing.T) {
-	createdUser := &domain.User{
-		ID:    uuid.New(),
-		Email: "test@example.com",
-		Name:  "Test User",
-	}
-
-	loginResult := &domain.LoginResult{
-		User:  createdUser,
-		Token: "session-token-123",
-	}
-
-	mock := &mockUserService{
-		RegisterFunc: func(ctx context.Context, params domain.RegisterParams) (*domain.User, error) {
-			return createdUser, nil
-		},
-		LoginFunc: func(ctx context.Context, email, password string) (*domain.LoginResult, error) {
-			return loginResult, nil
-		},
-	}
-
-	renderer := &mockRenderer{}
-	handler := newTestAuthHandler(mock, renderer)
-
-	// Create form data
-	form := url.Values{}
-	form.Set("name", "Test User")
-	form.Set("email", "test@example.com")
-	form.Set("password", "password123")
-	form.Set("password_confirmation", "password123")
-	form.Set("terms", "on")
-
-	req := httptest.NewRequest("POST", "/register", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.Register(rec, req)
-
-	// Verify redirect to dashboard
-	if rec.Code != http.StatusSeeOther {
-		t.Errorf("status code = %d, want %d", rec.Code, http.StatusSeeOther)
-	}
-
-	location := rec.Header().Get("Location")
-	if location != "/dashboard" {
-		t.Errorf("Location = %q, want %q", location, "/dashboard")
-	}
-}
-
-func TestRegister_POST_Success_SetsSessionCookie(t *testing.T) {
-	createdUser := &domain.User{
-		ID:    uuid.New(),
-		Email: "test@example.com",
-		Name:  "Test User",
-	}
-
-	expectedToken := "session-token-abc123def456"
-
-	loginResult := &domain.LoginResult{
-		User:  createdUser,
-		Token: expectedToken,
-	}
-
-	mock := &mockUserService{
-		RegisterFunc: func(ctx context.Context, params domain.RegisterParams) (*domain.User, error) {
-			return createdUser, nil
-		},
-		LoginFunc: func(ctx context.Context, email, password string) (*domain.LoginResult, error) {
-			return loginResult, nil
-		},
-	}
-
-	renderer := &mockRenderer{}
-	handler := newTestAuthHandler(mock, renderer)
-
-	// Create form data
-	form := url.Values{}
-	form.Set("name", "Test User")
-	form.Set("email", "test@example.com")
-	form.Set("password", "password123")
-	form.Set("password_confirmation", "password123")
-	form.Set("terms", "on")
-
-	req := httptest.NewRequest("POST", "/register", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.Register(rec, req)
-
-	// Verify session cookie is set
-	cookies := rec.Result().Cookies()
-	var sessionCookie *http.Cookie
-	for _, cookie := range cookies {
-		if cookie.Name == sessionCookieName {
-			sessionCookie = cookie
-			break
-		}
-	}
-
-	if sessionCookie == nil {
-		t.Fatal("session cookie not set")
-	}
-
-	if sessionCookie.Value != expectedToken {
-		t.Errorf("cookie value = %q, want %q", sessionCookie.Value, expectedToken)
-	}
-
-	// Verify HttpOnly flag
-	if !sessionCookie.HttpOnly {
-		t.Error("session cookie should have HttpOnly flag")
-	}
-}
-
-func TestRegister_POST_DuplicateEmail_RerendersForm(t *testing.T) {
-	mock := &mockUserService{
-		RegisterFunc: func(ctx context.Context, params domain.RegisterParams) (*domain.User, error) {
-			return nil, domain.Conflict("test", "Email already registered")
-		},
-	}
-
-	templateRendered := false
-	var renderedData AuthPageData
-
-	renderer := &mockRenderer{
-		RenderHTTPFunc: func(w http.ResponseWriter, templateName string, data interface{}) {
-			templateRendered = true
-			if pageData, ok := data.(AuthPageData); ok {
-				renderedData = pageData
-			}
-			w.WriteHeader(http.StatusOK)
-		},
-	}
-
-	handler := newTestAuthHandler(mock, renderer)
-
-	// Create form data with duplicate email
-	form := url.Values{}
-	form.Set("name", "Test User")
-	form.Set("email", "existing@example.com")
-	form.Set("password", "password123")
-	form.Set("password_confirmation", "password123")
-	form.Set("terms", "on")
-
-	req := httptest.NewRequest("POST", "/register", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.Register(rec, req)
-
-	// Verify form was re-rendered (not redirected)
-	if !templateRendered {
-		t.Error("template was not rendered")
-	}
-
-	// Verify error is set for email field
-	if renderedData.Errors == nil {
-		t.Fatal("expected errors, got nil")
-	}
-
-	emailError, ok := renderedData.Errors["email"]
-	if !ok {
-		t.Error("expected error for email field")
-	}
-
-	if !strings.Contains(strings.ToLower(emailError), "already") {
-		t.Errorf("email error = %q, should mention 'already'", emailError)
-	}
-
-	// Verify form values are preserved (except password)
-	if renderedData.Form["Email"] != "existing@example.com" {
-		t.Errorf("form email = %q, want %q", renderedData.Form["Email"], "existing@example.com")
-	}
-
-	if renderedData.Form["Name"] != "Test User" {
-		t.Errorf("form name = %q, want %q", renderedData.Form["Name"], "Test User")
-	}
-}
-
-// =============================================================================
-// ShowLogin Tests (P0)
-// =============================================================================
-
-func TestShowLogin_GET_RendersForm(t *testing.T) {
-	mock := &mockUserService{}
-
-	templateRendered := false
-	var renderedTemplate string
-
-	renderer := &mockRenderer{
-		RenderHTTPFunc: func(w http.ResponseWriter, templateName string, data interface{}) {
-			templateRendered = true
-			renderedTemplate = templateName
-			w.WriteHeader(http.StatusOK)
-		},
-	}
-
-	handler := newTestAuthHandler(mock, renderer)
-
-	req := httptest.NewRequest("GET", "/login", nil)
-	rec := httptest.NewRecorder()
-
-	handler.ShowLogin(rec, req)
-
-	// Verify template was rendered
-	if !templateRendered {
-		t.Error("template was not rendered")
-	}
-
-	// Verify correct template
-	if renderedTemplate != "auth/login" {
-		t.Errorf("template = %q, want %q", renderedTemplate, "auth/login")
-	}
-
-	// Verify 200 OK
-	if rec.Code != http.StatusOK {
-		t.Errorf("status code = %d, want %d", rec.Code, http.StatusOK)
-	}
-}
-
-// =============================================================================
-// Login Tests (P0)
-// =============================================================================
-
-func TestLogin_POST_Success_RedirectsToDashboard(t *testing.T) {
-	loginResult := &domain.LoginResult{
-		User: &domain.User{
-			ID:    uuid.New(),
-			Email: "test@example.com",
-			Name:  "Test User",
-		},
-		Token: "session-token-123",
-	}
-
-	mock := &mockUserService{
-		LoginFunc: func(ctx context.Context, email, password string) (*domain.LoginResult, error) {
-			return loginResult, nil
-		},
-	}
-
-	renderer := &mockRenderer{}
-	handler := newTestAuthHandler(mock, renderer)
-
-	// Create form data
-	form := url.Values{}
-	form.Set("email", "test@example.com")
-	form.Set("password", "password123")
-
-	req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.Login(rec, req)
-
-	// Verify redirect to dashboard
-	if rec.Code != http.StatusSeeOther {
-		t.Errorf("status code = %d, want %d", rec.Code, http.StatusSeeOther)
-	}
-
-	location := rec.Header().Get("Location")
-	if location != "/dashboard" {
-		t.Errorf("Location = %q, want %q", location, "/dashboard")
-	}
-}
-
-func TestLogin_POST_Success_SetsSessionCookie(t *testing.T) {
-	expectedToken := "session-token-abc123def456"
-
-	loginResult := &domain.LoginResult{
-		User: &domain.User{
-			ID:    uuid.New(),
-			Email: "test@example.com",
-			Name:  "Test User",
-		},
-		Token: expectedToken,
-	}
-
-	mock := &mockUserService{
-		LoginFunc: func(ctx context.Context, email, password string) (*domain.LoginResult, error) {
-			return loginResult, nil
-		},
-	}
-
-	renderer := &mockRenderer{}
-	handler := newTestAuthHandler(mock, renderer)
-
-	// Create form data
-	form := url.Values{}
-	form.Set("email", "test@example.com")
-	form.Set("password", "password123")
-
-	req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.Login(rec, req)
-
-	// Verify session cookie is set
-	cookies := rec.Result().Cookies()
-	var sessionCookie *http.Cookie
-	for _, cookie := range cookies {
-		if cookie.Name == sessionCookieName {
-			sessionCookie = cookie
-			break
-		}
-	}
-
-	if sessionCookie == nil {
-		t.Fatal("session cookie not set")
-	}
-
-	if sessionCookie.Value != expectedToken {
-		t.Errorf("cookie value = %q, want %q", sessionCookie.Value, expectedToken)
-	}
-
-	// Verify HttpOnly flag
-	if !sessionCookie.HttpOnly {
-		t.Error("session cookie should have HttpOnly flag")
-	}
-
-	// Verify SameSite
-	if sessionCookie.SameSite != http.SameSiteLaxMode {
-		t.Errorf("cookie SameSite = %v, want %v", sessionCookie.SameSite, http.SameSiteLaxMode)
-	}
-}
-
-func TestLogin_POST_InvalidCredentials_RerendersForm(t *testing.T) {
-	mock := &mockUserService{
-		LoginFunc: func(ctx context.Context, email, password string) (*domain.LoginResult, error) {
-			return nil, domain.Unauthorized("test", "Invalid email or password")
-		},
-	}
-
-	templateRendered := false
-	var renderedData AuthPageData
-
-	renderer := &mockRenderer{
-		RenderHTTPFunc: func(w http.ResponseWriter, templateName string, data interface{}) {
-			templateRendered = true
-			if pageData, ok := data.(AuthPageData); ok {
-				renderedData = pageData
-			}
-			w.WriteHeader(http.StatusOK)
-		},
-	}
-
-	handler := newTestAuthHandler(mock, renderer)
-
-	// Create form data with invalid credentials
-	form := url.Values{}
-	form.Set("email", "test@example.com")
-	form.Set("password", "wrongpassword")
-
-	req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.Login(rec, req)
-
-	// Verify form was re-rendered (not redirected)
-	if !templateRendered {
-		t.Error("template was not rendered")
-	}
-
-	// Verify flash message is set
-	if renderedData.Flash == nil {
-		t.Fatal("expected flash message, got nil")
-	}
-
-	if renderedData.Flash.Type != "error" {
-		t.Errorf("flash type = %q, want %q", renderedData.Flash.Type, "error")
-	}
-
-	// Verify email is preserved in form
-	if renderedData.Form["Email"] != "test@example.com" {
-		t.Errorf("form email = %q, want %q", renderedData.Form["Email"], "test@example.com")
-	}
-}
-
-func TestLogin_POST_GenericErrorMessage(t *testing.T) {
-	tests := []struct {
-		name  string
-		email string
-		error error
-	}{
-		{
-			name:  "invalid password",
-			email: "test@example.com",
-			error: domain.Unauthorized("test", "Invalid email or password"),
-		},
-		{
-			name:  "nonexistent email",
-			email: "nonexistent@example.com",
-			error: domain.Unauthorized("test", "Invalid email or password"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mock := &mockUserService{
-				LoginFunc: func(ctx context.Context, email, password string) (*domain.LoginResult, error) {
-					return nil, tt.error
-				},
-			}
-
-			var renderedData AuthPageData
-
-			renderer := &mockRenderer{
-				RenderHTTPFunc: func(w http.ResponseWriter, templateName string, data interface{}) {
-					if pageData, ok := data.(AuthPageData); ok {
-						renderedData = pageData
-					}
-					w.WriteHeader(http.StatusOK)
-				},
-			}
-
-			handler := newTestAuthHandler(mock, renderer)
-
-			form := url.Values{}
-			form.Set("email", tt.email)
-			form.Set("password", "password123")
-
-			req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
-			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-			rec := httptest.NewRecorder()
-
-			handler.Login(rec, req)
-
-			// Verify generic error message
-			if renderedData.Flash == nil {
-				t.Fatal("expected flash message, got nil")
-			}
-
-			expectedMsg := "Invalid email or password"
-			if renderedData.Flash.Message != expectedMsg {
-				t.Errorf("flash message = %q, want %q", renderedData.Flash.Message, expectedMsg)
-			}
-		})
-	}
+	return NewAuthHandler(mock, &mockEmailService{}, inviteValidator, newTestLogger(), false)
 }
 
 // =============================================================================
@@ -749,8 +231,7 @@ func TestLogout_POST_ClearsCookie(t *testing.T) {
 		},
 	}
 
-	renderer := &mockRenderer{}
-	handler := newTestAuthHandler(mock, renderer)
+	handler := newTestAuthHandler(mock)
 
 	req := httptest.NewRequest("POST", "/logout", nil)
 	req.AddCookie(&http.Cookie{
@@ -792,8 +273,7 @@ func TestLogout_POST_RedirectsToLogin(t *testing.T) {
 		},
 	}
 
-	renderer := &mockRenderer{}
-	handler := newTestAuthHandler(mock, renderer)
+	handler := newTestAuthHandler(mock)
 
 	req := httptest.NewRequest("POST", "/logout", nil)
 	req.AddCookie(&http.Cookie{

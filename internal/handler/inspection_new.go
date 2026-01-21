@@ -908,20 +908,6 @@ func domainClientsToOptions(clients []ClientOption) []inspections.ClientOption {
 	return options
 }
 
-// domainPaginationToShared converts PaginationData to shared pagination.Data
-func domainPaginationToShared(p PaginationData) pagination.Data {
-	return pagination.Data{
-		CurrentPage: p.CurrentPage,
-		TotalPages:  p.TotalPages,
-		PerPage:     p.PerPage,
-		Total:       p.Total,
-		HasPrevious: p.HasPrevious,
-		HasNext:     p.HasNext,
-		PrevPage:    p.PrevPage,
-		NextPage:    p.NextPage,
-	}
-}
-
 // domainAnalysisStatusToTempl converts AnalysisStatusData to inspections.AnalysisStatusData
 func domainAnalysisStatusToTempl(a *AnalysisStatusData) inspections.AnalysisStatusData {
 	if a == nil {

@@ -62,13 +62,13 @@ func (f ReportFormat) FileExtension() string {
 
 // Report represents a generated inspection report stored in the database.
 type Report struct {
-	ID             uuid.UUID  // Unique identifier
-	InspectionID   uuid.UUID  // Inspection this report was generated from
-	UserID         uuid.UUID  // User who generated the report
-	PDFStorageKey  string     // Storage key for PDF file (empty if not generated)
-	DOCXStorageKey string     // Storage key for DOCX file (empty if not generated)
-	ViolationCount int        // Number of violations included in report
-	GeneratedAt    time.Time  // When report was generated
+	ID             uuid.UUID // Unique identifier
+	InspectionID   uuid.UUID // Inspection this report was generated from
+	UserID         uuid.UUID // User who generated the report
+	PDFStorageKey  string    // Storage key for PDF file (empty if not generated)
+	DOCXStorageKey string    // Storage key for DOCX file (empty if not generated)
+	ViolationCount int       // Number of violations included in report
+	GeneratedAt    time.Time // When report was generated
 }
 
 // HasPDF returns true if this report has a PDF version.

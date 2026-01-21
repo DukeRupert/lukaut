@@ -271,18 +271,18 @@ func domainClientToDetail(c *domain.Client) *clients.ClientDetail {
 	}
 	hasAddress := c.AddressLine1 != "" || c.AddressLine2 != "" || c.City != "" || c.State != "" || c.PostalCode != ""
 	return &clients.ClientDetail{
-		ID:           c.ID.String(),
-		Name:         c.Name,
-		Email:        c.Email,
-		Phone:        c.Phone,
-		AddressLine1: c.AddressLine1,
-		AddressLine2: c.AddressLine2,
-		City:         c.City,
-		State:        c.State,
-		PostalCode:   c.PostalCode,
-		Notes:        c.Notes,
-		InspectionCount:    c.InspectionCount,
-		HasAddress:   hasAddress,
+		ID:              c.ID.String(),
+		Name:            c.Name,
+		Email:           c.Email,
+		Phone:           c.Phone,
+		AddressLine1:    c.AddressLine1,
+		AddressLine2:    c.AddressLine2,
+		City:            c.City,
+		State:           c.State,
+		PostalCode:      c.PostalCode,
+		Notes:           c.Notes,
+		InspectionCount: c.InspectionCount,
+		HasAddress:      hasAddress,
 	}
 }
 

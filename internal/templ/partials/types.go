@@ -22,10 +22,10 @@ type ImageDisplay struct {
 
 // ViolationCardData contains data for rendering a single violation card.
 type ViolationCardData struct {
-	Violation    ViolationDisplay       // The violation
-	Regulations  []RegulationDisplay    // Linked regulations
-	ThumbnailURL string                 // Image thumbnail URL (if linked to image)
-	CanEdit      bool                   // Whether user can edit this violation
+	Violation    ViolationDisplay    // The violation
+	Regulations  []RegulationDisplay // Linked regulations
+	ThumbnailURL string              // Image thumbnail URL (if linked to image)
+	CanEdit      bool                // Whether user can edit this violation
 }
 
 // ViolationDisplay represents a violation for display.

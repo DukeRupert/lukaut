@@ -7,27 +7,27 @@ import (
 
 // DisplayClient contains client data formatted for display
 type DisplayClient struct {
-	ID        string
-	Name      string
-	Email     string
-	Phone     string
+	ID              string
+	Name            string
+	Email           string
+	Phone           string
 	InspectionCount int
 }
 
 // ClientDetail contains full client data for detail view
 type ClientDetail struct {
-	ID           string
-	Name         string
-	Email        string
-	Phone        string
-	AddressLine1 string
-	AddressLine2 string
-	City         string
-	State        string
-	PostalCode   string
-	Notes        string
-	InspectionCount    int
-	HasAddress   bool
+	ID              string
+	Name            string
+	Email           string
+	Phone           string
+	AddressLine1    string
+	AddressLine2    string
+	City            string
+	State           string
+	PostalCode      string
+	Notes           string
+	InspectionCount int
+	HasAddress      bool
 }
 
 // ClientFormValues contains form field values

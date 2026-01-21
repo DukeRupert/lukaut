@@ -15,10 +15,10 @@ type Data struct {
 
 // Config allows customization of pagination behavior.
 type Config struct {
-	BaseURL   string // e.g., "/inspections"
-	TargetID  string // htmx target, e.g., "content-area"
-	UseHtmx   bool   // Enable htmx partial loading
-	PushURL   bool   // Update browser URL with hx-push-url
+	BaseURL  string // e.g., "/inspections"
+	TargetID string // htmx target, e.g., "content-area"
+	UseHtmx  bool   // Enable htmx partial loading
+	PushURL  bool   // Update browser URL with hx-push-url
 }
 
 // PageRange returns a slice of page numbers for pagination display.
