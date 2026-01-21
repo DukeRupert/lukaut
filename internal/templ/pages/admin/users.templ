@@ -1,0 +1,250 @@
+package admin
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/DukeRupert/lukaut/internal/templ/components/card"
+	"github.com/DukeRupert/lukaut/internal/templ/components/table"
+	"github.com/google/uuid"
+)
+
+// UsersPage renders the full users list
+templ UsersPage(users []UserRow) {
+	@AdminLayout("Users") {
+		<div class="mb-8">
+			<h1 class="text-2xl font-semibold tracking-tight">All Users</h1>
+			<p class="text-sm text-muted-foreground">{ fmt.Sprintf("%d total users", len(users)) }</p>
+		</div>
+		@card.Card() {
+			@card.Content(card.ContentProps{Class: "p-0"}) {
+				@table.Table() {
+					@table.Header() {
+						@table.Row() {
+							@table.Head() {
+								User
+							}
+							@table.Head() {
+								Status
+							}
+							@table.Head() {
+								Inspections
+							}
+							@table.Head() {
+								AI Cost
+							}
+							@table.Head() {
+								Joined
+							}
+							@table.Head(table.HeadProps{Class: "w-[100px]"}) {
+							}
+						}
+					}
+					@table.Body() {
+						for _, user := range users {
+							@table.Row() {
+								@table.Cell() {
+									<div class="font-medium">{ user.Name }</div>
+									<div class="text-sm text-muted-foreground">{ user.Email }</div>
+								}
+								@table.Cell() {
+									@StatusBadge(user.SubscriptionStatus)
+								}
+								@table.Cell() {
+									{ fmt.Sprintf("%d", user.InspectionCount) }
+								}
+								@table.Cell() {
+									{ formatCost(user.TotalCostCents) }
+								}
+								@table.Cell(table.CellProps{Class: "text-muted-foreground"}) {
+									{ user.CreatedAt.Format("Jan 2, 2006") }
+								}
+								@table.Cell(table.CellProps{Class: "text-right"}) {
+									<a href={ templ.SafeURL(fmt.Sprintf("/admin/users/%s", user.ID)) } class="text-sm font-medium text-primary hover:underline">
+										View
+									</a>
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// UserDetailData contains data for the user detail page
+type UserDetailData struct {
+	ID                 uuid.UUID
+	Email              string
+	Name               string
+	SubscriptionStatus string
+	SubscriptionTier   string
+	EmailVerified      bool
+	CreatedAt          time.Time
+	TotalCostCents     int64
+	TotalInputTokens   int64
+	TotalOutputTokens  int64
+	InspectionCount    int64
+	ReportCount        int64
+	Inspections        []InspectionRow
+	AIUsageHistory     []AIUsageRow
+}
+
+type InspectionRow struct {
+	ID             uuid.UUID
+	Title          string
+	Status         string
+	InspectionDate time.Time
+	CreatedAt      time.Time
+}
+
+type AIUsageRow struct {
+	Model        string
+	InputTokens  int32
+	OutputTokens int32
+	CostCents    int32
+	RequestType  string
+	CreatedAt    time.Time
+}
+
+// UserDetailPage renders the user detail view
+templ UserDetailPage(data UserDetailData) {
+	@AdminLayout(data.Name) {
+		<div class="mb-8">
+			<a href="/admin/users" class="text-sm text-primary hover:underline inline-flex items-center gap-1">
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>
+				Back to Users
+			</a>
+			<h1 class="text-2xl font-semibold tracking-tight mt-2">{ data.Name }</h1>
+			<p class="text-sm text-muted-foreground">{ data.Email }</p>
+		</div>
+		<!-- User Info Cards -->
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+			@card.Card() {
+				@card.Content(card.ContentProps{Class: "pt-6"}) {
+					<div class="text-sm font-medium text-muted-foreground">Status</div>
+					<div class="mt-2 flex items-center gap-2">
+						@StatusBadge(data.SubscriptionStatus)
+						<span class="text-sm text-muted-foreground">({ data.SubscriptionTier })</span>
+					</div>
+				}
+			}
+			@card.Card() {
+				@card.Content(card.ContentProps{Class: "pt-6"}) {
+					<div class="text-sm font-medium text-muted-foreground">Total AI Cost</div>
+					<div class="mt-1 text-2xl font-semibold tracking-tight">{ formatCost(data.TotalCostCents) }</div>
+					<div class="text-xs text-muted-foreground">
+						{ fmt.Sprintf("%d input / %d output tokens", data.TotalInputTokens, data.TotalOutputTokens) }
+					</div>
+				}
+			}
+			@card.Card() {
+				@card.Content(card.ContentProps{Class: "pt-6"}) {
+					<div class="text-sm font-medium text-muted-foreground">Inspections</div>
+					<div class="mt-1 text-2xl font-semibold tracking-tight">{ fmt.Sprintf("%d", data.InspectionCount) }</div>
+				}
+			}
+			@card.Card() {
+				@card.Content(card.ContentProps{Class: "pt-6"}) {
+					<div class="text-sm font-medium text-muted-foreground">Reports</div>
+					<div class="mt-1 text-2xl font-semibold tracking-tight">{ fmt.Sprintf("%d", data.ReportCount) }</div>
+				}
+			}
+		</div>
+		<!-- Recent Inspections -->
+		@card.Card(card.Props{Class: "mb-8"}) {
+			@card.Header() {
+				@card.Title() {
+					Recent Inspections
+				}
+			}
+			@card.Content(card.ContentProps{Class: "p-0"}) {
+				if len(data.Inspections) > 0 {
+					@table.Table() {
+						@table.Header() {
+							@table.Row() {
+								@table.Head() {
+									Title
+								}
+								@table.Head() {
+									Status
+								}
+								@table.Head() {
+									Date
+								}
+							}
+						}
+						@table.Body() {
+							for _, insp := range data.Inspections {
+								@table.Row() {
+									@table.Cell(table.CellProps{Class: "font-medium"}) {
+										{ insp.Title }
+									}
+									@table.Cell(table.CellProps{Class: "text-muted-foreground"}) {
+										{ insp.Status }
+									}
+									@table.Cell(table.CellProps{Class: "text-muted-foreground"}) {
+										{ insp.InspectionDate.Format("Jan 2, 2006") }
+									}
+								}
+							}
+						}
+					}
+				} else {
+					<p class="px-6 py-8 text-sm text-muted-foreground text-center">No inspections yet</p>
+				}
+			}
+		}
+		<!-- AI Usage History -->
+		@card.Card() {
+			@card.Header() {
+				@card.Title() {
+					AI Usage History
+				}
+			}
+			@card.Content(card.ContentProps{Class: "p-0"}) {
+				if len(data.AIUsageHistory) > 0 {
+					@table.Table() {
+						@table.Header() {
+							@table.Row() {
+								@table.Head() {
+									Type
+								}
+								@table.Head() {
+									Tokens
+								}
+								@table.Head() {
+									Cost
+								}
+								@table.Head() {
+									Date
+								}
+							}
+						}
+						@table.Body() {
+							for _, usage := range data.AIUsageHistory {
+								@table.Row() {
+									@table.Cell(table.CellProps{Class: "font-medium"}) {
+										{ usage.RequestType }
+									}
+									@table.Cell(table.CellProps{Class: "text-muted-foreground"}) {
+										{ fmt.Sprintf("%d in / %d out", usage.InputTokens, usage.OutputTokens) }
+									}
+									@table.Cell() {
+										{ formatCost(int64(usage.CostCents)) }
+									}
+									@table.Cell(table.CellProps{Class: "text-muted-foreground"}) {
+										{ usage.CreatedAt.Format("Jan 2, 3:04 PM") }
+									}
+								}
+							}
+						}
+					}
+				} else {
+					<p class="px-6 py-8 text-sm text-muted-foreground text-center">No AI usage yet</p>
+				}
+			}
+		}
+	}
+}
