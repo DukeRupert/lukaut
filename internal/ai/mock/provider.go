@@ -57,7 +57,7 @@ func (p *Provider) AnalyzeImage(ctx context.Context, params ai.AnalyzeImageParam
 				},
 				Confidence:           ai.ConfidenceHigh,
 				Category:             "Personal Protective Equipment",
-				Severity:             ai.SeverityHigh,
+				Severity:             ai.SeveritySerious,
 				SuggestedRegulations: []string{"1926.100(a)", "1926.100(b)"},
 			},
 			{
@@ -85,7 +85,7 @@ func (p *Provider) AnalyzeImage(ctx context.Context, params ai.AnalyzeImageParam
 				},
 				Confidence:           ai.ConfidenceMedium,
 				Category:             "Housekeeping",
-				Severity:             ai.SeverityMedium,
+				Severity:             ai.SeverityOther,
 				SuggestedRegulations: []string{"1926.250(a)(1)"},
 			},
 		},

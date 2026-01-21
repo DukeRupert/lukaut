@@ -406,7 +406,7 @@ func (p *Provider) parseAnalysisResponse(resp *apiResponse) (*ai.AnalysisResult,
 			violation.Confidence = ai.ConfidenceMedium
 		}
 		if !violation.Severity.Valid() {
-			violation.Severity = ai.SeverityMedium
+			violation.Severity = ai.SeverityOther
 		}
 
 		result.Violations = append(result.Violations, violation)

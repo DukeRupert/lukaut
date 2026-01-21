@@ -23,7 +23,7 @@ For each potential violation you identify:
 - Optionally provide normalized bounding box coordinates (x, y, width, height from 0-1) if you can clearly identify the area
 - Assess your confidence level: "high" (90%+), "medium" (60-90%), or "low" (30-60%)
 - Categorize using one of the categories above
-- Rate severity: "critical" (imminent danger), "high" (serious hazard), "medium" (moderate risk), "low" (minor concern)
+- Rate severity: "critical" (imminent danger), "serious" (serious hazard with potential for severe injury), "other" (violation that doesn't fit serious category), "recommendation" (best practice that may not be a regulatory violation)
 - Suggest specific OSHA regulation numbers (e.g., "1926.501(b)(1)" for unprotected edges)
 
 **Important Guidelines:**
@@ -56,7 +56,7 @@ Return your analysis as a JSON object with this exact structure:
       },
       "confidence": "high|medium|low",
       "category": "One of the categories listed above",
-      "severity": "critical|high|medium|low",
+      "severity": "critical|serious|other|recommendation",
       "suggested_regulations": ["1926.XXX", "1926.YYY"]
     }
   ],

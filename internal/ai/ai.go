@@ -103,20 +103,20 @@ func (c Confidence) Valid() bool {
 	}
 }
 
-// Severity levels for violations
+// Severity levels for violations (matches domain.ViolationSeverity)
 type Severity string
 
 const (
-	SeverityCritical Severity = "critical" // Imminent danger
-	SeverityHigh     Severity = "high"     // Serious hazard
-	SeverityMedium   Severity = "medium"   // Moderate risk
-	SeverityLow      Severity = "low"      // Minor concern
+	SeverityCritical       Severity = "critical"       // Imminent danger
+	SeveritySerious        Severity = "serious"        // Serious hazard with potential for severe injury
+	SeverityOther          Severity = "other"          // Violation that doesn't fit serious category
+	SeverityRecommendation Severity = "recommendation" // Best practice, may not be regulatory violation
 )
 
 // Valid checks if the severity level is valid
 func (s Severity) Valid() bool {
 	switch s {
-	case SeverityCritical, SeverityHigh, SeverityMedium, SeverityLow:
+	case SeverityCritical, SeveritySerious, SeverityOther, SeverityRecommendation:
 		return true
 	default:
 		return false
