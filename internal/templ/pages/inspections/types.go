@@ -43,6 +43,9 @@ type ShowPageData struct {
 	AnalysisStatus  AnalysisStatusData
 	Violations      []ViolationDisplay
 	ViolationCounts ViolationCountsData
+	Reports         []ReportDisplay
+	ClientEmail     string // Pre-populated client email for report delivery
+	CanGenerateReport bool // True if inspection has confirmed violations
 	Flash           *shared.Flash
 }
 
@@ -223,6 +226,15 @@ type ViolationCountsData struct {
 	Pending   int
 	Confirmed int
 	Rejected  int
+}
+
+// ReportDisplay represents a generated report for display.
+type ReportDisplay struct {
+	ID             string
+	GeneratedAt    string
+	ViolationCount int
+	HasPDF         bool
+	HasDOCX        bool
 }
 
 // =============================================================================

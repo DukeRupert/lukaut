@@ -34,6 +34,8 @@ templ ShowPage(data ShowPageData) {
 			@PhotosSection(data.InspectionID, data.GalleryData, data.CanUpload, data.IsAnalyzing)
 			// Violations Summary Section
 			@ViolationsSummary(data.InspectionID, data.ViolationCounts, data.IsAnalyzing)
+			// Reports Section
+			@ReportsSection(data.InspectionID, data.Reports, data.ClientEmail, data.CanGenerateReport, data.ViolationCounts.Confirmed)
 		</div>
 	}
 }
@@ -378,6 +380,203 @@ templ ViolationsSummary(inspectionID string, counts ViolationCountsData, isAnaly
 	</div>
 }
 
+// ReportsSection renders the reports generation and listing section.
+templ ReportsSection(inspectionID string, reports []ReportDisplay, clientEmail string, canGenerate bool, confirmedCount int) {
+	<div class="bg-white shadow sm:rounded-lg mt-6">
+		<div class="px-4 py-5 sm:p-6">
+			<div class="flex items-center justify-between mb-4">
+				<div>
+					<h3 class="text-base font-semibold leading-6 text-gray-900">Reports</h3>
+					if canGenerate {
+						<p class="mt-1 text-sm text-gray-500">
+							Generate a PDF or Word report with { fmt.Sprintf("%d", confirmedCount) } confirmed violation{ pluralS(confirmedCount) }
+						</p>
+					} else {
+						<p class="mt-1 text-sm text-gray-500">
+							Confirm violations to generate a report
+						</p>
+					}
+				</div>
+			</div>
+			// Generate Report Section
+			if canGenerate {
+				<div
+					x-data={ reportsAlpineData(inspectionID, clientEmail) }
+					class="mb-6"
+				>
+					<div class="flex flex-wrap items-end gap-4">
+						// Format selection
+						<div>
+							<label class="block text-sm font-medium text-gray-700 mb-1">Format</label>
+							<div class="flex gap-2">
+								<button
+									type="button"
+									@click="format = 'pdf'"
+									:class="format === 'pdf' ? 'bg-navy text-white' : 'bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50'"
+									class="inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm"
+								>
+									@PDFIcon()
+									PDF
+								</button>
+								<button
+									type="button"
+									@click="format = 'docx'"
+									:class="format === 'docx' ? 'bg-navy text-white' : 'bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50'"
+									class="inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm"
+								>
+									@WordIcon()
+									Word
+								</button>
+							</div>
+						</div>
+						// Optional email
+						<div class="flex-1 min-w-[200px]">
+							<label class="block text-sm font-medium text-gray-700 mb-1">
+								Email to client <span class="text-gray-400 font-normal">(optional)</span>
+							</label>
+							<input
+								type="email"
+								x-model="email"
+								placeholder="client@example.com"
+								class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-navy sm:text-sm sm:leading-6"
+							/>
+						</div>
+						// Generate button
+						<button
+							type="button"
+							@click="generate()"
+							:disabled="generating"
+							class="inline-flex items-center rounded-md bg-safety-orange px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-safety-orange/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-safety-orange disabled:opacity-50 disabled:cursor-not-allowed"
+						>
+							<template x-if="generating">
+								@SpinnerIcon()
+							</template>
+							<span x-text="generating ? 'Generating...' : 'Generate Report'"></span>
+						</button>
+					</div>
+					// Success/Error messages
+					<div x-show="message" x-transition class="mt-4">
+						<div
+							x-show="success"
+							class="rounded-md bg-green-50 p-4"
+						>
+							<div class="flex">
+								<div class="flex-shrink-0">
+									@SuccessIcon()
+								</div>
+								<div class="ml-3">
+									<p class="text-sm font-medium text-green-800" x-text="message"></p>
+								</div>
+							</div>
+						</div>
+						<div
+							x-show="!success && message"
+							class="rounded-md bg-red-50 p-4"
+						>
+							<div class="flex">
+								<div class="flex-shrink-0">
+									@ErrorIcon()
+								</div>
+								<div class="ml-3">
+									<p class="text-sm font-medium text-red-800" x-text="message"></p>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			}
+			// Existing Reports List
+			<div
+				id="reports-list"
+				hx-get={ fmt.Sprintf("/inspections/%s/reports", inspectionID) }
+				hx-trigger="reportQueued from:body"
+				hx-swap="innerHTML"
+			>
+				if len(reports) == 0 {
+					<p class="text-sm text-gray-500">No reports generated yet.</p>
+				} else {
+					<div class="space-y-2">
+						for _, report := range reports {
+							<div class="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+								<div>
+									<span class="text-sm font-medium text-gray-900">Report generated { report.GeneratedAt }</span>
+									<span class="ml-2 text-xs text-gray-500">{ fmt.Sprintf("%d", report.ViolationCount) } violations</span>
+								</div>
+								<div class="flex gap-2">
+									if report.HasPDF {
+										<a
+											href={ templ.SafeURL(fmt.Sprintf("/reports/%s/download?format=pdf", report.ID)) }
+											class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10 hover:bg-red-100"
+										>
+											PDF
+										</a>
+									}
+									if report.HasDOCX {
+										<a
+											href={ templ.SafeURL(fmt.Sprintf("/reports/%s/download?format=docx", report.ID)) }
+											class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/10 hover:bg-blue-100"
+										>
+											Word
+										</a>
+									}
+								</div>
+							</div>
+						}
+					</div>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+// reportsAlpineData returns the Alpine.js data object for the reports section.
+func reportsAlpineData(inspectionID string, clientEmail string) string {
+	return fmt.Sprintf(`{
+		format: 'pdf',
+		email: '%s',
+		generating: false,
+		message: '',
+		success: false,
+		generate() {
+			this.generating = true;
+			this.message = '';
+
+			const formData = new FormData();
+			formData.append('format', this.format);
+			if (this.email) {
+				formData.append('recipient_email', this.email);
+			}
+
+			fetch('/inspections/%s/reports', {
+				method: 'POST',
+				body: formData
+			})
+			.then(response => {
+				if (response.ok) {
+					this.success = true;
+					if (this.email) {
+						this.message = 'Report generation started! The ' + this.format.toUpperCase() + ' will be emailed to ' + this.email + ' when ready.';
+					} else {
+						this.message = 'Report generation started! It will appear below when ready.';
+					}
+					// Trigger htmx to refresh the reports list
+					document.body.dispatchEvent(new CustomEvent('reportQueued'));
+				} else {
+					this.success = false;
+					this.message = 'Failed to generate report. Please try again.';
+				}
+			})
+			.catch(() => {
+				this.success = false;
+				this.message = 'Failed to generate report. Please check your connection.';
+			})
+			.finally(() => {
+				this.generating = false;
+			});
+		}
+	}`, clientEmail, inspectionID)
+}
+
 // =============================================================================
 // Helper Functions
 // =============================================================================
@@ -499,5 +698,29 @@ templ ReviewIcon() {
 	<svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
 		<path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"></path>
 		<path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
+	</svg>
+}
+
+templ PDFIcon() {
+	<svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+		<path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm2.25 8.5a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zm0 3a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5z" clip-rule="evenodd"></path>
+	</svg>
+}
+
+templ WordIcon() {
+	<svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+		<path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zM6 9a.75.75 0 01.75-.75h.5a.75.75 0 01.53.22l1.72 1.72 1.72-1.72a.75.75 0 01.53-.22h.5a.75.75 0 010 1.5h-.19l-2.03 2.03v2.47a.75.75 0 01-1.5 0v-2.47L6.44 10.5H6.25A.75.75 0 016 9z" clip-rule="evenodd"></path>
+	</svg>
+}
+
+templ SuccessIcon() {
+	<svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+		<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"></path>
+	</svg>
+}
+
+templ ErrorIcon() {
+	<svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+		<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"></path>
 	</svg>
 }

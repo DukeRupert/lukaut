@@ -12,6 +12,7 @@ import (
 
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
+	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/inspections"
 	"github.com/DukeRupert/lukaut/internal/templ/partials"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
@@ -271,6 +272,39 @@ func (h *InspectionHandler) ShowTempl(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Fetch reports for this inspection
+	repoReports, err := h.queries.ListReportsByInspectionID(r.Context(), id)
+	if err != nil {
+		h.logger.Error("failed to list reports", "error", err, "inspection_id", id)
+		repoReports = []repository.Report{}
+	}
+
+	// Filter to user's reports and convert to display format
+	var reportDisplays []inspections.ReportDisplay
+	for _, report := range repoReports {
+		if report.UserID == user.ID {
+			reportDisplays = append(reportDisplays, inspections.ReportDisplay{
+				ID:             report.ID.String(),
+				GeneratedAt:    report.GeneratedAt.Time.Format("Jan 2, 2006 3:04 PM"),
+				ViolationCount: int(report.ViolationCount),
+				HasPDF:         report.PdfStorageKey.Valid,
+				HasDOCX:        report.DocxStorageKey.Valid,
+			})
+		}
+	}
+
+	// Fetch client email if inspection has a client
+	var clientEmail string
+	if inspection.ClientID != nil {
+		client, err := h.queries.GetClientByID(r.Context(), *inspection.ClientID)
+		if err == nil && client.Email.Valid {
+			clientEmail = client.Email.String
+		}
+	}
+
+	// Can generate report if there are confirmed violations and inspection is in review or completed status
+	canGenerateReport := counts.Confirmed > 0 && (inspection.Status == domain.InspectionStatusReview || inspection.Status == domain.InspectionStatusCompleted)
+
 	data := inspections.ShowPageData{
 		CurrentPath:  r.URL.Path,
 		CSRFToken:    "",
@@ -286,10 +320,13 @@ func (h *InspectionHandler) ShowTempl(w http.ResponseWriter, r *http.Request) {
 			CanUpload:    inspection.CanAddPhotos(),
 			IsAnalyzing:  analysisStatus.IsAnalyzing,
 		},
-		AnalysisStatus:  domainAnalysisStatusToTempl(analysisStatus),
-		Violations:      nil, // Not needed for show page
-		ViolationCounts: counts,
-		Flash:           nil,
+		AnalysisStatus:    domainAnalysisStatusToTempl(analysisStatus),
+		Violations:        nil, // Not needed for show page
+		ViolationCounts:   counts,
+		Reports:           reportDisplays,
+		ClientEmail:       clientEmail,
+		CanGenerateReport: canGenerateReport,
+		Flash:             nil,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
