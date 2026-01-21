@@ -494,7 +494,6 @@ func (s *userService) UpdateProfile(ctx context.Context, params domain.ProfileUp
 
 	// Validate and normalize input
 	params.Name = strings.TrimSpace(params.Name)
-	params.CompanyName = strings.TrimSpace(params.CompanyName)
 	params.Phone = strings.TrimSpace(params.Phone)
 
 	// Validate name
@@ -503,7 +502,7 @@ func (s *userService) UpdateProfile(ctx context.Context, params domain.ProfileUp
 	}
 
 	// Verify user exists
-	_, err := s.queries.GetUserByID(ctx, params.UserID)
+	user, err := s.queries.GetUserByID(ctx, params.UserID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.NotFound(op, "user", params.UserID.String())
@@ -511,11 +510,11 @@ func (s *userService) UpdateProfile(ctx context.Context, params domain.ProfileUp
 		return domain.Internal(err, op, "Failed to retrieve user")
 	}
 
-	// Update user profile
+	// Update user profile (preserve existing company_name)
 	err = s.queries.UpdateUserProfile(ctx, repository.UpdateUserProfileParams{
 		ID:          params.UserID,
 		Name:        params.Name,
-		CompanyName: domain.ToNullString(params.CompanyName),
+		CompanyName: user.CompanyName,
 		Phone:       domain.ToNullString(params.Phone),
 	})
 	if err != nil {

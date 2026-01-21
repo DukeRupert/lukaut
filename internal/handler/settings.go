@@ -73,14 +73,12 @@ func (h *SettingsHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 
 	// Extract and normalize form values
 	name := strings.TrimSpace(r.FormValue("name"))
-	companyName := strings.TrimSpace(r.FormValue("company_name"))
 	phone := strings.TrimSpace(r.FormValue("phone"))
 
 	// Store form values for re-rendering
 	formValues := map[string]string{
-		"Name":        name,
-		"CompanyName": companyName,
-		"Phone":       phone,
+		"Name":  name,
+		"Phone": phone,
 	}
 
 	// Validate form fields
@@ -90,10 +88,6 @@ func (h *SettingsHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 		errors["name"] = "Name is required"
 	} else if len(name) > 255 {
 		errors["name"] = "Name must be 255 characters or less"
-	}
-
-	if len(companyName) > 255 {
-		errors["company_name"] = "Company name must be 255 characters or less"
 	}
 
 	if len(phone) > 50 {
@@ -108,10 +102,9 @@ func (h *SettingsHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 
 	// Call UserService.UpdateProfile
 	err := h.userService.UpdateProfile(r.Context(), domain.ProfileUpdateParams{
-		UserID:      user.ID,
-		Name:        name,
-		CompanyName: companyName,
-		Phone:       phone,
+		UserID: user.ID,
+		Name:   name,
+		Phone:  phone,
 	})
 	if err != nil {
 		code := domain.ErrorCode(err)
@@ -149,9 +142,8 @@ func (h *SettingsHandler) renderProfileError(
 ) {
 	if formValues == nil {
 		formValues = map[string]string{
-			"Name":        user.Name,
-			"CompanyName": user.CompanyName,
-			"Phone":       user.Phone,
+			"Name":  user.Name,
+			"Phone": user.Phone,
 		}
 	}
 	if errors == nil {
@@ -171,9 +163,8 @@ func (h *SettingsHandler) renderProfileError(
 		CSRFToken:   "",
 		User:        domainUserToDisplay(user),
 		Form: settings.ProfileFormData{
-			Name:        formValues["Name"],
-			CompanyName: formValues["CompanyName"],
-			Phone:       formValues["Phone"],
+			Name:  formValues["Name"],
+			Phone: formValues["Phone"],
 		},
 		Errors:    errors,
 		Flash:     templFlash,

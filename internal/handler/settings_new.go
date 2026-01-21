@@ -38,9 +38,8 @@ func (h *SettingsHandler) ShowProfileTempl(w http.ResponseWriter, r *http.Reques
 		CSRFToken:   "", // Add CSRF token if using CSRF middleware
 		User:        domainUserToDisplay(user),
 		Form: settings.ProfileFormData{
-			Name:        user.Name,
-			CompanyName: user.CompanyName,
-			Phone:       user.Phone,
+			Name:  user.Name,
+			Phone: user.Phone,
 		},
 		Errors:    make(map[string]string),
 		Flash:     flash,

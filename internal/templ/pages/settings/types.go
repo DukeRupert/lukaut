@@ -31,9 +31,8 @@ type UserDisplay struct {
 
 // ProfileFormData contains the profile form field values
 type ProfileFormData struct {
-	Name        string
-	CompanyName string
-	Phone       string
+	Name  string
+	Phone string
 }
 
 // PasswordPageData contains data for the password settings page

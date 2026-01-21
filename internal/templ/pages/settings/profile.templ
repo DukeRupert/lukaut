@@ -58,17 +58,6 @@ templ ProfileForm(data ProfilePageData) {
 		}
 		// Email field (read-only)
 		@ReadOnlyField("email", "Email address", data.User.Email, "Email address cannot be changed.")
-		// Company Name field
-		@FormField("company_name", "Company name", data.Errors["company_name"], false) {
-			<input
-				type="text"
-				name="company_name"
-				id="company_name"
-				autocomplete="organization"
-				value={ data.Form.CompanyName }
-				class={ inputClasses(data.Errors["company_name"] != "") }
-			/>
-		}
 		// Phone field
 		@FormField("phone", "Phone number", data.Errors["phone"], false) {
 			<input

@@ -144,10 +144,9 @@ type PasswordChangeParams struct {
 
 // ProfileUpdateParams contains parameters for updating a user's profile.
 type ProfileUpdateParams struct {
-	UserID      uuid.UUID
-	Name        string
-	CompanyName string
-	Phone       string
+	UserID uuid.UUID
+	Name   string
+	Phone  string
 }
 
 // BusinessProfileUpdateParams contains parameters for updating a user's business profile.
