@@ -299,87 +299,10 @@ func (h *InspectionHandler) ShowTempl(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ReviewTempl displays the list-based violation review page using templ.
+// ReviewTempl redirects to the queue-based review interface.
 func (h *InspectionHandler) ReviewTempl(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUserFromRequest(r)
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
 	idStr := r.PathValue("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		NotFoundResponse(w, r, h.logger)
-		return
-	}
-
-	inspection, err := h.inspectionService.GetByID(r.Context(), id, user.ID)
-	if err != nil {
-		code := domain.ErrorCode(err)
-		if code == domain.ENOTFOUND {
-			NotFoundResponse(w, r, h.logger)
-		} else {
-			h.logger.Error("failed to fetch inspection", "error", err, "inspection_id", id)
-			h.renderIndexErrorTempl(w, r, user, "Failed to load inspection. Please try again.")
-		}
-		return
-	}
-
-	// Fetch violations
-	violations, err := h.violationService.ListByInspection(r.Context(), id, user.ID)
-	if err != nil {
-		h.logger.Error("failed to list violations", "error", err, "inspection_id", id)
-		h.renderIndexErrorTempl(w, r, user, "Failed to load violations. Please try again.")
-		return
-	}
-
-	// Build violation details with regulations and thumbnail URLs
-	violationDetails := make([]inspections.ViolationDisplay, 0, len(violations))
-	for _, v := range violations {
-		violationDetails = append(violationDetails, h.domainViolationToDisplay(r.Context(), v, user.ID))
-	}
-
-	// Calculate counts
-	counts := inspections.ViolationCountsData{
-		Total: len(violations),
-	}
-	for _, v := range violations {
-		switch v.Status {
-		case domain.ViolationStatusPending:
-			counts.Pending++
-		case domain.ViolationStatusConfirmed:
-			counts.Confirmed++
-		case domain.ViolationStatusRejected:
-			counts.Rejected++
-		}
-	}
-
-	// Fetch client email if inspection has a client
-	var clientEmail string
-	if inspection.ClientID != nil {
-		client, err := h.queries.GetClientByID(r.Context(), *inspection.ClientID)
-		if err == nil && client.Email.Valid {
-			clientEmail = client.Email.String
-		}
-	}
-
-	data := inspections.ReviewPageData{
-		CurrentPath:     r.URL.Path,
-		CSRFToken:       "",
-		User:            domainUserToInspectionDisplay(user),
-		Inspection:      domainInspectionToDisplay(inspection),
-		Violations:      violationDetails,
-		ViolationCounts: counts,
-		Flash:           nil,
-		ClientEmail:     clientEmail,
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := inspections.ReviewPage(data).Render(r.Context(), w); err != nil {
-		h.logger.Error("failed to render review page", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}
+	http.Redirect(w, r, fmt.Sprintf("/inspections/%s/review/queue", idStr), http.StatusSeeOther)
 }
 
 // ReviewQueueTempl displays the keyboard-focused queue-based violation review page using templ.
