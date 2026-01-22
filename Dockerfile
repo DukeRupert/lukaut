@@ -13,6 +13,8 @@ RUN npm ci --production=false
 COPY tailwind.config.js ./
 COPY web/static/css/ ./web/static/css/
 COPY web/templates/ ./web/templates/
+# Copy templ files so Tailwind can scan them for classes
+COPY internal/templ/ ./internal/templ/
 
 # Build production CSS
 RUN npx tailwindcss -i ./web/static/css/input.css -o ./web/static/css/output.css --minify
