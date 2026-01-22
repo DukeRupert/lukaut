@@ -23,6 +23,16 @@ templ PublicLayout(data PublicLayoutData) {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ data.Title } - AI-Powered Safety Inspections</title>
 			<meta name="description" content="Lukaut uses AI to analyze construction site photos, identify potential OSHA violations, and generate professional inspection reports."/>
+			<!-- Open Graph -->
+			<meta property="og:title" content={ data.Title + " - Lukaut" }/>
+			<meta property="og:description" content="AI-powered construction safety inspection reports. Upload site photos, identify OSHA violations, generate professional reports."/>
+			<meta property="og:image" content="/static/lukaut-og-image.svg"/>
+			<meta property="og:type" content="website"/>
+			<!-- Twitter Card -->
+			<meta name="twitter:card" content="summary_large_image"/>
+			<meta name="twitter:title" content={ data.Title + " - Lukaut" }/>
+			<meta name="twitter:description" content="AI-powered construction safety inspection reports."/>
+			<meta name="twitter:image" content="/static/lukaut-og-image.svg"/>
 			<!-- Favicon -->
 			<link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
 			<!-- Tailwind CSS -->
@@ -43,7 +53,7 @@ templ PublicLayout(data PublicLayoutData) {
 						<!-- Logo -->
 						<div class="flex items-center">
 							<a href="/" class="flex items-center">
-								<span class="text-2xl font-bold text-navy">Lukaut</span>
+								<img src="/static/lukaut-logo-primary.svg" alt="Lukaut" class="h-8 w-auto"/>
 							</a>
 						</div>
 						<!-- Desktop navigation -->
@@ -91,13 +101,20 @@ templ PublicLayout(data PublicLayoutData) {
 			</main>
 			<!-- Footer -->
 			<footer class="bg-navy-900">
-				<div class="mx-auto max-w-7xl px-6 py-12 md:flex md:items-center md:justify-between lg:px-8">
-					<div class="flex justify-center space-x-6 md:order-2">
-						<a href="/terms" class="text-navy-200 hover:text-white text-sm">Terms of Service</a>
-						<a href="/privacy" class="text-navy-200 hover:text-white text-sm">Privacy Policy</a>
-						<a href="/contact" class="text-navy-200 hover:text-white text-sm">Contact</a>
+				<div class="mx-auto max-w-7xl px-6 py-12 lg:px-8">
+					<div class="md:flex md:items-center md:justify-between">
+						<div class="flex justify-center md:order-1">
+							<a href="/">
+								<img src="/static/lukaut-logo-dark.svg" alt="Lukaut" class="h-7 w-auto"/>
+							</a>
+						</div>
+						<div class="mt-6 flex justify-center space-x-6 md:order-3 md:mt-0">
+							<a href="/terms" class="text-navy-200 hover:text-white text-sm">Terms of Service</a>
+							<a href="/privacy" class="text-navy-200 hover:text-white text-sm">Privacy Policy</a>
+							<a href="/contact" class="text-navy-200 hover:text-white text-sm">Contact</a>
+						</div>
 					</div>
-					<div class="mt-8 md:order-1 md:mt-0">
+					<div class="mt-8 border-t border-navy-700 pt-8">
 						<p class="text-center text-xs leading-5 text-navy-200">
 							&copy; { currentYear() } Lukaut. All rights reserved.
 						</p>

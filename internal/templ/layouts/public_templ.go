@@ -57,12 +57,38 @@ func PublicLayout(data PublicLayoutData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " - AI-Powered Safety Inspections</title><meta name=\"description\" content=\"Lukaut uses AI to analyze construction site photos, identify potential OSHA violations, and generate professional inspection reports.\"><!-- Favicon --><link rel=\"icon\" type=\"image/svg+xml\" href=\"/static/favicon.svg\"><!-- Tailwind CSS --><link rel=\"stylesheet\" href=\"/static/css/output.css\"><!-- htmx --><script src=\"https://unpkg.com/htmx.org@2.0.4\" integrity=\"sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+\" crossorigin=\"anonymous\"></script><!-- Alpine.js --><script defer src=\"https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js\"></script><style>\n\t\t\t\t[x-cloak] { display: none !important; }\n\t\t\t</style></head><body class=\"h-full bg-gray-50\"><!-- Navigation --><header class=\"bg-white shadow-sm\" x-data=\"{ mobileMenuOpen: false }\"><nav class=\"mx-auto max-w-7xl px-4 sm:px-6 lg:px-8\" aria-label=\"Top\"><div class=\"flex h-16 items-center justify-between\"><!-- Logo --><div class=\"flex items-center\"><a href=\"/\" class=\"flex items-center\"><span class=\"text-2xl font-bold text-navy\">Lukaut</span></a></div><!-- Desktop navigation --><div class=\"hidden md:flex md:items-center md:space-x-6\"><a href=\"/#features\" class=\"text-sm font-medium text-gray-700 hover:text-navy\">Features</a> <a href=\"/#pricing\" class=\"text-sm font-medium text-gray-700 hover:text-navy\">Pricing</a> <a href=\"/login\" class=\"text-sm font-medium text-gray-700 hover:text-navy\">Sign in</a> <a href=\"/register\" class=\"rounded-md bg-safety-orange px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-safety-orange-600 transition-colors\">Get started</a></div><!-- Mobile menu button --><div class=\"flex md:hidden\"><button type=\"button\" @click=\"mobileMenuOpen = !mobileMenuOpen\" class=\"-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700\"><span class=\"sr-only\">Open main menu</span> <svg x-show=\"!mobileMenuOpen\" class=\"h-6 w-6\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5\"></path></svg> <svg x-show=\"mobileMenuOpen\" x-cloak class=\"h-6 w-6\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></div></div><!-- Mobile menu --><div x-show=\"mobileMenuOpen\" x-transition x-cloak class=\"md:hidden\"><div class=\"space-y-1 pb-3 pt-2\"><a href=\"/#features\" class=\"block px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-navy\">Features</a> <a href=\"/#pricing\" class=\"block px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-navy\">Pricing</a> <a href=\"/login\" class=\"block px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-navy\">Sign in</a> <a href=\"/register\" class=\"block px-3 py-2 text-base font-medium text-safety-orange hover:bg-gray-50\">Get started</a></div></div></nav></header><!-- Main content --><main><!-- Flash Messages -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " - AI-Powered Safety Inspections</title><meta name=\"description\" content=\"Lukaut uses AI to analyze construction site photos, identify potential OSHA violations, and generate professional inspection reports.\"><!-- Open Graph --><meta property=\"og:title\" content=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var3 string
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.Title + " - Lukaut")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/public.templ`, Line: 27, Col: 63}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\"><meta property=\"og:description\" content=\"AI-powered construction safety inspection reports. Upload site photos, identify OSHA violations, generate professional reports.\"><meta property=\"og:image\" content=\"/static/lukaut-og-image.svg\"><meta property=\"og:type\" content=\"website\"><!-- Twitter Card --><meta name=\"twitter:card\" content=\"summary_large_image\"><meta name=\"twitter:title\" content=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var4 string
+		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.Title + " - Lukaut")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/public.templ`, Line: 33, Col: 64}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\"><meta name=\"twitter:description\" content=\"AI-powered construction safety inspection reports.\"><meta name=\"twitter:image\" content=\"/static/lukaut-og-image.svg\"><!-- Favicon --><link rel=\"icon\" type=\"image/svg+xml\" href=\"/static/favicon.svg\"><!-- Tailwind CSS --><link rel=\"stylesheet\" href=\"/static/css/output.css\"><!-- htmx --><script src=\"https://unpkg.com/htmx.org@2.0.4\" integrity=\"sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+\" crossorigin=\"anonymous\"></script><!-- Alpine.js --><script defer src=\"https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js\"></script><style>\n\t\t\t\t[x-cloak] { display: none !important; }\n\t\t\t</style></head><body class=\"h-full bg-gray-50\"><!-- Navigation --><header class=\"bg-white shadow-sm\" x-data=\"{ mobileMenuOpen: false }\"><nav class=\"mx-auto max-w-7xl px-4 sm:px-6 lg:px-8\" aria-label=\"Top\"><div class=\"flex h-16 items-center justify-between\"><!-- Logo --><div class=\"flex items-center\"><a href=\"/\" class=\"flex items-center\"><img src=\"/static/lukaut-logo-primary.svg\" alt=\"Lukaut\" class=\"h-8 w-auto\"></a></div><!-- Desktop navigation --><div class=\"hidden md:flex md:items-center md:space-x-6\"><a href=\"/#features\" class=\"text-sm font-medium text-gray-700 hover:text-navy\">Features</a> <a href=\"/#pricing\" class=\"text-sm font-medium text-gray-700 hover:text-navy\">Pricing</a> <a href=\"/login\" class=\"text-sm font-medium text-gray-700 hover:text-navy\">Sign in</a> <a href=\"/register\" class=\"rounded-md bg-safety-orange px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-safety-orange-600 transition-colors\">Get started</a></div><!-- Mobile menu button --><div class=\"flex md:hidden\"><button type=\"button\" @click=\"mobileMenuOpen = !mobileMenuOpen\" class=\"-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700\"><span class=\"sr-only\">Open main menu</span> <svg x-show=\"!mobileMenuOpen\" class=\"h-6 w-6\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5\"></path></svg> <svg x-show=\"mobileMenuOpen\" x-cloak class=\"h-6 w-6\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></div></div><!-- Mobile menu --><div x-show=\"mobileMenuOpen\" x-transition x-cloak class=\"md:hidden\"><div class=\"space-y-1 pb-3 pt-2\"><a href=\"/#features\" class=\"block px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-navy\">Features</a> <a href=\"/#pricing\" class=\"block px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-navy\">Pricing</a> <a href=\"/login\" class=\"block px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-navy\">Sign in</a> <a href=\"/register\" class=\"block px-3 py-2 text-base font-medium text-safety-orange hover:bg-gray-50\">Get started</a></div></div></nav></header><!-- Main content --><main><!-- Flash Messages -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if data.Flash != nil {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-4\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-4\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -70,7 +96,7 @@ func PublicLayout(data PublicLayoutData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -79,20 +105,20 @@ func PublicLayout(data PublicLayoutData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</main><!-- Footer --><footer class=\"bg-navy-900\"><div class=\"mx-auto max-w-7xl px-6 py-12 md:flex md:items-center md:justify-between lg:px-8\"><div class=\"flex justify-center space-x-6 md:order-2\"><a href=\"/terms\" class=\"text-navy-200 hover:text-white text-sm\">Terms of Service</a> <a href=\"/privacy\" class=\"text-navy-200 hover:text-white text-sm\">Privacy Policy</a> <a href=\"/contact\" class=\"text-navy-200 hover:text-white text-sm\">Contact</a></div><div class=\"mt-8 md:order-1 md:mt-0\"><p class=\"text-center text-xs leading-5 text-navy-200\">&copy; ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</main><!-- Footer --><footer class=\"bg-navy-900\"><div class=\"mx-auto max-w-7xl px-6 py-12 lg:px-8\"><div class=\"md:flex md:items-center md:justify-between\"><div class=\"flex justify-center md:order-1\"><a href=\"/\"><img src=\"/static/lukaut-logo-dark.svg\" alt=\"Lukaut\" class=\"h-7 w-auto\"></a></div><div class=\"mt-6 flex justify-center space-x-6 md:order-3 md:mt-0\"><a href=\"/terms\" class=\"text-navy-200 hover:text-white text-sm\">Terms of Service</a> <a href=\"/privacy\" class=\"text-navy-200 hover:text-white text-sm\">Privacy Policy</a> <a href=\"/contact\" class=\"text-navy-200 hover:text-white text-sm\">Contact</a></div></div><div class=\"mt-8 border-t border-navy-700 pt-8\"><p class=\"text-center text-xs leading-5 text-navy-200\">&copy; ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var3 string
-		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(currentYear())
+		var templ_7745c5c3_Var5 string
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(currentYear())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/public.templ`, Line: 102, Col: 29}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/public.templ`, Line: 119, Col: 29}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " Lukaut. All rights reserved.</p></div></div></footer><!-- Toast Container -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " Lukaut. All rights reserved.</p></div></div></footer><!-- Toast Container -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -100,7 +126,7 @@ func PublicLayout(data PublicLayoutData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

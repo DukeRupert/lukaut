@@ -1,0 +1,40 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Lukaut App Icon 512x512 -->
+  
+  <!-- Background with slight rounding for app icon -->
+  <rect width="512" height="512" rx="64" fill="#1E3A5F"/>
+  
+  <!-- Back layer: White L -->
+  <path 
+    d="M 80 80
+       Q 80 64 96 64
+       L 208 64
+       Q 224 64 224 80
+       L 224 336
+       L 416 336
+       Q 432 336 432 352
+       L 432 432
+       Q 432 448 416 448
+       L 96 448
+       Q 80 448 80 432
+       Z"
+    fill="#FEFEFE"
+  />
+  
+  <!-- Front layer: Orange L -->
+  <path 
+    d="M 112 112
+       Q 112 96 128 96
+       L 240 96
+       Q 256 96 256 112
+       L 256 304
+       L 384 304
+       Q 400 304 400 320
+       L 400 400
+       Q 400 416 384 416
+       L 128 416
+       Q 112 416 112 400
+       Z"
+    fill="#FF6B35"
+  />
+</svg>

@@ -27,6 +27,11 @@ templ AppLayout(data AppLayoutData) {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ data.Title } - Lukaut</title>
 			<meta name="description" content="AI-powered construction safety inspection reports"/>
+			<!-- Open Graph -->
+			<meta property="og:title" content={ data.Title + " - Lukaut" }/>
+			<meta property="og:description" content="AI-powered construction safety inspection reports."/>
+			<meta property="og:image" content="/static/lukaut-og-image.svg"/>
+			<meta property="og:type" content="website"/>
 			<!-- Favicon -->
 			<link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
 			<!-- Tailwind CSS -->
@@ -197,7 +202,9 @@ templ Sidebar(currentPath string) {
 	<div class="flex grow flex-col gap-y-5 overflow-y-auto bg-navy px-6 pb-4">
 		<!-- Logo -->
 		<div class="flex h-16 shrink-0 items-center">
-			<a href="/dashboard" class="text-2xl font-bold text-white">Lukaut</a>
+			<a href="/dashboard">
+				<img src="/static/lukaut-logo-dark.svg" alt="Lukaut" class="h-8 w-auto"/>
+			</a>
 		</div>
 		<!-- Navigation -->
 		<nav class="flex flex-1 flex-col">

@@ -11,6 +11,11 @@ templ AuthLayout(title string, heading string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ title } - Lukaut</title>
 			<meta name="description" content="AI-powered construction safety inspection reports"/>
+			<!-- Open Graph -->
+			<meta property="og:title" content={ title + " - Lukaut" }/>
+			<meta property="og:description" content="AI-powered construction safety inspection reports."/>
+			<meta property="og:image" content="/static/lukaut-og-image.svg"/>
+			<meta property="og:type" content="website"/>
 			<!-- Favicon -->
 			<link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
 			<!-- Tailwind CSS -->
@@ -28,7 +33,7 @@ templ AuthLayout(title string, heading string) {
 				<!-- Logo -->
 				<div class="sm:mx-auto sm:w-full sm:max-w-md">
 					<a href="/" class="flex justify-center">
-						<span class="text-3xl font-bold text-primary">Lukaut</span>
+						<img src="/static/lukaut-logo-primary.svg" alt="Lukaut" class="h-10 w-auto"/>
 					</a>
 					<h2 class="mt-6 text-center text-2xl font-bold leading-9 tracking-tight text-foreground">
 						{ heading }
@@ -55,6 +60,11 @@ templ AuthLayoutWithFooter(title string, heading string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ title } - Lukaut</title>
 			<meta name="description" content="AI-powered construction safety inspection reports"/>
+			<!-- Open Graph -->
+			<meta property="og:title" content={ title + " - Lukaut" }/>
+			<meta property="og:description" content="AI-powered construction safety inspection reports."/>
+			<meta property="og:image" content="/static/lukaut-og-image.svg"/>
+			<meta property="og:type" content="website"/>
 			<!-- Favicon -->
 			<link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
 			<!-- Tailwind CSS -->
@@ -72,7 +82,7 @@ templ AuthLayoutWithFooter(title string, heading string) {
 				<!-- Logo -->
 				<div class="sm:mx-auto sm:w-full sm:max-w-md">
 					<a href="/" class="flex justify-center">
-						<span class="text-3xl font-bold text-primary">Lukaut</span>
+						<img src="/static/lukaut-logo-primary.svg" alt="Lukaut" class="h-10 w-auto"/>
 					</a>
 					<h2 class="mt-6 text-center text-2xl font-bold leading-9 tracking-tight text-foreground">
 						{ heading }

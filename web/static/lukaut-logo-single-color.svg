@@ -1,0 +1,55 @@
+<svg width="360" height="100" viewBox="0 0 360 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Lukaut Logo - Single Color (Navy Only) -->
+  <!-- For reports, fax, single-color print applications -->
+  
+  <!-- Logomark: Combined L shape outline -->
+  <path 
+    d="M 10 10
+       Q 10 8 12 8
+       L 30 8
+       Q 32 8 32 10
+       L 32 66
+       L 66 66
+       Q 68 66 68 68
+       L 68 84
+       Q 68 86 66 86
+       L 12 86
+       Q 10 86 10 84
+       Z"
+    fill="#1E3A5F"
+  />
+  
+  <!-- Inner L cutout to create layered effect in single color -->
+  <path 
+    d="M 16 16
+       Q 16 14 18 14
+       L 36 14
+       Q 38 14 38 16
+       L 38 58
+       L 60 58
+       Q 62 58 62 60
+       L 62 76
+       Q 62 78 60 78
+       L 18 78
+       Q 16 78 16 76
+       Z"
+    fill="#FEFEFE"
+  />
+  
+  <!-- Wordmark "ukaut" -->
+  
+  <!-- Letter: u -->
+  <path d="M 80 32 L 80 58 Q 80 70 92 70 Q 104 70 104 58 L 104 32 L 116 32 L 116 58 Q 116 78 92 78 Q 68 78 68 58 L 68 32 Z" fill="#1E3A5F"/>
+  
+  <!-- Letter: k -->
+  <path d="M 124 18 L 136 18 L 136 44 L 156 32 L 172 32 L 148 47 L 174 78 L 158 78 L 138 54 L 136 56 L 136 78 L 124 78 Z" fill="#1E3A5F"/>
+  
+  <!-- Letter: a -->
+  <path d="M 200 78 L 200 72 Q 194 78 182 78 Q 170 78 170 66 Q 170 54 188 54 L 200 54 L 200 52 Q 200 44 188 44 Q 180 44 176 48 L 170 40 Q 178 32 190 32 Q 212 32 212 52 L 212 78 Z M 200 62 L 190 62 Q 182 62 182 66 Q 182 70 190 70 Q 200 70 200 62 Z" fill="#1E3A5F"/>
+  
+  <!-- Letter: u -->
+  <path d="M 222 32 L 222 58 Q 222 70 234 70 Q 246 70 246 58 L 246 32 L 258 32 L 258 58 Q 258 78 234 78 Q 210 78 210 58 L 210 32 Z" fill="#1E3A5F"/>
+  
+  <!-- Letter: t -->
+  <path d="M 280 18 L 280 32 L 296 32 L 296 42 L 280 42 L 280 62 Q 280 70 290 70 L 296 70 L 296 78 L 288 78 Q 268 78 268 62 L 268 42 L 258 42 L 258 32 L 268 32 L 268 18 Z" fill="#1E3A5F"/>
+</svg>
