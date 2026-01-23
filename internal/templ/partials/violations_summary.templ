@@ -8,9 +8,9 @@ templ ViolationsSummary(data ViolationsSummaryData) {
 		id="violations-summary"
 		if data.IsAnalyzing {
 			hx-get={ fmt.Sprintf("/inspections/%s/violations-summary", data.InspectionID) }
-			hx-trigger="every 3s, galleryUpdated from:body"
+			hx-trigger="every 3s, galleryUpdated from:body, analysisComplete from:body"
 		} else {
-			hx-trigger="galleryUpdated from:body"
+			hx-trigger="galleryUpdated from:body, analysisComplete from:body"
 			hx-get={ fmt.Sprintf("/inspections/%s/violations-summary", data.InspectionID) }
 		}
 		hx-swap="outerHTML"

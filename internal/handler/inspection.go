@@ -576,6 +576,12 @@ func (h *InspectionHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Render templ partial
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// Trigger violations summary refresh when analysis completes with violations
+	if !statusData.IsAnalyzing && statusData.ViolationCount > 0 {
+		w.Header().Set("HX-Trigger", "analysisComplete")
+	}
+
 	templData := partials.AnalysisStatusData{
 		InspectionID:   statusData.InspectionID.String(),
 		Status:         string(statusData.Status),

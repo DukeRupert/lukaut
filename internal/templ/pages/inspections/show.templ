@@ -343,11 +343,13 @@ templ ImageAnalysisBadge(status string) {
 templ ViolationsSummary(inspectionID string, counts ViolationCountsData, isAnalyzing bool) {
 	<div
 		id="violations-summary"
+		hx-get={ fmt.Sprintf("/inspections/%s/violations-summary", inspectionID) }
 		if isAnalyzing {
-			hx-get={ fmt.Sprintf("/inspections/%s/violations-summary", inspectionID) }
-			hx-trigger="every 3s, galleryUpdated from:body"
-			hx-swap="outerHTML"
+			hx-trigger="every 3s, galleryUpdated from:body, analysisComplete from:body"
+		} else {
+			hx-trigger="galleryUpdated from:body, analysisComplete from:body"
 		}
+		hx-swap="outerHTML"
 		class="bg-white shadow sm:rounded-lg"
 	>
 		<div class="px-4 py-5 sm:p-6">
