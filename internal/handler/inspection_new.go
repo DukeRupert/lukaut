@@ -616,8 +616,8 @@ func (h *InspectionHandler) GenerateReport(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Parse form data
-	if err := r.ParseForm(); err != nil {
+	// Parse multipart form data (FormData from JavaScript sends multipart/form-data)
+	if err := r.ParseMultipartForm(32 << 10); err != nil { // 32KB max memory
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
