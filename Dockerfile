@@ -60,7 +60,17 @@ RUN GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 FROM alpine:3.19 AS runtime
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata
+# - ca-certificates, tzdata: SSL and timezone support
+# - pandoc: HTML to DOCX conversion for report generation
+# - py3-pip, py3-weasyprint: HTML to PDF conversion for report generation
+# - font packages: Required for proper PDF rendering
+RUN apk add --no-cache \
+    ca-certificates \
+    tzdata \
+    pandoc \
+    py3-weasyprint \
+    font-noto \
+    font-noto-cjk
 
 # Create non-root user for security
 RUN addgroup -g 1000 lukaut && \

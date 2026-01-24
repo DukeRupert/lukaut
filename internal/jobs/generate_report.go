@@ -45,8 +45,8 @@ func NewGenerateReportHandler(
 		queries:      queries,
 		storage:      storage,
 		emailService: emailService,
-		pdfGen:       report.NewPDFGenerator(),
-		docxGen:      report.NewDOCXGenerator(),
+		pdfGen:       report.NewHTMLPDFGenerator(logger),
+		docxGen:      report.NewHTMLDOCXGenerator(logger),
 		logger:       logger,
 		baseURL:      baseURL,
 	}

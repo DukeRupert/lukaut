@@ -1,0 +1,703 @@
+package report
+
+import (
+	"fmt"
+	"github.com/DukeRupert/lukaut/internal/domain"
+)
+
+// ReportTemplateData extends domain.ReportData with template-specific fields.
+type ReportTemplateData struct {
+	*domain.ReportData
+	// ImageDataMap holds base64-encoded images keyed by violation number.
+	// Used for DOCX generation where images must be embedded.
+	// For PDF generation, this can be nil and ThumbnailURL is used directly.
+	ImageDataMap map[int]string
+}
+
+// GetImageSrc returns the image source for a violation.
+// Returns base64 data URI if available, otherwise the thumbnail URL.
+func (d *ReportTemplateData) GetImageSrc(violationNum int, thumbnailURL string) string {
+	if d.ImageDataMap != nil {
+		if dataURI, ok := d.ImageDataMap[violationNum]; ok {
+			return dataURI
+		}
+	}
+	return thumbnailURL
+}
+
+// SeverityColor returns the hex color for a severity level.
+func SeverityColor(severity domain.ViolationSeverity) string {
+	switch severity {
+	case domain.ViolationSeverityCritical:
+		return "#DC2626"
+	case domain.ViolationSeveritySerious:
+		return "#F59E0B"
+	case domain.ViolationSeverityOther:
+		return "#3B82F6"
+	case domain.ViolationSeverityRecommendation:
+		return "#6B7280"
+	default:
+		return "#6B7280"
+	}
+}
+
+// SeverityLabel returns a human-readable label for severity.
+func SeverityLabel(severity domain.ViolationSeverity) string {
+	switch severity {
+	case domain.ViolationSeverityCritical:
+		return "Critical"
+	case domain.ViolationSeveritySerious:
+		return "Serious"
+	case domain.ViolationSeverityOther:
+		return "Other"
+	case domain.ViolationSeverityRecommendation:
+		return "Recommendation"
+	default:
+		return string(severity)
+	}
+}
+
+// SeverityBgColor returns a light background color for severity badges.
+func SeverityBgColor(severity domain.ViolationSeverity) string {
+	switch severity {
+	case domain.ViolationSeverityCritical:
+		return "#FEE2E2"
+	case domain.ViolationSeveritySerious:
+		return "#FEF3C7"
+	case domain.ViolationSeverityOther:
+		return "#DBEAFE"
+	case domain.ViolationSeverityRecommendation:
+		return "#F3F4F6"
+	default:
+		return "#F3F4F6"
+	}
+}
+
+// FormatDate formats a time for display.
+func FormatDate(t interface{ Format(string) string }) string {
+	return t.Format("January 2, 2006")
+}
+
+// FormatDateTime formats a datetime for display.
+func FormatDateTime(t interface{ Format(string) string }) string {
+	return t.Format("January 2, 2006 at 3:04 PM")
+}
+
+// Report renders the complete HTML report document.
+templ Report(data *ReportTemplateData) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>Safety Inspection Report - { data.InspectionTitle }</title>
+			@reportStyles()
+		</head>
+		<body>
+			@coverPage(data)
+			@executiveSummary(data)
+			@siteInformation(data)
+			@findings(data)
+			if hasRegulations(data) {
+				@appendix(data)
+			}
+			@footer(data)
+		</body>
+	</html>
+}
+
+// reportStyles contains all CSS for the report.
+templ reportStyles() {
+	<style>
+		/* Reset and base styles */
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: Georgia, 'Times New Roman', serif;
+			font-size: 11pt;
+			line-height: 1.5;
+			color: #1F2937;
+			background: #FFFFFF;
+		}
+
+		/* Brand colors */
+		:root {
+			--navy: #1E3A5F;
+			--safety-orange: #FF6B35;
+			--text-dark: #1F2937;
+			--text-muted: #6B7280;
+			--border: #E5E7EB;
+			--background: #F9FAFB;
+		}
+
+		/* Page setup for print */
+		@page {
+			size: A4;
+			margin: 2cm;
+		}
+
+		/* Section breaks */
+		.page-break {
+			page-break-after: always;
+		}
+
+		.avoid-break {
+			page-break-inside: avoid;
+		}
+
+		/* Cover page */
+		.cover-page {
+			min-height: 100vh;
+			display: flex;
+			flex-direction: column;
+		}
+
+		.cover-header {
+			background-color: var(--navy);
+			color: white;
+			padding: 40px;
+			margin: -2cm -2cm 0 -2cm;
+		}
+
+		.cover-title {
+			font-size: 28pt;
+			font-weight: bold;
+			margin-bottom: 8px;
+		}
+
+		.cover-subtitle {
+			font-size: 14pt;
+			opacity: 0.9;
+		}
+
+		.cover-content {
+			padding: 40px 0;
+			flex: 1;
+		}
+
+		.info-section {
+			margin-bottom: 24px;
+		}
+
+		.info-label {
+			font-size: 10pt;
+			font-weight: bold;
+			color: var(--text-muted);
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+			margin-bottom: 8px;
+		}
+
+		.info-value {
+			font-size: 12pt;
+			color: var(--text-dark);
+		}
+
+		/* Section headers */
+		.section-header {
+			font-size: 18pt;
+			font-weight: bold;
+			color: var(--navy);
+			border-bottom: 2px solid var(--navy);
+			padding-bottom: 8px;
+			margin-bottom: 20px;
+			margin-top: 30px;
+		}
+
+		.subsection-header {
+			font-size: 12pt;
+			font-weight: bold;
+			color: var(--text-dark);
+			margin-top: 20px;
+			margin-bottom: 10px;
+		}
+
+		/* Tables */
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 16px 0;
+		}
+
+		th, td {
+			padding: 10px 12px;
+			text-align: left;
+			border: 1px solid var(--border);
+		}
+
+		th {
+			background-color: var(--background);
+			font-weight: bold;
+			font-size: 10pt;
+		}
+
+		.summary-table {
+			width: auto;
+			min-width: 300px;
+		}
+
+		.summary-table th,
+		.summary-table td {
+			padding: 8px 16px;
+		}
+
+		.severity-indicator {
+			display: inline-block;
+			width: 12px;
+			height: 12px;
+			border-radius: 2px;
+			margin-right: 8px;
+			vertical-align: middle;
+		}
+
+		.total-row {
+			font-weight: bold;
+			background-color: var(--background);
+		}
+
+		/* Violation cards */
+		.violation-card {
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			padding: 20px;
+			margin-bottom: 20px;
+			page-break-inside: avoid;
+		}
+
+		.violation-header {
+			display: flex;
+			align-items: center;
+			margin-bottom: 16px;
+		}
+
+		.violation-number {
+			font-size: 14pt;
+			font-weight: bold;
+			color: var(--text-dark);
+		}
+
+		.severity-badge {
+			display: inline-block;
+			padding: 4px 12px;
+			border-radius: 4px;
+			font-size: 10pt;
+			font-weight: bold;
+			margin-left: 12px;
+		}
+
+		.violation-image {
+			max-width: 100%;
+			max-height: 200px;
+			border-radius: 4px;
+			margin: 12px 0;
+		}
+
+		.violation-section {
+			margin-top: 12px;
+		}
+
+		.violation-section-label {
+			font-weight: bold;
+			font-size: 10pt;
+			color: var(--text-muted);
+			margin-bottom: 4px;
+		}
+
+		.regulation-citation {
+			color: var(--safety-orange);
+			font-weight: bold;
+		}
+
+		.regulation-title {
+			font-style: italic;
+		}
+
+		.regulation-category {
+			color: var(--text-muted);
+			font-size: 10pt;
+		}
+
+		.inspector-notes {
+			font-style: italic;
+			color: var(--text-muted);
+		}
+
+		/* Appendix */
+		.regulation-entry {
+			border-bottom: 1px solid var(--border);
+			padding: 16px 0;
+			page-break-inside: avoid;
+		}
+
+		.regulation-entry:last-child {
+			border-bottom: none;
+		}
+
+		.regulation-standard {
+			font-size: 12pt;
+			font-weight: bold;
+			color: var(--navy);
+		}
+
+		.regulation-text {
+			font-size: 10pt;
+			color: var(--text-dark);
+			margin-top: 8px;
+			line-height: 1.6;
+		}
+
+		/* Footer */
+		.report-footer {
+			margin-top: 40px;
+			padding-top: 16px;
+			border-top: 1px solid var(--border);
+			font-size: 9pt;
+			color: var(--text-muted);
+			text-align: center;
+		}
+
+		/* Label-value pairs */
+		.label-value {
+			margin-bottom: 4px;
+		}
+
+		.label-value .label {
+			font-weight: bold;
+			display: inline-block;
+			min-width: 100px;
+		}
+
+		/* Separator */
+		.separator {
+			border-top: 1px solid var(--border);
+			margin: 20px 0;
+		}
+
+		/* No violations message */
+		.no-violations {
+			font-style: italic;
+			color: var(--text-muted);
+			padding: 20px;
+			text-align: center;
+		}
+	</style>
+}
+
+// coverPage renders the report cover page.
+templ coverPage(data *ReportTemplateData) {
+	<div class="cover-page">
+		<div class="cover-header">
+			<div class="cover-title">Safety Inspection Report</div>
+			<div class="cover-subtitle">{ data.InspectionTitle }</div>
+		</div>
+		<div class="cover-content">
+			<div class="info-section">
+				<div class="info-label">Site</div>
+				<div class="info-value">
+					if data.SiteName != "" {
+						<div>{ data.SiteName }</div>
+					}
+					if data.SiteAddress != "" {
+						<div>{ data.SiteAddress }</div>
+					}
+					if data.SiteCity != "" || data.SiteState != "" {
+						<div>
+							{ data.SiteCity }
+							if data.SiteCity != "" && data.SiteState != "" {
+								,
+							}
+							{ data.SiteState } { data.SitePostalCode }
+						</div>
+					}
+				</div>
+			</div>
+			<div class="info-section">
+				<div class="info-label">Inspection Date</div>
+				<div class="info-value">{ FormatDate(data.InspectionDate) }</div>
+			</div>
+			<div class="info-section">
+				<div class="info-label">Inspector</div>
+				<div class="info-value">
+					if data.InspectorName != "" {
+						<div>{ data.InspectorName }</div>
+					}
+					if data.InspectorCompany != "" {
+						<div>{ data.InspectorCompany }</div>
+					}
+					if data.InspectorLicense != "" {
+						<div>License: { data.InspectorLicense }</div>
+					}
+				</div>
+			</div>
+			if data.HasClient() {
+				<div class="info-section">
+					<div class="info-label">Client</div>
+					<div class="info-value">
+						<div>{ data.ClientName }</div>
+						if data.ClientEmail != "" {
+							<div>{ data.ClientEmail }</div>
+						}
+						if data.ClientPhone != "" {
+							<div>{ data.ClientPhone }</div>
+						}
+					</div>
+				</div>
+			}
+		</div>
+	</div>
+	<div class="page-break"></div>
+}
+
+// executiveSummary renders the executive summary section.
+templ executiveSummary(data *ReportTemplateData) {
+	<h2 class="section-header">Executive Summary</h2>
+	<h3 class="subsection-header">Violations Summary</h3>
+	<table class="summary-table">
+		<thead>
+			<tr>
+				<th>Severity</th>
+				<th>Count</th>
+			</tr>
+		</thead>
+		<tbody>
+			@summaryRow(data, domain.ViolationSeverityCritical)
+			@summaryRow(data, domain.ViolationSeveritySerious)
+			@summaryRow(data, domain.ViolationSeverityOther)
+			@summaryRow(data, domain.ViolationSeverityRecommendation)
+			<tr class="total-row">
+				<td>Total</td>
+				<td>{ fmt.Sprintf("%d", data.TotalViolations()) }</td>
+			</tr>
+		</tbody>
+	</table>
+	if data.WeatherConditions != "" || data.Temperature != "" {
+		<h3 class="subsection-header">Conditions During Inspection</h3>
+		if data.WeatherConditions != "" {
+			<div class="label-value">
+				<span class="label">Weather:</span> { data.WeatherConditions }
+			</div>
+		}
+		if data.Temperature != "" {
+			<div class="label-value">
+				<span class="label">Temperature:</span> { data.Temperature }
+			</div>
+		}
+	}
+	if data.InspectorNotes != "" {
+		<h3 class="subsection-header">General Notes</h3>
+		<p>{ data.InspectorNotes }</p>
+	}
+	<div class="page-break"></div>
+}
+
+// summaryRow renders a row in the violations summary table.
+templ summaryRow(data *ReportTemplateData, severity domain.ViolationSeverity) {
+	{{ counts := data.ViolationCountBySeverity() }}
+	{{ count := counts[severity] }}
+	if count > 0 || severity == domain.ViolationSeverityCritical || severity == domain.ViolationSeveritySerious {
+		<tr>
+			<td>
+				<span class="severity-indicator" style={ fmt.Sprintf("background-color: %s", SeverityColor(severity)) }></span>
+				{ SeverityLabel(severity) }
+			</td>
+			<td>{ fmt.Sprintf("%d", count) }</td>
+		</tr>
+	}
+}
+
+// siteInformation renders the site and client information section.
+templ siteInformation(data *ReportTemplateData) {
+	if data.HasSite() || data.HasClient() {
+		<h2 class="section-header">Site & Client Information</h2>
+		if data.HasSite() {
+			<h3 class="subsection-header">Site Details</h3>
+			<div class="label-value">
+				<span class="label">Site Name:</span> { data.SiteName }
+			</div>
+			if data.SiteFullAddress() != "" {
+				<div class="label-value">
+					<span class="label">Address:</span> { data.SiteAddress }
+					if data.SiteCity != "" || data.SiteState != "" {
+						<br/>
+						<span class="label"></span>
+						{ data.SiteCity }
+						if data.SiteCity != "" && data.SiteState != "" {
+							,
+						}
+						{ data.SiteState } { data.SitePostalCode }
+					}
+				</div>
+			}
+		}
+		if data.HasClient() {
+			<h3 class="subsection-header">Client Details</h3>
+			<div class="label-value">
+				<span class="label">Client Name:</span> { data.ClientName }
+			</div>
+			if data.ClientEmail != "" {
+				<div class="label-value">
+					<span class="label">Email:</span> { data.ClientEmail }
+				</div>
+			}
+			if data.ClientPhone != "" {
+				<div class="label-value">
+					<span class="label">Phone:</span> { data.ClientPhone }
+				</div>
+			}
+		}
+		<h3 class="subsection-header">Inspector Details</h3>
+		<div class="label-value">
+			<span class="label">Name:</span> { data.InspectorName }
+		</div>
+		if data.InspectorCompany != "" {
+			<div class="label-value">
+				<span class="label">Company:</span> { data.InspectorCompany }
+			</div>
+		}
+		if data.InspectorLicense != "" {
+			<div class="label-value">
+				<span class="label">License #:</span> { data.InspectorLicense }
+			</div>
+		}
+		if data.InspectorEmail != "" {
+			<div class="label-value">
+				<span class="label">Email:</span> { data.InspectorEmail }
+			</div>
+		}
+		if data.InspectorPhone != "" {
+			<div class="label-value">
+				<span class="label">Phone:</span> { data.InspectorPhone }
+			</div>
+		}
+		<div class="page-break"></div>
+	}
+}
+
+// findings renders the inspection findings section.
+templ findings(data *ReportTemplateData) {
+	<h2 class="section-header">Inspection Findings</h2>
+	if len(data.Violations) == 0 {
+		<p class="no-violations">No violations were identified during this inspection.</p>
+	} else {
+		for _, violation := range data.Violations {
+			@violationCard(data, violation)
+		}
+	}
+	<div class="page-break"></div>
+}
+
+// violationCard renders a single violation.
+templ violationCard(data *ReportTemplateData, v domain.ReportViolation) {
+	<div class="violation-card avoid-break">
+		<div class="violation-header">
+			<span class="violation-number">Finding #{ fmt.Sprintf("%d", v.Number) }</span>
+			<span
+				class="severity-badge"
+				style={ fmt.Sprintf("background-color: %s; color: %s", SeverityBgColor(v.Severity), SeverityColor(v.Severity)) }
+			>
+				{ SeverityLabel(v.Severity) }
+			</span>
+		</div>
+		if v.ThumbnailURL != "" || (data.ImageDataMap != nil && data.ImageDataMap[v.Number] != "") {
+			{{ imgSrc := data.GetImageSrc(v.Number, v.ThumbnailURL) }}
+			if imgSrc != "" {
+				<div class="violation-section">
+					<div class="violation-section-label">Photo Evidence</div>
+					<img src={ imgSrc } alt={ fmt.Sprintf("Finding %d photo", v.Number) } class="violation-image"/>
+				</div>
+			}
+		}
+		<div class="violation-section">
+			<div class="violation-section-label">Description</div>
+			<p>{ v.Description }</p>
+		</div>
+		if v.PrimaryRegulation() != nil {
+			{{ reg := v.PrimaryRegulation() }}
+			<div class="violation-section">
+				<div class="violation-section-label">OSHA Regulation</div>
+				<div class="regulation-citation">{ reg.StandardNumber }</div>
+				if reg.Title != "" {
+					<div class="regulation-title">{ reg.Title }</div>
+				}
+				if reg.Category != "" {
+					<div class="regulation-category">Category: { reg.Category }</div>
+				}
+			</div>
+		}
+		if v.InspectorNotes != "" {
+			<div class="violation-section">
+				<div class="violation-section-label">Inspector Notes</div>
+				<p class="inspector-notes">{ v.InspectorNotes }</p>
+			</div>
+		}
+	</div>
+}
+
+// appendix renders the regulation reference appendix.
+templ appendix(data *ReportTemplateData) {
+	<h2 class="section-header">Appendix: Regulation Reference</h2>
+	{{ regulations := collectRegulations(data) }}
+	if len(regulations) == 0 {
+		<p class="no-violations">No regulations cited in this report.</p>
+	} else {
+		for _, reg := range regulations {
+			<div class="regulation-entry">
+				<div class="regulation-standard">{ reg.StandardNumber }</div>
+				if reg.Title != "" {
+					<div class="regulation-title">{ reg.Title }</div>
+				}
+				if reg.Category != "" {
+					<div class="regulation-category">Category: { reg.Category }</div>
+				}
+				if reg.FullText != "" {
+					<div class="regulation-text">{ truncateText(reg.FullText, 1000) }</div>
+				}
+			</div>
+		}
+	}
+}
+
+// footer renders the report footer.
+templ footer(data *ReportTemplateData) {
+	<div class="report-footer">
+		<p>Generated: { FormatDateTime(data.GeneratedAt) }</p>
+		<p>Lukaut Safety Inspection Platform</p>
+	</div>
+}
+
+// hasRegulations checks if any violations have regulations.
+func hasRegulations(data *ReportTemplateData) bool {
+	for _, v := range data.Violations {
+		if len(v.Regulations) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// collectRegulations returns unique regulations from all violations.
+func collectRegulations(data *ReportTemplateData) []domain.ReportRegulation {
+	seen := make(map[string]bool)
+	var result []domain.ReportRegulation
+	for _, v := range data.Violations {
+		for _, r := range v.Regulations {
+			if !seen[r.StandardNumber] {
+				seen[r.StandardNumber] = true
+				result = append(result, r)
+			}
+		}
+	}
+	return result
+}
+
+// truncateText truncates text to a maximum length.
+func truncateText(text string, maxLen int) string {
+	if len(text) <= maxLen {
+		return text
+	}
+	return text[:maxLen-3] + "..."
+}

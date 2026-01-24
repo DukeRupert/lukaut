@@ -665,9 +665,15 @@ func (h *InspectionHandler) GenerateReport(w http.ResponseWriter, r *http.Reques
 		"recipient_email", recipientEmail,
 	)
 
-	// Return success response (htmx partial or JSON)
+	// Return success response (htmx partial)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("HX-Trigger", "reportQueued")
+
+	// Start polling and stop after 60 seconds
+	pollingScript := `<script>
+		document.body.classList.add('report-polling');
+		setTimeout(() => document.body.classList.remove('report-polling'), 60000);
+	</script>`
 
 	// Customize message based on whether recipient email was provided
 	if recipientEmail != "" {
@@ -684,7 +690,7 @@ func (h *InspectionHandler) GenerateReport(w http.ResponseWriter, r *http.Reques
 					</p>
 				</div>
 			</div>
-		</div>`, format, recipientEmail)
+		</div>%s`, format, recipientEmail, pollingScript)
 	} else {
 		fmt.Fprintf(w, `<div class="rounded-md bg-green-50 p-4">
 			<div class="flex">
@@ -695,11 +701,11 @@ func (h *InspectionHandler) GenerateReport(w http.ResponseWriter, r *http.Reques
 				</div>
 				<div class="ml-3">
 					<p class="text-sm font-medium text-green-800">
-						Report generation started! You'll receive an email when your %s report is ready.
+						Report generation started! It will appear below when ready.
 					</p>
 				</div>
 			</div>
-		</div>`, format)
+		</div>%s`, format, pollingScript)
 	}
 }
 

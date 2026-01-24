@@ -4,16 +4,19 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/storage"
+	reporttempl "github.com/DukeRupert/lukaut/internal/templ/report"
 	"github.com/google/uuid"
 )
 
@@ -220,7 +223,8 @@ func (h *ReportHandler) ListByInspection(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	fmt.Fprint(w, `<div class="space-y-2">`)
+	// Add report-ready class to signal polling should stop
+	fmt.Fprint(w, `<div class="space-y-2 report-ready">`)
 	for _, report := range userReports {
 		fmt.Fprintf(w, `<div class="flex items-center justify-between bg-gray-50 p-3 rounded-md">`)
 		fmt.Fprintf(w, `<div>`)
@@ -240,9 +244,182 @@ func (h *ReportHandler) ListByInspection(w http.ResponseWriter, r *http.Request)
 	fmt.Fprint(w, `</div>`)
 }
 
+// Preview renders an HTML preview of the report without generating PDF/DOCX.
+// GET /inspections/{id}/reports/preview
+func (h *ReportHandler) Preview(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromRequest(r)
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse inspection ID
+	idStr := r.PathValue("id")
+	inspectionID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid inspection ID", http.StatusBadRequest)
+		return
+	}
+
+	// Aggregate report data
+	reportData, err := h.aggregateReportData(r.Context(), inspectionID, user.ID)
+	if err != nil {
+		h.logger.Error("failed to aggregate report data for preview", "error", err, "inspection_id", inspectionID)
+		http.Error(w, "Failed to load report data", http.StatusInternalServerError)
+		return
+	}
+
+	// Render HTML template
+	templateData := &reporttempl.ReportTemplateData{
+		ReportData: reportData,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := reporttempl.Report(templateData).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render report preview", "error", err, "inspection_id", inspectionID)
+		http.Error(w, "Failed to render preview", http.StatusInternalServerError)
+		return
+	}
+}
+
+// aggregateReportData fetches all data needed for report preview/generation.
+func (h *ReportHandler) aggregateReportData(
+	ctx context.Context,
+	inspectionID uuid.UUID,
+	userID uuid.UUID,
+) (*domain.ReportData, error) {
+	// Fetch user with business profile
+	user, err := h.queries.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("fetch user: %w", err)
+	}
+
+	// Fetch inspection with client info
+	inspection, err := h.queries.GetInspectionWithClientByIDAndUserID(ctx, repository.GetInspectionWithClientByIDAndUserIDParams{
+		ID:     inspectionID,
+		UserID: userID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("fetch inspection: %w", err)
+	}
+
+	// Fetch client details if inspection has client_id
+	var clientName, clientEmail, clientPhone string
+	if inspection.ClientID.Valid {
+		client, err := h.queries.GetClientByID(ctx, inspection.ClientID.UUID)
+		if err == nil {
+			clientName = client.Name
+			clientEmail = domain.NullStringValue(client.Email)
+			clientPhone = domain.NullStringValue(client.Phone)
+		}
+	}
+
+	// Fetch confirmed violations
+	violations, err := h.queries.ListConfirmedViolationsByInspectionID(ctx, inspectionID)
+	if err != nil {
+		return nil, fmt.Errorf("fetch violations: %w", err)
+	}
+
+	// Build report violations with regulations
+	reportViolations := make([]domain.ReportViolation, 0, len(violations))
+	for i, v := range violations {
+		// Fetch regulations for this violation
+		regs, err := h.queries.ListRegulationsByViolationID(ctx, v.ID)
+		if err != nil {
+			regs = nil
+		}
+
+		// Convert regulations to report format
+		reportRegs := make([]domain.ReportRegulation, 0, len(regs))
+		for _, reg := range regs {
+			relevanceScore := 0.0
+			if reg.RelevanceScore.Valid {
+				if parsed, parseErr := parseFloat(reg.RelevanceScore.String); parseErr == nil {
+					relevanceScore = parsed
+				}
+			}
+
+			reportRegs = append(reportRegs, domain.ReportRegulation{
+				StandardNumber: reg.StandardNumber,
+				Title:          reg.Title,
+				Category:       reg.Category,
+				FullText:       reg.FullText,
+				IsPrimary:      reg.IsPrimary.Valid && reg.IsPrimary.Bool,
+				RelevanceScore: relevanceScore,
+			})
+		}
+
+		// Get thumbnail URL if violation has image
+		thumbnailURL := ""
+		if v.ImageID.Valid {
+			img, err := h.queries.GetImageByID(ctx, v.ImageID.UUID)
+			if err == nil && img.ThumbnailKey.Valid {
+				url, err := h.storage.URL(ctx, img.ThumbnailKey.String, time.Hour)
+				if err == nil {
+					thumbnailURL = url
+				}
+			}
+		}
+
+		reportViolations = append(reportViolations, domain.ReportViolation{
+			Number:         i + 1,
+			Description:    v.Description,
+			Severity:       domain.ViolationSeverity(domain.NullStringValue(v.Severity)),
+			InspectorNotes: domain.NullStringValue(v.InspectorNotes),
+			ThumbnailURL:   thumbnailURL,
+			Regulations:    reportRegs,
+		})
+	}
+
+	// Build inspector name and email with fallbacks
+	inspectorName := domain.NullStringValue(user.BusinessName)
+	if inspectorName == "" {
+		inspectorName = user.Name
+	}
+
+	inspectorEmail := domain.NullStringValue(user.BusinessEmail)
+	if inspectorEmail == "" {
+		inspectorEmail = user.Email
+	}
+
+	return &domain.ReportData{
+		InspectorName:    inspectorName,
+		InspectorCompany: domain.NullStringValue(user.BusinessName),
+		InspectorLicense: domain.NullStringValue(user.BusinessLicenseNumber),
+		InspectorEmail:   inspectorEmail,
+		InspectorPhone:   domain.NullStringValue(user.BusinessPhone),
+
+		InspectionID:      inspection.ID,
+		InspectionTitle:   inspection.Title,
+		InspectionDate:    inspection.InspectionDate,
+		WeatherConditions: domain.NullStringValue(inspection.WeatherConditions),
+		Temperature:       domain.NullStringValue(inspection.Temperature),
+		InspectorNotes:    domain.NullStringValue(inspection.InspectorNotes),
+
+		SiteName:       inspection.Title,
+		SiteAddress:    inspection.AddressLine1,
+		SiteCity:       inspection.City,
+		SiteState:      inspection.State,
+		SitePostalCode: inspection.PostalCode,
+
+		ClientName:  clientName,
+		ClientEmail: clientEmail,
+		ClientPhone: clientPhone,
+
+		Violations:  reportViolations,
+		GeneratedAt: time.Now(),
+	}, nil
+}
+
+// parseFloat is a helper to parse float strings.
+func parseFloat(s string) (float64, error) {
+	return strconv.ParseFloat(s, 64)
+}
+
 // RegisterRoutes registers report routes on the provided ServeMux.
 func (h *ReportHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(http.Handler) http.Handler) {
 	mux.Handle("GET /reports/{id}/download", requireUser(http.HandlerFunc(h.Download)))
 	mux.Handle("GET /reports/{id}/url", requireUser(http.HandlerFunc(h.GetDownloadURL)))
 	mux.Handle("GET /inspections/{id}/reports", requireUser(http.HandlerFunc(h.ListByInspection)))
+	mux.Handle("GET /inspections/{id}/reports/preview", requireUser(http.HandlerFunc(h.Preview)))
 }
