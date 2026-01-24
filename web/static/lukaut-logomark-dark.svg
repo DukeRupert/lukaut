@@ -1,7 +1,7 @@
 <svg width="80" height="104" viewBox="0 0 80 104" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Lukaut Logomark - Primary (Light Background) -->
+  <!-- Lukaut Logomark - Dark Background Variant -->
   
-  <!-- Back layer: Navy L -->
+  <!-- Back layer: White L -->
   <path 
     d="M 4 6 
        Q 4 2 8 2 
@@ -15,7 +15,7 @@
        L 8 104 
        Q 4 104 4 100 
        Z"
-    fill="#1E3A5F"
+    fill="#FEFEFE"
   />
   
   <!-- Front layer: Orange L -->

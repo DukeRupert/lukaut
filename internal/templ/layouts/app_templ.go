@@ -74,7 +74,7 @@ func AppLayout(data AppLayoutData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\"><meta property=\"og:description\" content=\"AI-powered construction safety inspection reports.\"><meta property=\"og:image\" content=\"/static/lukaut-og-image.svg\"><meta property=\"og:type\" content=\"website\"><!-- Favicon --><link rel=\"icon\" type=\"image/svg+xml\" href=\"/static/favicon.svg\"><!-- Tailwind CSS --><link rel=\"stylesheet\" href=\"/static/css/output.css\"><!-- htmx --><script src=\"https://unpkg.com/htmx.org@2.0.4\" integrity=\"sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+\" crossorigin=\"anonymous\"></script><!-- Alpine.js --><script defer src=\"https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js\"></script><style>\n\t\t\t\t[x-cloak] { display: none !important; }\n\t\t\t</style></head><body class=\"h-full\"><div class=\"min-h-full\" x-data=\"keyboardShortcuts()\" @keydown.window=\"handleKeydown($event)\"><!-- Mobile sidebar overlay -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\"><meta property=\"og:description\" content=\"AI-powered construction safety inspection reports.\"><meta property=\"og:image\" content=\"/static/lukaut-og-image.svg\"><meta property=\"og:type\" content=\"website\"><!-- Favicon --><link rel=\"icon\" type=\"image/svg+xml\" href=\"/static/lukaut-favicon.svg\"><link rel=\"apple-touch-icon\" href=\"/static/lukaut-app-icon.svg\"><!-- Tailwind CSS --><link rel=\"stylesheet\" href=\"/static/css/output.css\"><!-- htmx --><script src=\"https://unpkg.com/htmx.org@2.0.4\" integrity=\"sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+\" crossorigin=\"anonymous\"></script><!-- Alpine.js --><script defer src=\"https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js\"></script><style>\n\t\t\t\t[x-cloak] { display: none !important; }\n\t\t\t</style></head><body class=\"h-full\"><div class=\"min-h-full\" x-data=\"keyboardShortcuts()\" @keydown.window=\"handleKeydown($event)\"><!-- Mobile sidebar overlay -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -270,7 +270,7 @@ func NavItem(href string, label string, currentPath string, icon templ.Component
 		var templ_7745c5c3_Var8 templ.SafeURL
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(href))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 233, Col: 29}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 234, Col: 29}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -300,7 +300,7 @@ func NavItem(href string, label string, currentPath string, icon templ.Component
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 237, Col: 10}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 238, Col: 10}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -407,7 +407,7 @@ func UserMenu(user *UserInfo, csrfToken string) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(userInitial(user))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 290, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 291, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -420,7 +420,7 @@ func UserMenu(user *UserInfo, csrfToken string) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(userName(user))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 294, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 295, Col: 21}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -438,7 +438,7 @@ func UserMenu(user *UserInfo, csrfToken string) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(csrfToken)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 316, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/layouts/app.templ`, Line: 317, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {

@@ -1,36 +1,36 @@
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Lukaut Favicon -->
+  <!-- Lukaut Favicon - Optimized for small sizes -->
   
   <!-- Back layer: Navy L -->
   <path 
-    d="M 3 3
-       Q 3 2 4 2
-       L 12 2
-       Q 13 2 13 3
-       L 13 21
-       L 29 21
-       Q 30 21 30 22
-       L 30 29
-       Q 30 30 29 30
-       L 4 30
-       Q 3 30 3 29
+    d="M 2 3 
+       Q 2 2 3 2 
+       L 13 2 
+       Q 14 2 14 3 
+       L 14 22 
+       L 29 22 
+       Q 30 22 30 23 
+       L 30 29 
+       Q 30 30 29 30 
+       L 3 30 
+       Q 2 30 2 29 
        Z"
     fill="#1E3A5F"
   />
   
   <!-- Front layer: Orange L -->
   <path 
-    d="M 6 6
-       Q 6 5 7 5
-       L 15 5
-       Q 16 5 16 6
-       L 16 18
-       L 26 18
-       Q 27 18 27 19
-       L 27 26
-       Q 27 27 26 27
-       L 7 27
-       Q 6 27 6 26
+    d="M 5 6 
+       Q 5 5 6 5 
+       L 16 5 
+       Q 17 5 17 6 
+       L 17 19 
+       L 26 19 
+       Q 27 19 27 20 
+       L 27 26 
+       Q 27 27 26 27 
+       L 6 27 
+       Q 5 27 5 26 
        Z"
     fill="#FF6B35"
   />

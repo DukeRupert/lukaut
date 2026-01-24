@@ -1,7 +1,8 @@
 <svg width="80" height="104" viewBox="0 0 80 104" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Lukaut Logomark - Primary (Light Background) -->
+  <!-- Lukaut Logomark - Single Color (Navy Only) -->
+  <!-- For reports, fax, single-color print applications -->
   
-  <!-- Back layer: Navy L -->
+  <!-- Outer L shape -->
   <path 
     d="M 4 6 
        Q 4 2 8 2 
@@ -18,7 +19,7 @@
     fill="#1E3A5F"
   />
   
-  <!-- Front layer: Orange L -->
+  <!-- Inner L cutout (white/transparent) -->
   <path 
     d="M 12 14 
        Q 12 10 16 10 
@@ -32,6 +33,6 @@
        L 16 96 
        Q 12 96 12 92 
        Z"
-    fill="#FF6B35"
+    fill="#FEFEFE"
   />
 </svg>
