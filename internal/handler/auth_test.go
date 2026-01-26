@@ -12,6 +12,7 @@ import (
 
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/invite"
+	"github.com/DukeRupert/lukaut/internal/session"
 	"github.com/google/uuid"
 )
 
@@ -235,7 +236,7 @@ func TestLogout_POST_ClearsCookie(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/logout", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  sessionCookieName,
+		Name:  session.CookieName,
 		Value: "session-token-123",
 	})
 	rec := httptest.NewRecorder()
@@ -251,7 +252,7 @@ func TestLogout_POST_ClearsCookie(t *testing.T) {
 	cookies := rec.Result().Cookies()
 	var sessionCookie *http.Cookie
 	for _, cookie := range cookies {
-		if cookie.Name == sessionCookieName {
+		if cookie.Name == session.CookieName {
 			sessionCookie = cookie
 			break
 		}
@@ -277,7 +278,7 @@ func TestLogout_POST_RedirectsToLogin(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/logout", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  sessionCookieName,
+		Name:  session.CookieName,
 		Value: "session-token-123",
 	})
 	rec := httptest.NewRecorder()

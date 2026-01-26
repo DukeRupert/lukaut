@@ -17,33 +17,10 @@ import (
 	"github.com/DukeRupert/lukaut/internal/email"
 	"github.com/DukeRupert/lukaut/internal/invite"
 	"github.com/DukeRupert/lukaut/internal/service"
+	"github.com/DukeRupert/lukaut/internal/session"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/auth"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
 	"github.com/google/uuid"
-)
-
-// =============================================================================
-// Session Cookie Configuration
-// =============================================================================
-
-// Session cookie constants - these match the values in middleware/auth.go
-// to ensure consistency. If these change, update both locations.
-//
-// NOTE: These are duplicated from middleware/auth.go to avoid import cycle.
-// The middleware package imports handler for error responses, so handler
-// cannot import middleware.
-//
-// ARCHITECTURE NOTE: A future refactor could move these constants to a shared
-// package (e.g., internal/session) that both handler and middleware import.
-const (
-	// sessionCookieName is the name of the cookie that stores the session token.
-	sessionCookieName = "lukaut_session"
-
-	// sessionCookiePath ensures the cookie is sent with all requests.
-	sessionCookiePath = "/"
-
-	// sessionCookieMaxAge sets the cookie expiration (7 days = 604800 seconds).
-	sessionCookieMaxAge = 7 * 24 * 60 * 60
 )
 
 // =============================================================================
@@ -155,7 +132,7 @@ type AuthPageData struct {
 // - Always redirect to login (don't show error pages)
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	// Get session token from cookie
-	cookie, err := r.Cookie(sessionCookieName)
+	cookie, err := r.Cookie(session.CookieName)
 	if err == nil && cookie.Value != "" {
 		// Invalidate session in database
 		if err := h.userService.Logout(r.Context(), cookie.Value); err != nil {
@@ -240,10 +217,10 @@ func (h *AuthHandler) sendVerificationEmail(ctx context.Context, userID uuid.UUI
 // - isSecure: Whether to set Secure flag (true in production)
 func setSessionCookie(w http.ResponseWriter, token string, isSecure bool) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
+		Name:     session.CookieName,
 		Value:    token,
-		Path:     sessionCookiePath,
-		MaxAge:   sessionCookieMaxAge,
+		Path:     session.CookiePath,
+		MaxAge:   session.CookieMaxAge,
 		HttpOnly: true,
 		Secure:   isSecure,
 		SameSite: http.SameSiteLaxMode,
@@ -256,9 +233,9 @@ func setSessionCookie(w http.ResponseWriter, token string, isSecure bool) {
 // the cookie immediately.
 func clearSessionCookie(w http.ResponseWriter, isSecure bool) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
+		Name:     session.CookieName,
 		Value:    "",
-		Path:     sessionCookiePath,
+		Path:     session.CookiePath,
 		MaxAge:   -1, // Delete immediately
 		HttpOnly: true,
 		Secure:   isSecure,

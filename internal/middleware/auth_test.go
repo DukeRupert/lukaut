@@ -12,6 +12,7 @@ import (
 
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
+	"github.com/DukeRupert/lukaut/internal/session"
 	"github.com/google/uuid"
 )
 
@@ -183,7 +184,7 @@ func TestWithUser_ValidCookie_SetsUserInContext(t *testing.T) {
 	// Create request with valid session cookie
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  SessionCookieName,
+		Name:  session.CookieName,
 		Value: "valid-token-123",
 	})
 	rec := httptest.NewRecorder()
@@ -232,7 +233,7 @@ func TestWithUser_InvalidCookie_ClearsAndContinues(t *testing.T) {
 	// Create request with invalid session cookie
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  SessionCookieName,
+		Name:  session.CookieName,
 		Value: "invalid-token",
 	})
 	rec := httptest.NewRecorder()
@@ -250,7 +251,7 @@ func TestWithUser_InvalidCookie_ClearsAndContinues(t *testing.T) {
 	cookies := rec.Result().Cookies()
 	cookieCleared := false
 	for _, cookie := range cookies {
-		if cookie.Name == SessionCookieName {
+		if cookie.Name == session.CookieName {
 			if cookie.MaxAge == -1 {
 				cookieCleared = true
 			}
@@ -296,7 +297,7 @@ func TestWithUser_ContextPropagation(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  SessionCookieName,
+		Name:  session.CookieName,
 		Value: "valid-token",
 	})
 	rec := httptest.NewRecorder()

@@ -14,25 +14,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/handler"
 	"github.com/DukeRupert/lukaut/internal/service"
-)
-
-// =============================================================================
-// Configuration Constants
-// =============================================================================
-
-const (
-	// SessionCookieName is the name of the cookie that stores the session token.
-	// Using a descriptive name helps with debugging while not revealing
-	// implementation details.
-	SessionCookieName = "lukaut_session"
-
-	// SessionCookiePath ensures the cookie is sent with all requests.
-	SessionCookiePath = "/"
-
-	// SessionCookieMaxAge sets the cookie expiration.
-	// This should match SessionDuration in the user service.
-	// 7 days = 604800 seconds
-	SessionCookieMaxAge = 7 * 24 * 60 * 60
+	"github.com/DukeRupert/lukaut/internal/session"
 )
 
 // =============================================================================
@@ -103,7 +85,7 @@ func NewAuthMiddleware(userService service.UserService, logger *slog.Logger, isS
 func (m *AuthMiddleware) WithUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get session cookie
-		cookie, err := r.Cookie(SessionCookieName)
+		cookie, err := r.Cookie(session.CookieName)
 		if err != nil {
 			// No cookie found - continue without user
 			next.ServeHTTP(w, r)
@@ -322,10 +304,10 @@ func (m *AuthMiddleware) RequireActiveSubscription(next http.Handler) http.Handl
 // - isSecure: Whether to set Secure flag (true in production)
 func SetSessionCookie(w http.ResponseWriter, token string, isSecure bool) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     SessionCookieName,
+		Name:     session.CookieName,
 		Value:    token,
-		Path:     SessionCookiePath,
-		MaxAge:   SessionCookieMaxAge,
+		Path:     session.CookiePath,
+		MaxAge:   session.CookieMaxAge,
 		HttpOnly: true,
 		Secure:   isSecure,
 		SameSite: http.SameSiteLaxMode,
@@ -338,9 +320,9 @@ func SetSessionCookie(w http.ResponseWriter, token string, isSecure bool) {
 // the cookie immediately.
 func clearSessionCookie(w http.ResponseWriter, isSecure bool) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     SessionCookieName,
+		Name:     session.CookieName,
 		Value:    "",
-		Path:     SessionCookiePath,
+		Path:     session.CookiePath,
 		MaxAge:   -1, // Delete immediately
 		HttpOnly: true,
 		Secure:   isSecure,
