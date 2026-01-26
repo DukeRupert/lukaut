@@ -61,6 +61,15 @@ type InspectionService interface {
 	// GetAnalysisStatus returns the computed analysis status for an inspection.
 	// Returns domain.ENOTFOUND if inspection does not exist or doesn't belong to user.
 	GetAnalysisStatus(ctx context.Context, inspectionID, userID uuid.UUID) (*domain.AnalysisStatus, error)
+
+	// StartAnalysis transitions an inspection to analyzing status.
+	// No-op if the inspection is already analyzing (supports job retries).
+	// Returns domain.EINVALID if the current status does not allow this transition.
+	StartAnalysis(ctx context.Context, inspectionID, userID uuid.UUID) error
+
+	// CompleteAnalysis transitions an inspection from analyzing to review status.
+	// Returns domain.EINVALID if the current status does not allow this transition.
+	CompleteAnalysis(ctx context.Context, inspectionID, userID uuid.UUID) error
 }
 
 // =============================================================================
@@ -584,6 +593,78 @@ func (s *inspectionService) GetAnalysisStatus(ctx context.Context, inspectionID,
 		Message:        message,
 		PollingEnabled: hasPendingJob,
 	}, nil
+}
+
+// =============================================================================
+// StartAnalysis
+// =============================================================================
+
+// StartAnalysis transitions an inspection to analyzing status.
+func (s *inspectionService) StartAnalysis(ctx context.Context, inspectionID, userID uuid.UUID) error {
+	const op = "inspection.start_analysis"
+
+	inspection, err := s.GetByID(ctx, inspectionID, userID)
+	if err != nil {
+		return err
+	}
+
+	// Already analyzing — no-op for idempotent job retries
+	if inspection.Status == domain.InspectionStatusAnalyzing {
+		return nil
+	}
+
+	if err := inspection.TransitionTo(domain.InspectionStatusAnalyzing); err != nil {
+		return domain.Invalid(op, err.Error())
+	}
+
+	if err := s.queries.UpdateInspectionStatusByIDAndUserID(ctx, repository.UpdateInspectionStatusByIDAndUserIDParams{
+		ID:     inspectionID,
+		UserID: userID,
+		Status: string(domain.InspectionStatusAnalyzing),
+	}); err != nil {
+		return domain.Internal(err, op, "failed to update inspection status")
+	}
+
+	s.logger.Info("inspection analysis started",
+		"inspection_id", inspectionID,
+		"user_id", userID,
+		"old_status", inspection.Status,
+	)
+
+	return nil
+}
+
+// =============================================================================
+// CompleteAnalysis
+// =============================================================================
+
+// CompleteAnalysis transitions an inspection from analyzing to review status.
+func (s *inspectionService) CompleteAnalysis(ctx context.Context, inspectionID, userID uuid.UUID) error {
+	const op = "inspection.complete_analysis"
+
+	inspection, err := s.GetByID(ctx, inspectionID, userID)
+	if err != nil {
+		return err
+	}
+
+	if err := inspection.TransitionTo(domain.InspectionStatusReview); err != nil {
+		return domain.Invalid(op, err.Error())
+	}
+
+	if err := s.queries.UpdateInspectionStatusByIDAndUserID(ctx, repository.UpdateInspectionStatusByIDAndUserIDParams{
+		ID:     inspectionID,
+		UserID: userID,
+		Status: string(domain.InspectionStatusReview),
+	}); err != nil {
+		return domain.Internal(err, op, "failed to update inspection status")
+	}
+
+	s.logger.Info("inspection analysis completed",
+		"inspection_id", inspectionID,
+		"user_id", userID,
+	)
+
+	return nil
 }
 
 // nullUUIDToPtr converts a uuid.NullUUID to a *uuid.UUID.

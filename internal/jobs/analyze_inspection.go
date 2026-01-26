@@ -15,6 +15,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/metrics"
 	"github.com/DukeRupert/lukaut/internal/repository"
+	"github.com/DukeRupert/lukaut/internal/service"
 	"github.com/DukeRupert/lukaut/internal/storage"
 	"github.com/DukeRupert/lukaut/internal/worker"
 	"github.com/google/uuid"
@@ -27,10 +28,11 @@ const maxConcurrentAnalysis = 3
 // AnalyzeInspectionHandler processes jobs that analyze inspection images for violations.
 // It sends images to the AI service and creates violation records based on the results.
 type AnalyzeInspectionHandler struct {
-	queries    *repository.Queries
-	aiProvider ai.AIProvider
-	storage    storage.Storage
-	logger     *slog.Logger
+	queries           *repository.Queries
+	aiProvider        ai.AIProvider
+	storage           storage.Storage
+	inspectionService service.InspectionService
+	logger            *slog.Logger
 }
 
 // NewAnalyzeInspectionHandler creates a new handler for inspection analysis jobs.
@@ -38,13 +40,15 @@ func NewAnalyzeInspectionHandler(
 	queries *repository.Queries,
 	aiProvider ai.AIProvider,
 	storage storage.Storage,
+	inspectionService service.InspectionService,
 	logger *slog.Logger,
 ) *AnalyzeInspectionHandler {
 	return &AnalyzeInspectionHandler{
-		queries:    queries,
-		aiProvider: aiProvider,
-		storage:    storage,
-		logger:     logger,
+		queries:           queries,
+		aiProvider:        aiProvider,
+		storage:           storage,
+		inspectionService: inspectionService,
+		logger:            logger,
 	}
 }
 
@@ -68,37 +72,14 @@ func (h *AnalyzeInspectionHandler) Handle(ctx context.Context, payload []byte) e
 		"user_id", p.UserID,
 	)
 
-	// 1. Fetch and validate inspection
-	inspection, err := h.queries.GetInspectionByID(ctx, p.InspectionID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return worker.NewPermanentError(fmt.Errorf("inspection not found: %w", err))
+	// 1. Transition inspection to analyzing status via service
+	// StartAnalysis validates ownership, checks status, and is idempotent for retries
+	if err := h.inspectionService.StartAnalysis(ctx, p.InspectionID, p.UserID); err != nil {
+		code := domain.ErrorCode(err)
+		if code == domain.ENOTFOUND || code == domain.EINVALID {
+			return worker.NewPermanentError(fmt.Errorf("start analysis: %w", err))
 		}
-		// Database error - retryable
-		return fmt.Errorf("fetch inspection: %w", err)
-	}
-
-	// Verify ownership
-	if inspection.UserID != p.UserID {
-		return worker.NewPermanentError(fmt.Errorf("inspection does not belong to user"))
-	}
-
-	// Check valid status (draft, analyzing, or review - review allows re-analysis with new images)
-	status := domain.InspectionStatus(inspection.Status)
-	if status != domain.InspectionStatusDraft && status != domain.InspectionStatusAnalyzing && status != domain.InspectionStatusReview {
-		return worker.NewPermanentError(fmt.Errorf("invalid inspection status: %s (expected draft, analyzing, or review)", status))
-	}
-
-	// 2. Update inspection status to "analyzing"
-	if status == domain.InspectionStatusDraft || status == domain.InspectionStatusReview {
-		err = h.queries.UpdateInspectionStatus(ctx, repository.UpdateInspectionStatusParams{
-			ID:     p.InspectionID,
-			Status: domain.InspectionStatusAnalyzing.String(),
-		})
-		if err != nil {
-			return fmt.Errorf("update inspection status to analyzing: %w", err)
-		}
-		h.logger.Info("Updated inspection status to analyzing", "inspection_id", p.InspectionID)
+		return fmt.Errorf("start analysis: %w", err)
 	}
 
 	// 3. Fetch pending images
@@ -163,15 +144,10 @@ func (h *AnalyzeInspectionHandler) Handle(ctx context.Context, payload []byte) e
 	// Wait for all image analyses to complete
 	wg.Wait()
 
-	// 5. Update inspection status to "review"
-	err = h.queries.UpdateInspectionStatus(ctx, repository.UpdateInspectionStatusParams{
-		ID:     p.InspectionID,
-		Status: domain.InspectionStatusReview.String(),
-	})
-	if err != nil {
-		return fmt.Errorf("update inspection status to review: %w", err)
+	// 5. Transition inspection to review status via service
+	if err := h.inspectionService.CompleteAnalysis(ctx, p.InspectionID, p.UserID); err != nil {
+		return fmt.Errorf("complete analysis: %w", err)
 	}
-	h.logger.Info("Updated inspection status to review", "inspection_id", p.InspectionID)
 
 	h.logger.Info("Inspection analysis completed",
 		"inspection_id", p.InspectionID,
