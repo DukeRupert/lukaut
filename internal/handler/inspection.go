@@ -641,19 +641,7 @@ func (h *InspectionHandler) ViolationsSummary(w http.ResponseWriter, r *http.Req
 	}
 
 	// Calculate violation counts by status
-	counts := ViolationCounts{
-		Total: len(violations),
-	}
-	for _, v := range violations {
-		switch v.Status {
-		case domain.ViolationStatusPending:
-			counts.Pending++
-		case domain.ViolationStatusConfirmed:
-			counts.Confirmed++
-		case domain.ViolationStatusRejected:
-			counts.Rejected++
-		}
-	}
+	counts := domain.CalculateViolationCounts(violations)
 
 	// Check if analysis is running
 	isAnalyzing := inspection.Status == domain.InspectionStatusAnalyzing

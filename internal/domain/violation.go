@@ -179,6 +179,34 @@ type ViolationRegulation struct {
 }
 
 // =============================================================================
+// Violation Counts
+// =============================================================================
+
+// ViolationCounts contains summary statistics for violations grouped by status.
+type ViolationCounts struct {
+	Total     int
+	Pending   int
+	Confirmed int
+	Rejected  int
+}
+
+// CalculateViolationCounts computes violation counts by status from a slice of violations.
+func CalculateViolationCounts(violations []Violation) ViolationCounts {
+	counts := ViolationCounts{Total: len(violations)}
+	for _, v := range violations {
+		switch v.Status {
+		case ViolationStatusPending:
+			counts.Pending++
+		case ViolationStatusConfirmed:
+			counts.Confirmed++
+		case ViolationStatusRejected:
+			counts.Rejected++
+		}
+	}
+	return counts
+}
+
+// =============================================================================
 // Violation Service Parameters
 // =============================================================================
 

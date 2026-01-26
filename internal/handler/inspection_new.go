@@ -285,18 +285,12 @@ func (h *InspectionHandler) ShowTempl(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Calculate violation counts
+	domainCounts := domain.CalculateViolationCounts(violations)
 	counts := inspections.ViolationCountsData{
-		Total: len(violations),
-	}
-	for _, v := range violations {
-		switch v.Status {
-		case domain.ViolationStatusPending:
-			counts.Pending++
-		case domain.ViolationStatusConfirmed:
-			counts.Confirmed++
-		case domain.ViolationStatusRejected:
-			counts.Rejected++
-		}
+		Total:     domainCounts.Total,
+		Pending:   domainCounts.Pending,
+		Confirmed: domainCounts.Confirmed,
+		Rejected:  domainCounts.Rejected,
 	}
 
 	// Fetch reports for this inspection
@@ -406,18 +400,12 @@ func (h *InspectionHandler) ReviewQueueTempl(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Calculate counts
+	domainCounts := domain.CalculateViolationCounts(violations)
 	counts := inspections.ViolationCountsData{
-		Total: len(violations),
-	}
-	for _, v := range violations {
-		switch v.Status {
-		case domain.ViolationStatusPending:
-			counts.Pending++
-		case domain.ViolationStatusConfirmed:
-			counts.Confirmed++
-		case domain.ViolationStatusRejected:
-			counts.Rejected++
-		}
+		Total:     domainCounts.Total,
+		Pending:   domainCounts.Pending,
+		Confirmed: domainCounts.Confirmed,
+		Rejected:  domainCounts.Rejected,
 	}
 
 	// Parse position from query param (defaults to first pending or 0)
@@ -542,18 +530,12 @@ func (h *InspectionHandler) ReviewQueueUpdateStatus(w http.ResponseWriter, r *ht
 	}
 
 	// Calculate updated counts
+	domainCounts := domain.CalculateViolationCounts(violations)
 	counts := inspections.ViolationCountsData{
-		Total: len(violations),
-	}
-	for _, v := range violations {
-		switch v.Status {
-		case domain.ViolationStatusPending:
-			counts.Pending++
-		case domain.ViolationStatusConfirmed:
-			counts.Confirmed++
-		case domain.ViolationStatusRejected:
-			counts.Rejected++
-		}
+		Total:     domainCounts.Total,
+		Pending:   domainCounts.Pending,
+		Confirmed: domainCounts.Confirmed,
+		Rejected:  domainCounts.Rejected,
 	}
 
 	// Find next pending violation
