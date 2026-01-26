@@ -38,7 +38,8 @@ func GetUser(ctx context.Context) *domain.User {
 type AuthMiddleware struct {
 	userService service.UserService
 	logger      *slog.Logger
-	isSecure    bool // Whether to set Secure flag on cookies (true in production)
+	isSecure    bool     // Whether to set Secure flag on cookies (true in production)
+	adminEmails []string // List of email addresses with admin access
 }
 
 // NewAuthMiddleware creates a new AuthMiddleware instance.
@@ -52,7 +53,15 @@ func NewAuthMiddleware(userService service.UserService, logger *slog.Logger, isS
 		userService: userService,
 		logger:      logger,
 		isSecure:    isSecure,
+		adminEmails: []string{},
 	}
+}
+
+// WithAdminEmails sets the list of admin email addresses.
+// This method allows configuring admin access after middleware creation.
+func (m *AuthMiddleware) WithAdminEmails(emails []string) *AuthMiddleware {
+	m.adminEmails = emails
+	return m
 }
 
 // =============================================================================
@@ -286,6 +295,73 @@ func (m *AuthMiddleware) RequireActiveSubscription(next http.Handler) http.Handl
 }
 
 // =============================================================================
+// RequireAdmin Middleware
+// =============================================================================
+
+// RequireAdmin is middleware that requires the user to be an administrator.
+//
+// This middleware:
+// 1. Assumes a user is already in context (use after RequireUser)
+// 2. Checks if the user's email is in the admin email list
+// 3. If not an admin, returns 403 Forbidden
+// 4. If admin, continues to the next handler
+//
+// IMPORTANT: Use this AFTER RequireUser in the middleware chain.
+//
+// Usage:
+//
+//	requireAdmin := middleware.Stack(authMw.WithUser, authMw.RequireUser, authMw.RequireAdmin)
+//	mux.Handle("GET /admin", requireAdmin(adminHandler))
+func (m *AuthMiddleware) RequireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context (should exist because RequireUser ran first)
+		user := GetUser(r.Context())
+		if user == nil {
+			// This shouldn't happen if RequireUser is used before this middleware
+			m.logger.Error("RequireAdmin called without user in context")
+			if isAPIRequest(r) {
+				handler.UnauthorizedResponse(w, r, m.logger)
+			} else {
+				http.Redirect(w, r, "/login", http.StatusSeeOther)
+			}
+			return
+		}
+
+		// Check if user email is in admin list
+		isAdmin := false
+		userEmailLower := strings.ToLower(user.Email)
+		for _, adminEmail := range m.adminEmails {
+			if strings.ToLower(adminEmail) == userEmailLower {
+				isAdmin = true
+				break
+			}
+		}
+
+		if !isAdmin {
+			m.logger.Warn("non-admin user attempted to access admin route",
+				"user_id", user.ID,
+				"user_email", user.Email,
+				"path", r.URL.Path)
+
+			if isAPIRequest(r) {
+				// Return 403 Forbidden for API requests
+				err := domain.Forbidden("", "Administrator access required")
+				handler.ErrorResponse(w, r, m.logger, err)
+				return
+			}
+
+			// For HTML requests, render 403 page
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte("403 Forbidden: Administrator access required"))
+			return
+		}
+
+		// User is admin - continue to next handler
+		next.ServeHTTP(w, r)
+	})
+}
+
+// =============================================================================
 // Cookie Helpers
 // =============================================================================
 
@@ -437,6 +513,7 @@ var (
 	_ func(http.Handler) http.Handler = (&AuthMiddleware{}).RequireUser
 	_ func(http.Handler) http.Handler = (&AuthMiddleware{}).RequireEmailVerified
 	_ func(http.Handler) http.Handler = (&AuthMiddleware{}).RequireActiveSubscription
+	_ func(http.Handler) http.Handler = (&AuthMiddleware{}).RequireAdmin
 )
 
 // =============================================================================

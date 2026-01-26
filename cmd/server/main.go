@@ -180,7 +180,12 @@ func run() error {
 
 	// Initialize middleware
 	isSecure := cfg.Env != "development"
-	authMw := middleware.NewAuthMiddleware(userService, logger, isSecure)
+	authMw := middleware.NewAuthMiddleware(userService, logger, isSecure).WithAdminEmails(cfg.AdminEmails)
+	if len(cfg.AdminEmails) > 0 {
+		logger.Info("admin access configured", "admin_count", len(cfg.AdminEmails))
+	} else {
+		logger.Warn("no admin emails configured - admin panel will be inaccessible")
+	}
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userService, emailService, inviteValidator, logger, isSecure)
@@ -192,6 +197,7 @@ func run() error {
 	settingsHandler := handler.NewSettingsHandler(userService, logger)
 	clientHandler := handler.NewClientHandler(clientService, logger)
 	reportHandler := handler.NewReportHandler(repo, storageService, logger)
+	adminHandler := handler.NewAdminHandler(repo, logger)
 
 	// ==========================================================================
 	// Create router and register routes
@@ -240,6 +246,7 @@ func run() error {
 
 	// Create middleware stacks for protected routes
 	requireUser := middleware.Stack(authMw.WithUser, authMw.RequireUser)
+	requireAdmin := middleware.Stack(authMw.WithUser, authMw.RequireUser, authMw.RequireAdmin)
 
 	// Dashboard (requires authentication) - using templ
 	mux.Handle("GET /dashboard", requireUser(http.HandlerFunc(dashboardHandler.ShowTempl)))
@@ -264,6 +271,9 @@ func run() error {
 
 	// Report routes (requires authentication)
 	reportHandler.RegisterRoutes(mux, requireUser)
+
+	// Admin routes (requires authentication and admin role)
+	adminHandler.RegisterRoutes(mux, requireAdmin)
 
 	// ==========================================================================
 	// Start server

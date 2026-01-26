@@ -616,3 +616,216 @@ func TestSetSessionCookie_SameSite(t *testing.T) {
 		t.Errorf("SameSite = %v, want %v", sessionCookie.SameSite, http.SameSiteLaxMode)
 	}
 }
+
+// =============================================================================
+// RequireAdmin Tests
+// =============================================================================
+
+func TestRequireAdmin_AdminUser_Continues(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	mockService := &mockUserService{}
+
+	// Create middleware with admin emails
+	authMw := NewAuthMiddleware(mockService, logger, false).WithAdminEmails([]string{"admin@example.com", "boss@example.com"})
+
+	// Create a test user with admin email
+	adminUser := &domain.User{
+		ID:    uuid.New(),
+		Email: "admin@example.com",
+		Name:  "Admin User",
+	}
+
+	// Create a test handler that sets a flag when called
+	handlerCalled := false
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Create request with admin user in context
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+	ctx := auth.SetUser(req.Context(), adminUser)
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	// Execute middleware
+	authMw.RequireAdmin(testHandler).ServeHTTP(rec, req)
+
+	// Verify handler was called
+	if !handlerCalled {
+		t.Error("expected handler to be called for admin user")
+	}
+
+	// Verify response status
+	if rec.Code != http.StatusOK {
+		t.Errorf("status code = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestRequireAdmin_NonAdminUser_HTMLRequest_Returns403(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	mockService := &mockUserService{}
+
+	// Create middleware with admin emails
+	authMw := NewAuthMiddleware(mockService, logger, false).WithAdminEmails([]string{"admin@example.com"})
+
+	// Create a test user with non-admin email
+	regularUser := &domain.User{
+		ID:    uuid.New(),
+		Email: "user@example.com",
+		Name:  "Regular User",
+	}
+
+	// Create a test handler that should NOT be called
+	handlerCalled := false
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Create HTML request with regular user in context
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+	req.Header.Set("Accept", "text/html")
+	ctx := auth.SetUser(req.Context(), regularUser)
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	// Execute middleware
+	authMw.RequireAdmin(testHandler).ServeHTTP(rec, req)
+
+	// Verify handler was NOT called
+	if handlerCalled {
+		t.Error("expected handler NOT to be called for non-admin user")
+	}
+
+	// Verify response status is 403 Forbidden
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status code = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+
+	// Verify response body contains forbidden message
+	body := rec.Body.String()
+	if !strings.Contains(body, "403") && !strings.Contains(body, "Forbidden") {
+		t.Errorf("response body should contain 403 or Forbidden, got: %s", body)
+	}
+}
+
+func TestRequireAdmin_NonAdminUser_APIRequest_Returns403JSON(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	mockService := &mockUserService{}
+
+	// Create middleware with admin emails
+	authMw := NewAuthMiddleware(mockService, logger, false).WithAdminEmails([]string{"admin@example.com"})
+
+	// Create a test user with non-admin email
+	regularUser := &domain.User{
+		ID:    uuid.New(),
+		Email: "user@example.com",
+		Name:  "Regular User",
+	}
+
+	// Create a test handler that should NOT be called
+	handlerCalled := false
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Create API request with regular user in context
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+	req.Header.Set("Accept", "application/json")
+	ctx := auth.SetUser(req.Context(), regularUser)
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	// Execute middleware
+	authMw.RequireAdmin(testHandler).ServeHTTP(rec, req)
+
+	// Verify handler was NOT called
+	if handlerCalled {
+		t.Error("expected handler NOT to be called for non-admin user")
+	}
+
+	// Verify response status is 403 Forbidden
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status code = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
+func TestRequireAdmin_NoUser_RedirectsToLogin(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	mockService := &mockUserService{}
+
+	// Create middleware with admin emails
+	authMw := NewAuthMiddleware(mockService, logger, false).WithAdminEmails([]string{"admin@example.com"})
+
+	// Create a test handler that should NOT be called
+	handlerCalled := false
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Create request without user in context
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+	rec := httptest.NewRecorder()
+
+	// Execute middleware
+	authMw.RequireAdmin(testHandler).ServeHTTP(rec, req)
+
+	// Verify handler was NOT called
+	if handlerCalled {
+		t.Error("expected handler NOT to be called when user is not in context")
+	}
+
+	// Verify redirect to login
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status code = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+
+	location := rec.Header().Get("Location")
+	if location != "/login" {
+		t.Errorf("location header = %q, want %q", location, "/login")
+	}
+}
+
+func TestRequireAdmin_CaseInsensitiveEmail(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	mockService := &mockUserService{}
+
+	// Create middleware with admin emails in mixed case
+	authMw := NewAuthMiddleware(mockService, logger, false).WithAdminEmails([]string{"Admin@Example.Com"})
+
+	// Create a test user with lowercase email
+	adminUser := &domain.User{
+		ID:    uuid.New(),
+		Email: "admin@example.com",
+		Name:  "Admin User",
+	}
+
+	// Create a test handler that sets a flag when called
+	handlerCalled := false
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Create request with admin user in context
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+	ctx := auth.SetUser(req.Context(), adminUser)
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	// Execute middleware
+	authMw.RequireAdmin(testHandler).ServeHTTP(rec, req)
+
+	// Verify handler was called (case-insensitive match should work)
+	if !handlerCalled {
+		t.Error("expected handler to be called for admin user (case-insensitive)")
+	}
+
+	// Verify response status
+	if rec.Code != http.StatusOK {
+		t.Errorf("status code = %d, want %d", rec.Code, http.StatusOK)
+	}
+}

@@ -58,6 +58,9 @@ type Config struct {
 	// Invite code system (MVP testing)
 	InviteCodesEnabled bool     // Enable/disable invite code requirement
 	ValidInviteCodes   []string // List of valid codes to accept
+
+	// Admin access control
+	AdminEmails []string // List of email addresses with admin access
 }
 
 func NewConfig() (*Config, error) {
@@ -118,6 +121,18 @@ func NewConfig() (*Config, error) {
 			trimmed := strings.TrimSpace(strings.ToUpper(code))
 			if trimmed != "" {
 				cfg.ValidInviteCodes = append(cfg.ValidInviteCodes, trimmed)
+			}
+		}
+	}
+
+	// Parse admin emails from comma-separated environment variable
+	adminEmailsStr := getEnv("ADMIN_EMAILS", "")
+	if adminEmailsStr != "" {
+		emails := strings.Split(adminEmailsStr, ",")
+		for _, email := range emails {
+			trimmed := strings.TrimSpace(strings.ToLower(email))
+			if trimmed != "" {
+				cfg.AdminEmails = append(cfg.AdminEmails, trimmed)
 			}
 		}
 	}
