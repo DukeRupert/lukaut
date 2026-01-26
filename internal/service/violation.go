@@ -58,6 +58,10 @@ type ViolationService interface {
 	// Delete deletes a violation.
 	// Returns domain.ENOTFOUND if violation doesn't exist or user doesn't own the inspection.
 	Delete(ctx context.Context, id, userID uuid.UUID) error
+
+	// LinkRegulations finds and links relevant OSHA regulations to a violation.
+	// Tries AI-suggested standard numbers first, falls back to full-text search.
+	LinkRegulations(ctx context.Context, violationID uuid.UUID, suggestedRegs []string, description, category string) error
 }
 
 // =============================================================================
@@ -463,4 +467,125 @@ func (s *violationService) rowToViolation(row repository.Violation) *domain.Viol
 		CreatedAt:      createdAt,
 		UpdatedAt:      updatedAt,
 	}
+}
+
+// =============================================================================
+// LinkRegulations
+// =============================================================================
+
+// LinkRegulations finds and links relevant OSHA regulations to a violation.
+func (s *violationService) LinkRegulations(ctx context.Context, violationID uuid.UUID, suggestedRegs []string, description, category string) error {
+	const op = "violation.link_regulations"
+
+	// First, try to match AI-suggested regulation numbers directly
+	if len(suggestedRegs) > 0 {
+		aiRegs, err := s.queries.GetRegulationsByStandardNumbers(ctx, suggestedRegs)
+		if err != nil {
+			s.logger.Warn("Failed to lookup AI-suggested regulations, falling back to full-text search",
+				"error", err,
+				"violation_id", violationID,
+			)
+		} else if len(aiRegs) > 0 {
+			for i, reg := range aiRegs {
+				isPrimary := i == 0
+				_, err := s.queries.CreateViolationRegulation(ctx, repository.CreateViolationRegulationParams{
+					ViolationID: violationID,
+					RegulationID: reg.ID,
+					RelevanceScore: sql.NullString{
+						String: "1.0",
+						Valid:  true,
+					},
+					AiExplanation: sql.NullString{
+						String: fmt.Sprintf("AI directly suggested regulation %s for %s violation", reg.StandardNumber, category),
+						Valid:  true,
+					},
+					IsPrimary: sql.NullBool{
+						Bool:  isPrimary,
+						Valid: true,
+					},
+				})
+				if err != nil {
+					s.logger.Error("Failed to link AI-suggested regulation",
+						"error", err,
+						"violation_id", violationID,
+						"regulation_id", reg.ID,
+					)
+					continue
+				}
+
+				s.logger.Info("Linked AI-suggested regulation",
+					"violation_id", violationID,
+					"regulation_id", reg.ID,
+					"standard_number", reg.StandardNumber,
+					"is_primary", isPrimary,
+				)
+			}
+
+			s.logger.Info("Successfully linked AI-suggested regulations",
+				"violation_id", violationID,
+				"matched_count", len(aiRegs),
+				"suggested_count", len(suggestedRegs),
+			)
+			return nil
+		}
+	}
+
+	// Fall back to full-text search
+	searchQuery := description
+	if category != "" {
+		searchQuery = category + " " + searchQuery
+	}
+
+	regulations, err := s.queries.SearchRegulations(ctx, repository.SearchRegulationsParams{
+		WebsearchToTsquery: searchQuery,
+		Limit:              5,
+	})
+	if err != nil {
+		return domain.Internal(err, op, "failed to search regulations")
+	}
+
+	s.logger.Info("Found matching regulations via full-text search",
+		"violation_id", violationID,
+		"count", len(regulations),
+		"query", searchQuery,
+	)
+
+	for i, reg := range regulations {
+		isPrimary := i == 0
+		rankStr := fmt.Sprintf("%.6f", reg.Rank)
+
+		_, err := s.queries.CreateViolationRegulation(ctx, repository.CreateViolationRegulationParams{
+			ViolationID: violationID,
+			RegulationID: reg.ID,
+			RelevanceScore: sql.NullString{
+				String: rankStr,
+				Valid:  true,
+			},
+			AiExplanation: sql.NullString{
+				String: fmt.Sprintf("AI identified this as a %s violation", category),
+				Valid:  category != "",
+			},
+			IsPrimary: sql.NullBool{
+				Bool:  isPrimary,
+				Valid: true,
+			},
+		})
+		if err != nil {
+			s.logger.Error("Failed to link regulation",
+				"error", err,
+				"violation_id", violationID,
+				"regulation_id", reg.ID,
+			)
+			continue
+		}
+
+		s.logger.Info("Linked regulation to violation",
+			"violation_id", violationID,
+			"regulation_id", reg.ID,
+			"standard_number", reg.StandardNumber,
+			"is_primary", isPrimary,
+		)
+	}
+
+	return nil
 }

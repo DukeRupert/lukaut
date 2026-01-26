@@ -159,7 +159,7 @@ func run() error {
 		}
 
 		// Register job handlers
-		jobWorker.Register(jobs.NewAnalyzeInspectionHandler(repo, aiProvider, storageService, inspectionService, logger))
+		jobWorker.Register(jobs.NewAnalyzeInspectionHandler(repo, aiProvider, storageService, inspectionService, violationService, logger))
 		jobWorker.Register(jobs.NewGenerateReportHandler(repo, storageService, emailService, logger, cfg.BaseURL))
 
 		// Start the worker
