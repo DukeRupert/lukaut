@@ -5,6 +5,7 @@
 package domain
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -76,6 +77,16 @@ func (s InspectionStatus) CanTransitionTo(target InspectionStatus) bool {
 	}
 
 	return false
+}
+
+// TransitionTo validates and applies a status transition on the inspection.
+// Returns an error if the transition is not allowed by the state machine.
+func (i *Inspection) TransitionTo(newStatus InspectionStatus) error {
+	if !i.Status.CanTransitionTo(newStatus) {
+		return fmt.Errorf("cannot transition inspection from %s to %s", i.Status, newStatus)
+	}
+	i.Status = newStatus
+	return nil
 }
 
 // =============================================================================
