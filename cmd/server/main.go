@@ -158,9 +158,12 @@ func run() error {
 			return fmt.Errorf("worker initialization failed: %w", err)
 		}
 
+		// Initialize report service for report generation jobs
+		reportService := service.NewReportService(repo, storageService, logger)
+
 		// Register job handlers
 		jobWorker.Register(jobs.NewAnalyzeInspectionHandler(repo, aiProvider, storageService, inspectionService, violationService, logger))
-		jobWorker.Register(jobs.NewGenerateReportHandler(repo, storageService, emailService, logger, cfg.BaseURL))
+		jobWorker.Register(jobs.NewGenerateReportHandler(repo, storageService, emailService, reportService, logger, cfg.BaseURL))
 
 		// Start the worker
 		jobWorker.Start(ctx)
