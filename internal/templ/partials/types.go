@@ -41,6 +41,7 @@ type ViolationDisplay struct {
 
 // RegulationDisplay represents a linked regulation for display.
 type RegulationDisplay struct {
+	RegulationID   string // Regulation ID (for unlinking)
 	StandardNumber string // OSHA standard number
 	Title          string // Regulation title
 	IsPrimary      bool   // Whether this is the primary regulation

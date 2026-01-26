@@ -9,7 +9,15 @@ import (
 // QueueViolationView renders a single violation in the queue review context.
 // This partial is swapped in via htmx when navigating or after status updates.
 templ QueueViolationView(data QueueViolationViewData) {
-	<div id="queue-violation-view" class="bg-white shadow sm:rounded-lg overflow-hidden">
+	<div
+		id="queue-violation-view"
+		class="bg-white shadow sm:rounded-lg overflow-hidden"
+		x-data="{ linkingRegs: false }"
+		hx-trigger="regulationLinked from:body, regulationUnlinked from:body"
+		hx-get={ fmt.Sprintf("/inspections/%s/review/queue?pos=%d", data.InspectionID, data.Position) }
+		hx-target="#queue-violation-view"
+		hx-swap="outerHTML"
+	>
 		<div class="p-6">
 			// Two Column Layout: Image + Details
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -107,24 +115,69 @@ templ QueueViolationView(data QueueViolationViewData) {
 						</form>
 					</div>
 					// Regulations
-					if len(data.Violation.Regulations) > 0 {
-						<div id="regulations-section" class="mb-4">
-							<h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Applicable OSHA Regulations</h4>
-							<ul class="space-y-1">
+					<div id="regulations-section" class="mb-4">
+						<div class="flex items-center justify-between mb-2">
+							<h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wider">Applicable OSHA Regulations</h4>
+							<button
+								type="button"
+								@click="linkingRegs = !linkingRegs"
+								class="text-xs font-semibold text-navy hover:text-navy/80"
+							>
+								if len(data.Violation.Regulations) > 0 {
+									+ Link Another
+								} else {
+									+ Link Regulation
+								}
+							</button>
+						</div>
+						if len(data.Violation.Regulations) > 0 {
+							<ul class="space-y-1 mb-3">
 								for _, reg := range data.Violation.Regulations {
-									<li class="text-sm">
-										<span class="font-medium text-navy">{ reg.StandardNumber }</span>
-										<span class="text-gray-700"> - { reg.Title }</span>
-										if reg.IsPrimary {
-											<span class="ml-1 inline-flex items-center rounded-md bg-navy/10 px-1.5 py-0.5 text-xs font-medium text-navy">
-												Primary
-											</span>
-										}
+									<li class="text-sm flex items-start justify-between group">
+										<div class="flex-1">
+											<span class="font-medium text-navy">{ reg.StandardNumber }</span>
+											<span class="text-gray-700"> - { reg.Title }</span>
+											if reg.IsPrimary {
+												<span class="ml-1 inline-flex items-center rounded-md bg-navy/10 px-1.5 py-0.5 text-xs font-medium text-navy">
+													Primary
+												</span>
+											}
+										</div>
+										<button
+											type="button"
+											hx-delete={ fmt.Sprintf("/violations/%s/regulations/%s", data.Violation.ID, reg.RegulationID) }
+											hx-swap="none"
+											class="ml-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-opacity"
+											title="Remove regulation"
+										>
+											<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+												<path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"></path>
+											</svg>
+										</button>
 									</li>
 								}
 							</ul>
+						}
+						<!-- Inline Search Panel -->
+						<div x-show="linkingRegs" x-cloak class="mt-3 border border-gray-200 rounded-md p-3 bg-gray-50">
+							<div class="mb-2">
+								<input
+									type="text"
+									name="reg_search_queue"
+									placeholder="Search regulations..."
+									hx-get={ fmt.Sprintf("/violations/%s/regulations/search", data.Violation.ID) }
+									hx-trigger="keyup changed delay:500ms"
+									hx-target="#queue-reg-search-results"
+									hx-include="[name='reg_search_queue']"
+									hx-vals="js:{q: event.target.value}"
+									class="block w-full rounded-md border-gray-300 shadow-sm focus:border-navy focus:ring-navy text-sm"
+								/>
+							</div>
+							<div id="queue-reg-search-results" class="max-h-64 overflow-y-auto">
+								<!-- Results loaded via htmx -->
+							</div>
 						</div>
-					}
+					</div>
 					// Inspector Notes Display
 					if data.Violation.InspectorNotes != "" {
 						<div id="notes-section" class="mb-4">

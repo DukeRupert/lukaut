@@ -522,6 +522,7 @@ func toTemplViolationCardData(data ViolationCardData, thumbnailURL string) parti
 	regulations := make([]partials.RegulationDisplay, len(data.Regulations))
 	for i, reg := range data.Regulations {
 		regulations[i] = partials.RegulationDisplay{
+			RegulationID:   reg.RegulationID.String(),
 			StandardNumber: reg.StandardNumber,
 			Title:          reg.Title,
 			IsPrimary:      reg.IsPrimary,

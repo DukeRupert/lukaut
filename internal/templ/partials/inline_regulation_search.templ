@@ -1,0 +1,46 @@
+package partials
+
+import "fmt"
+
+// InlineRegulationSearchResultsData contains data for inline regulation search results.
+type InlineRegulationSearchResultsData struct {
+	Regulations  []InlineRegulationDisplay // Search results (limited to 5-8)
+	ViolationID  string                    // Violation ID for linking
+	EmptyMessage string                    // Message when no results
+}
+
+// InlineRegulationDisplay represents a compact regulation result for inline search.
+type InlineRegulationDisplay struct {
+	RegulationID   string // Regulation ID
+	StandardNumber string // OSHA standard number
+	Title          string // Regulation title (may be truncated)
+}
+
+// InlineRegulationSearchResults renders compact regulation search results for inline panels.
+// This is designed for the violation card and queue view inline search feature.
+templ InlineRegulationSearchResults(data InlineRegulationSearchResultsData) {
+	if len(data.Regulations) > 0 {
+		<div class="divide-y divide-gray-200">
+			for _, reg := range data.Regulations {
+				<div class="flex items-start justify-between py-2 px-1 hover:bg-gray-50">
+					<div class="flex-1 min-w-0 mr-2">
+						<div class="text-xs font-medium text-navy">{ reg.StandardNumber }</div>
+						<div class="text-xs text-gray-700 truncate">{ reg.Title }</div>
+					</div>
+					<button
+						type="button"
+						hx-post={ fmt.Sprintf("/violations/%s/regulations/%s", data.ViolationID, reg.RegulationID) }
+						hx-swap="none"
+						class="flex-shrink-0 inline-flex items-center rounded bg-navy px-2 py-1 text-xs font-semibold text-white hover:bg-navy/90"
+					>
+						Add
+					</button>
+				</div>
+			}
+		</div>
+	} else {
+		<div class="py-4 text-center text-xs text-gray-500">
+			{ data.EmptyMessage }
+		</div>
+	}
+}

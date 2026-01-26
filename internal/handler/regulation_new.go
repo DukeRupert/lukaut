@@ -14,6 +14,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/regulations"
+	"github.com/DukeRupert/lukaut/internal/templ/partials"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
 	"github.com/google/uuid"
 )
@@ -202,6 +203,105 @@ func (h *RegulationHandler) SearchTempl(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// InlineSearchTempl returns compact regulation search results for inline search panels.
+// GET /violations/{vid}/regulations/search?q=...
+func (h *RegulationHandler) InlineSearchTempl(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromRequest(r)
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse violation ID from path
+	vidStr := r.PathValue("vid")
+	vid, err := uuid.Parse(vidStr)
+	if err != nil {
+		http.Error(w, "Invalid violation ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify user owns the violation
+	violation, err := h.repo.GetViolationByID(r.Context(), vid)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Violation not found", http.StatusNotFound)
+		} else {
+			h.logger.Error("failed to get violation", "error", err, "violation_id", vid)
+			http.Error(w, "Failed to verify violation", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Get inspection to verify ownership
+	inspection, err := h.repo.GetInspectionByID(r.Context(), violation.InspectionID)
+	if err != nil {
+		h.logger.Error("failed to get inspection", "error", err, "inspection_id", violation.InspectionID)
+		http.Error(w, "Failed to verify ownership", http.StatusInternalServerError)
+		return
+	}
+	if inspection.UserID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Parse query parameter
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+
+	// Limit to 8 results for inline context
+	perPage := int32(8)
+	offset := int32(0)
+
+	// Determine whether to search or return empty
+	var regs []RegulationSummary
+	var err2 error
+
+	if query != "" {
+		// Search mode
+		regs, _, err2 = h.searchRegulations(r.Context(), query, perPage, offset)
+		if err2 != nil {
+			h.logger.Error("failed to search regulations", "error", err2, "query", query)
+			http.Error(w, "Failed to search regulations", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// No query - return empty results
+		regs = []RegulationSummary{}
+	}
+
+	// Convert to inline display types
+	inlineRegs := make([]partials.InlineRegulationDisplay, len(regs))
+	for i, r := range regs {
+		// Truncate title if too long
+		title := r.Title
+		if len(title) > 80 {
+			title = title[:77] + "..."
+		}
+		inlineRegs[i] = partials.InlineRegulationDisplay{
+			RegulationID:   r.ID.String(),
+			StandardNumber: r.StandardNumber,
+			Title:          title,
+		}
+	}
+
+	// Determine empty message
+	emptyMessage := "Start typing to search regulations"
+	if query != "" {
+		emptyMessage = fmt.Sprintf("No regulations found matching \"%s\"", query)
+	}
+
+	data := partials.InlineRegulationSearchResultsData{
+		Regulations:  inlineRegs,
+		ViolationID:  vid.String(),
+		EmptyMessage: emptyMessage,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := partials.InlineRegulationSearchResults(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render inline search results", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
 // GetDetailTempl returns full regulation details as an htmx partial for a modal using templ.
 func (h *RegulationHandler) GetDetailTempl(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromRequest(r)
@@ -318,6 +418,8 @@ func (h *RegulationHandler) RegisterTemplRoutes(mux *http.ServeMux, requireUser 
 	mux.Handle("GET /regulations", requireUser(http.HandlerFunc(h.IndexTempl)))
 	mux.Handle("GET /regulations/search", requireUser(http.HandlerFunc(h.SearchTempl)))
 	mux.Handle("GET /regulations/{id}", requireUser(http.HandlerFunc(h.GetDetailTempl)))
+	// Inline search for violation cards/queue view
+	mux.Handle("GET /violations/{vid}/regulations/search", requireUser(http.HandlerFunc(h.InlineSearchTempl)))
 	// Keep violation linking routes as-is (they return text, not HTML)
 	mux.Handle("POST /violations/{vid}/regulations/{rid}", requireUser(http.HandlerFunc(h.AddToViolation)))
 	mux.Handle("DELETE /violations/{vid}/regulations/{rid}", requireUser(http.HandlerFunc(h.RemoveFromViolation)))
