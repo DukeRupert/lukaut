@@ -135,6 +135,7 @@ type InspectionHandler struct {
 	inspectionService service.InspectionService
 	imageService      service.ImageService
 	violationService  service.ViolationService
+	clientService     service.ClientService
 	queries           *repository.Queries
 	logger            *slog.Logger
 }
@@ -144,6 +145,7 @@ func NewInspectionHandler(
 	inspectionService service.InspectionService,
 	imageService service.ImageService,
 	violationService service.ViolationService,
+	clientService service.ClientService,
 	queries *repository.Queries,
 	logger *slog.Logger,
 ) *InspectionHandler {
@@ -151,6 +153,7 @@ func NewInspectionHandler(
 		inspectionService: inspectionService,
 		imageService:      imageService,
 		violationService:  violationService,
+		clientService:     clientService,
 		queries:           queries,
 		logger:            logger,
 	}
@@ -647,16 +650,16 @@ func (h *InspectionHandler) ViolationsSummary(w http.ResponseWriter, r *http.Req
 
 // fetchClientOptions fetches all clients for a user and converts them to ClientOption.
 func (h *InspectionHandler) fetchClientOptions(ctx context.Context, userID uuid.UUID) ([]ClientOption, error) {
-	clients, err := h.queries.ListAllClientsByUserID(ctx, userID)
+	clients, err := h.clientService.ListAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	options := make([]ClientOption, len(clients))
-	for i, client := range clients {
+	for i, c := range clients {
 		options[i] = ClientOption{
-			ID:   client.ID,
-			Name: client.Name,
+			ID:   c.ID,
+			Name: c.Name,
 		}
 	}
 

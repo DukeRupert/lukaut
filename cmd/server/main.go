@@ -182,7 +182,7 @@ func run() error {
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userService, emailService, inviteValidator, logger, isSecure)
 	dashboardHandler := handler.NewDashboardHandler(repo, logger)
-	inspectionHandler := handler.NewInspectionHandler(inspectionService, imageService, violationService, repo, logger)
+	inspectionHandler := handler.NewInspectionHandler(inspectionService, imageService, violationService, clientService, repo, logger)
 	imageHandler := handler.NewImageHandler(imageService, inspectionService, repo, logger)
 	violationHandler := handler.NewViolationHandler(violationService, inspectionService, imageService, logger)
 	regulationHandler := handler.NewRegulationHandler(repo, logger)
