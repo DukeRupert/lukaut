@@ -363,7 +363,3 @@ This document catalogs every page in the application and the actions a user can 
 - **No billing/subscription UI currently wired up** — middleware exists (`RequireActiveSubscription`) but no billing page or Stripe checkout flow is exposed in the routes.
 - **Email verification is not enforced** — `RequireEmailVerified` middleware exists but is not applied to any routes.
 - **No user profile photo/avatar upload** — avatars appear to be initials-based only.
-- **Admin pages** exist but routing/access control details are minimal in the codebase.
-- **The review queue** is a power-user feature with full keyboard navigation — worth evaluating if discoverability is sufficient.
-- **Quick client creation** is available inline from the inspection form, reducing context switching.
-- **Regulation linking to violations** happens from the inspection detail page but the UX flow for this is worth evaluating.
