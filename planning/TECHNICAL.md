@@ -812,73 +812,45 @@ CREATE INDEX idx_jobs_pending ON jobs (priority DESC, scheduled_at ASC)
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Report Generation Service
+### Report Architecture
 
+Report generation is split across three layers:
+
+**1. ReportService** (`internal/service/report.go`) — Aggregates all data needed for a report:
 ```go
-// internal/service/report.go
-type ReportService struct {
-    queries   *repository.Queries
-    storage   storage.Storage
-    pdfGen    ReportGenerator
-    docxGen   ReportGenerator
-}
-
-type ReportGenerator interface {
-    Generate(ctx context.Context, data ReportData) (io.Reader, error)
-}
-
-type ReportData struct {
-    Inspection  Inspection
-    Site        Site
-    Inspector   User
-    Violations  []ViolationWithRegulations
-    GeneratedAt time.Time
-}
-
-func (s *ReportService) Generate(ctx context.Context, params GenerateParams) (*Report, error) {
-    // Gather all data
-    data, err := s.gatherReportData(ctx, params.InspectionID)
-    if err != nil {
-        return nil, err
-    }
-    
-    // Generate PDF
-    pdfReader, err := s.pdfGen.Generate(ctx, data)
-    if err != nil {
-        return nil, err
-    }
-    
-    pdfKey := fmt.Sprintf("users/%s/inspections/%s/reports/%s.pdf",
-        params.UserID, params.InspectionID, reportID)
-    s.storage.Put(ctx, pdfKey, pdfReader, storage.PutOptions{
-        ContentType: "application/pdf",
-    })
-    
-    // Generate DOCX
-    docxReader, err := s.docxGen.Generate(ctx, data)
-    if err != nil {
-        return nil, err
-    }
-    
-    docxKey := fmt.Sprintf("users/%s/inspections/%s/reports/%s.docx",
-        params.UserID, params.InspectionID, reportID)
-    s.storage.Put(ctx, docxKey, docxReader, storage.PutOptions{
-        ContentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    })
-    
-    // Save report record
-    report, err := s.queries.CreateReport(ctx, repository.CreateReportParams{
-        ID:           reportID,
-        InspectionID: params.InspectionID,
-        UserID:       params.UserID,
-        PDFStorageKey:  pdfKey,
-        DOCXStorageKey: docxKey,
-        ViolationCount: len(data.Violations),
-    })
-    
-    return report, nil
+type ReportService interface {
+    PrepareReportData(ctx context.Context, inspectionID, userID uuid.UUID) (*domain.ReportData, error)
 }
 ```
+Fetches user profile, inspection details, client info, confirmed violations with regulations, and generates presigned image URLs. Returns a `domain.ReportData` struct consumed by generators.
+
+**2. Generator Interface** (`internal/report/report.go`) — Format-specific rendering:
+```go
+type Generator interface {
+    Generate(ctx context.Context, data *domain.ReportData, w io.Writer) (int64, error)
+    Format() domain.ReportFormat
+}
+```
+
+Both `PDFGenerator` (fpdf) and `DOCXGenerator` (unioffice) accept an `ImageDownloader` as a constructor dependency, decoupling report generation from network I/O for testability:
+
+```go
+type ImageDownloader interface {
+    Download(ctx context.Context, url string) (*ImageData, error)
+}
+
+// Default implementation fetches images over HTTP
+type HTTPImageDownloader struct { ... }
+```
+
+**3. Job Handler** (`internal/jobs/generate_report.go`) — Orchestrates the workflow:
+1. Validates payload and inspection status
+2. Calls `ReportService.PrepareReportData()` to aggregate data
+3. Selects PDF or DOCX generator based on requested format
+4. Generates report to buffer
+5. Uploads to storage
+6. Creates database record
+7. Sends email notifications (non-blocking)
 
 ---
 
@@ -1139,79 +1111,64 @@ lukaut/
 │   └── server/
 │       └── main.go              # Application entry point
 ├── internal/
-│   ├── config/                  # Configuration loading
-│   ├── domain/                  # Core business types
+│   ├── config.go                # Configuration loading
+│   ├── domain/                  # Core business types & pure functions
 │   │   ├── user.go
-│   │   ├── inspection.go
-│   │   ├── violation.go
+│   │   ├── inspection.go        # Includes state machine (TransitionTo), AnalysisStatus
+│   │   ├── violation.go         # Includes ViolationCounts calculation
 │   │   ├── regulation.go
 │   │   └── report.go
 │   ├── ai/                      # AI provider abstraction
 │   │   ├── ai.go                # Interface definition
+│   │   ├── mock/                # Mock implementation (dev)
 │   │   └── anthropic/           # Anthropic implementation
-│   │       ├── provider.go
-│   │       ├── image_analysis.go
-│   │       └── regulation_match.go
 │   ├── storage/                 # File storage abstraction
 │   │   ├── storage.go           # Interface definition
 │   │   ├── local.go             # Local filesystem (dev)
 │   │   └── r2.go                # Cloudflare R2 (prod)
 │   ├── billing/                 # Stripe integration
-│   │   ├── billing.go
-│   │   └── stripe.go
-│   ├── email/                   # Email abstraction
-│   │   ├── email.go
-│   │   └── postmark.go
+│   ├── email/                   # Email service (SMTP/Postmark)
 │   ├── report/                  # Report generation
-│   │   ├── report.go            # Interface
-│   │   ├── pdf.go               # PDF generator
-│   │   └── docx.go              # DOCX generator
+│   │   ├── report.go            # Generator interface, ImageDownloader interface
+│   │   ├── pdf.go               # PDF generator (fpdf)
+│   │   └── docx.go              # DOCX generator (unioffice)
 │   ├── repository/              # Database queries (sqlc generated)
-│   ├── service/                 # Business logic
+│   ├── service/                 # Business logic / orchestration layer
 │   │   ├── user.go
-│   │   ├── inspection.go
-│   │   ├── violation.go
-│   │   ├── regulation.go
-│   │   └── report.go
+│   │   ├── inspection.go        # StartAnalysis, CompleteAnalysis, GetAnalysisStatus
+│   │   ├── violation.go         # LinkRegulations
+│   │   ├── client.go
+│   │   ├── image.go
+│   │   └── report.go            # PrepareReportData
+│   ├── session/                 # Shared session constants
+│   │   └── constants.go         # CookieName, CookiePath, CookieMaxAge
 │   ├── handler/                 # HTTP handlers
 │   │   ├── auth.go
 │   │   ├── inspection.go
+│   │   ├── inspection_new.go    # Templ-based handlers
 │   │   ├── violation.go
 │   │   ├── report.go
 │   │   ├── settings.go
-│   │   └── webhook/
-│   │       └── stripe.go
+│   │   └── client.go
 │   ├── middleware/              # HTTP middleware
-│   │   ├── auth.go
-│   │   ├── subscription.go
-│   │   └── logging.go
-│   ├── jobs/                    # Background job definitions
+│   │   ├── auth.go              # WithUser, RequireUser
+│   │   └── middleware.go        # Stack helper
+│   ├── jobs/                    # Background job handlers
 │   │   ├── analyze_inspection.go
-│   │   ├── generate_report.go
-│   │   └── send_email.go
-│   ├── worker/                  # Job processing
-│   └── telemetry/               # Prometheus + Sentry
-├── migrations/                  # SQL migration files
+│   │   └── generate_report.go
+│   ├── worker/                  # Job queue processing
+│   ├── metrics/                 # Prometheus metrics
+│   ├── templ/                   # Templ components & pages
+│   │   ├── components/          # Shared UI components (pagination, etc.)
+│   │   └── pages/               # Page templates (auth, inspections, etc.)
+│   └── invite/                  # Invite code validation (MVP)
+├── internal/migrations/         # SQL migration files (goose)
 ├── sqlc/                        # sqlc query files
-│   ├── queries/
-│   │   ├── users.sql
-│   │   ├── inspections.sql
-│   │   ├── violations.sql
-│   │   ├── regulations.sql
-│   │   └── reports.sql
-│   └── schema.sql
+│   └── queries/
 ├── web/
-│   ├── templates/               # Go HTML templates
-│   │   ├── layouts/
-│   │   ├── partials/
-│   │   ├── pages/
-│   │   └── email/
-│   └── static/
-│       ├── css/
-│       ├── js/
-│       └── images/
-├── docs/                        # Documentation
-├── scripts/                     # Dev and deployment scripts
+│   ├── templates/email/         # Email HTML templates
+│   └── static/                  # CSS, JS, images
+├── planning/                    # Architecture & design docs
 ├── sqlc.yaml
 ├── tailwind.config.js
 ├── docker-compose.yml
@@ -1375,7 +1332,7 @@ CREATE TABLE violation_regulations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     violation_id UUID NOT NULL REFERENCES violations(id) ON DELETE CASCADE,
     regulation_id UUID NOT NULL REFERENCES regulations(id),
-    relevance_score DECIMAL(3,2),  -- 0.00 to 1.00
+    relevance_score DECIMAL(7,6),  -- Full-text search ranks need 6 decimal places; sqlc override maps to sql.NullFloat64
     ai_explanation TEXT,  -- Why this regulation applies
     is_primary BOOLEAN DEFAULT FALSE,  -- Main applicable regulation
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -1512,6 +1469,11 @@ CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 | 2024-12-15 | PDF + DOCX output | PDF for printing, DOCX for editing |
 | 2024-12-15 | Single-tenant MVP | Reduce complexity for initial launch |
 | 2024-12-15 | Web-responsive only | Native mobile deferred until market validation |
+| 2025-01 | Extract ReportService from job handler | Decouple data aggregation from job orchestration for testability |
+| 2025-01 | ImageDownloader interface injection | Constructor-injected interface decouples report generators from network I/O |
+| 2025-01 | Shared session constants package | `internal/session/` eliminates duplication between handler and middleware without import cycles |
+| 2025-01 | NullFloat64 for relevance_score | sqlc column override + DECIMAL(7,6) precision for full-text search ranks |
+| 2025-01 | Domain pagination methods | Use `ListInspectionsResult.CurrentPage()` etc. directly instead of intermediary helpers |
 
 ---
 
