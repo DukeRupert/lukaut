@@ -62,17 +62,16 @@ func (h *InspectionHandler) IndexTempl(w http.ResponseWriter, r *http.Request) {
 		displayInspections[i] = domainInspectionToListItem(&insp)
 	}
 
-	// Build pagination data
-	paginationData := buildPaginationData(result)
+	// Build pagination data from domain methods
 	sharedPagination := pagination.Data{
-		CurrentPage: paginationData.CurrentPage,
-		TotalPages:  paginationData.TotalPages,
-		PerPage:     paginationData.PerPage,
-		Total:       paginationData.Total,
-		HasPrevious: paginationData.HasPrevious,
-		HasNext:     paginationData.HasNext,
-		PrevPage:    paginationData.PrevPage,
-		NextPage:    paginationData.NextPage,
+		CurrentPage: result.CurrentPage(),
+		TotalPages:  result.TotalPages(),
+		PerPage:     int(result.Limit),
+		Total:       int(result.Total),
+		HasPrevious: result.HasPrevious(),
+		HasNext:     result.HasMore(),
+		PrevPage:    result.CurrentPage() - 1,
+		NextPage:    result.CurrentPage() + 1,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

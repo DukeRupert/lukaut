@@ -666,23 +666,6 @@ func (h *InspectionHandler) fetchClientOptions(ctx context.Context, userID uuid.
 	return options, nil
 }
 
-// buildPaginationData builds pagination data from a list result.
-func buildPaginationData(result *domain.ListInspectionsResult) PaginationData {
-	currentPage := result.CurrentPage()
-	totalPages := result.TotalPages()
-
-	return PaginationData{
-		CurrentPage: currentPage,
-		TotalPages:  totalPages,
-		PerPage:     int(result.Limit),
-		Total:       int(result.Total),
-		HasPrevious: result.HasPrevious(),
-		HasNext:     result.HasMore(),
-		PrevPage:    currentPage - 1,
-		NextPage:    currentPage + 1,
-	}
-}
-
 // renderError renders a generic error page using templ.
 func (h *InspectionHandler) renderError(w http.ResponseWriter, r *http.Request, message string) {
 	user := auth.GetUserFromRequest(r)
