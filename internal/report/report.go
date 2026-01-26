@@ -154,7 +154,7 @@ func FormatDateTime(t interface{ Format(string) string }) string {
 }
 
 // =============================================================================
-// Image Download Helper
+// Image Download
 // =============================================================================
 
 // ImageData holds downloaded image data for embedding in reports.
@@ -163,14 +163,29 @@ type ImageData struct {
 	ContentType string
 }
 
-// httpClient is a shared client with reasonable timeouts for image downloads.
-var httpClient = &http.Client{
-	Timeout: 30 * time.Second,
+// ImageDownloader abstracts image fetching for report generation.
+// This allows testing report generation without network I/O.
+type ImageDownloader interface {
+	Download(ctx context.Context, url string) (*ImageData, error)
 }
 
-// DownloadImage fetches an image from a URL and returns its data.
-// Returns nil if the URL is empty or download fails (non-fatal for reports).
-func DownloadImage(ctx context.Context, url string) (*ImageData, error) {
+// HTTPImageDownloader fetches images over HTTP.
+type HTTPImageDownloader struct {
+	client *http.Client
+}
+
+// NewHTTPImageDownloader creates an ImageDownloader that fetches images over HTTP.
+func NewHTTPImageDownloader() *HTTPImageDownloader {
+	return &HTTPImageDownloader{
+		client: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
+}
+
+// Download fetches an image from a URL and returns its data.
+// Returns nil, nil if the URL is empty.
+func (d *HTTPImageDownloader) Download(ctx context.Context, url string) (*ImageData, error) {
 	if url == "" {
 		return nil, nil
 	}
@@ -180,7 +195,7 @@ func DownloadImage(ctx context.Context, url string) (*ImageData, error) {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
-	resp, err := httpClient.Do(req)
+	resp, err := d.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("download image: %w", err)
 	}
