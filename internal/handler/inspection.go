@@ -458,48 +458,25 @@ func (h *InspectionHandler) TriggerAnalysis(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Fetch inspection to verify ownership and status
-	inspection, err := h.inspectionService.GetByID(r.Context(), id, user.ID)
+	// Check analysis eligibility via service
+	analysisStatus, err := h.inspectionService.GetAnalysisStatus(r.Context(), id, user.ID)
 	if err != nil {
 		code := domain.ErrorCode(err)
 		if code == domain.ENOTFOUND {
 			http.Error(w, "Inspection not found", http.StatusNotFound)
 		} else {
-			h.logger.Error("failed to get inspection", "error", err, "inspection_id", id)
-			http.Error(w, "Failed to load inspection", http.StatusInternalServerError)
+			h.logger.Error("failed to get analysis status", "error", err, "inspection_id", id)
+			http.Error(w, "Failed to check analysis eligibility", http.StatusInternalServerError)
 		}
 		return
 	}
 
-	// Check if inspection status allows analysis
-	if inspection.Status != domain.InspectionStatusDraft && inspection.Status != domain.InspectionStatusReview {
-		http.Error(w, "Inspection status does not allow analysis", http.StatusBadRequest)
-		return
-	}
-
-	// Check if there are pending images
-	pendingCount, err := h.queries.CountPendingImagesByInspectionID(r.Context(), id)
-	if err != nil {
-		h.logger.Error("failed to count pending images", "error", err, "inspection_id", id)
-		http.Error(w, "Failed to check images", http.StatusInternalServerError)
-		return
-	}
-
-	if pendingCount == 0 {
-		http.Error(w, "No images to analyze", http.StatusBadRequest)
-		return
-	}
-
-	// Check if there's already a pending or running job
-	hasPending, err := h.queries.HasPendingAnalysisJob(r.Context(), id.String())
-	if err != nil {
-		h.logger.Error("failed to check pending jobs", "error", err, "inspection_id", id)
-		http.Error(w, "Failed to check job status", http.StatusInternalServerError)
-		return
-	}
-
-	if hasPending {
-		http.Error(w, "Analysis is already in progress", http.StatusConflict)
+	if !analysisStatus.CanAnalyze {
+		if analysisStatus.IsAnalyzing {
+			http.Error(w, analysisStatus.Message, http.StatusConflict)
+		} else {
+			http.Error(w, analysisStatus.Message, http.StatusBadRequest)
+		}
 		return
 	}
 
@@ -511,7 +488,7 @@ func (h *InspectionHandler) TriggerAnalysis(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	h.logger.Info("Analysis job enqueued", "inspection_id", id, "user_id", user.ID, "pending_images", pendingCount)
+	h.logger.Info("Analysis job enqueued", "inspection_id", id, "user_id", user.ID, "pending_images", analysisStatus.PendingImages)
 
 	// Build and render the updated status
 	statusData, err := h.buildAnalysisStatusData(r.Context(), id, user.ID)
