@@ -90,6 +90,67 @@ func (i *Inspection) TransitionTo(newStatus InspectionStatus) error {
 }
 
 // =============================================================================
+// Analysis Status
+// =============================================================================
+
+// AnalysisStatus contains the computed analysis state for an inspection.
+type AnalysisStatus struct {
+	InspectionID   uuid.UUID
+	Status         InspectionStatus
+	CanAnalyze     bool
+	IsAnalyzing    bool
+	HasImages      bool
+	PendingImages  int64
+	TotalImages    int64
+	AnalyzedImages int64
+	ViolationCount int64
+	Message        string
+	PollingEnabled bool
+}
+
+// DetermineAnalysisAction returns whether analysis can be triggered and a
+// human-readable status message based on inspection state, pending images,
+// and whether a job is already in progress.
+func (i *Inspection) DetermineAnalysisAction(pendingImages, totalImages int64, jobInProgress bool) (canAnalyze bool, message string) {
+	switch i.Status {
+	case InspectionStatusDraft:
+		if totalImages == 0 {
+			return false, "Upload photos to begin analysis"
+		}
+		if pendingImages > 0 && !jobInProgress {
+			if pendingImages == 1 {
+				return true, "Ready to analyze 1 image"
+			}
+			return true, fmt.Sprintf("Ready to analyze %d images", pendingImages)
+		}
+		if jobInProgress {
+			return false, "Analyzing images..."
+		}
+		return false, "All images have been analyzed"
+
+	case InspectionStatusAnalyzing:
+		return false, "Analyzing images..."
+
+	case InspectionStatusReview:
+		if pendingImages > 0 && !jobInProgress {
+			if pendingImages == 1 {
+				return true, "Ready to analyze 1 new image"
+			}
+			return true, fmt.Sprintf("Ready to analyze %d new images", pendingImages)
+		}
+		if jobInProgress {
+			return false, "Analyzing new images..."
+		}
+		return false, "Analysis complete"
+
+	case InspectionStatusCompleted:
+		return false, "Inspection finalized"
+	}
+
+	return false, ""
+}
+
+// =============================================================================
 // Inspection Domain Type
 // =============================================================================
 

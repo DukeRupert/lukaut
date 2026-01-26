@@ -796,93 +796,22 @@ func (h *InspectionHandler) renderFormError(
 
 // buildAnalysisStatusData builds the data needed for the analysis status partial.
 func (h *InspectionHandler) buildAnalysisStatusData(ctx context.Context, inspectionID uuid.UUID, userID uuid.UUID) (*AnalysisStatusData, error) {
-	// Fetch inspection
-	inspection, err := h.inspectionService.GetByID(ctx, inspectionID, userID)
+	status, err := h.inspectionService.GetAnalysisStatus(ctx, inspectionID, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get pending image count
-	pendingCount, err := h.queries.CountPendingImagesByInspectionID(ctx, inspectionID)
-	if err != nil {
-		return nil, fmt.Errorf("count pending images: %w", err)
-	}
-
-	// Get total image count
-	totalCount, err := h.queries.CountImagesByInspectionID(ctx, inspectionID)
-	if err != nil {
-		return nil, fmt.Errorf("count total images: %w", err)
-	}
-
-	// Get violation count
-	violationCount, err := h.queries.CountViolationsByInspectionID(ctx, inspectionID)
-	if err != nil {
-		return nil, fmt.Errorf("count violations: %w", err)
-	}
-
-	// Check for pending/running analysis job
-	hasPendingJob, err := h.queries.HasPendingAnalysisJob(ctx, inspectionID.String())
-	if err != nil {
-		return nil, fmt.Errorf("check pending job: %w", err)
-	}
-
-	// Build status data based on inspection state
-	data := &AnalysisStatusData{
-		InspectionID:   inspectionID,
-		Status:         inspection.Status,
-		HasImages:      totalCount > 0,
-		PendingImages:  pendingCount,
-		TotalImages:    totalCount,
-		AnalyzedImages: totalCount - pendingCount, // Analyzed = total minus pending
-		ViolationCount: violationCount,
-		IsAnalyzing:    hasPendingJob,
-		PollingEnabled: hasPendingJob,
-	}
-
-	// Determine if analysis can be triggered
-	canAnalyze := false
-	message := ""
-
-	switch inspection.Status {
-	case domain.InspectionStatusDraft:
-		if totalCount == 0 {
-			message = "Upload photos to begin analysis"
-		} else if pendingCount > 0 && !hasPendingJob {
-			canAnalyze = true
-			if pendingCount == 1 {
-				message = "Ready to analyze 1 image"
-			} else {
-				message = fmt.Sprintf("Ready to analyze %d images", pendingCount)
-			}
-		} else if hasPendingJob {
-			message = "Analyzing images..."
-		} else {
-			message = "All images have been analyzed"
-		}
-
-	case domain.InspectionStatusAnalyzing:
-		message = "Analyzing images..."
-
-	case domain.InspectionStatusReview:
-		if pendingCount > 0 && !hasPendingJob {
-			canAnalyze = true
-			if pendingCount == 1 {
-				message = "Ready to analyze 1 new image"
-			} else {
-				message = fmt.Sprintf("Ready to analyze %d new images", pendingCount)
-			}
-		} else if hasPendingJob {
-			message = "Analyzing new images..."
-		} else {
-			message = "Analysis complete"
-		}
-
-	case domain.InspectionStatusCompleted:
-		message = "Inspection finalized"
-	}
-
-	data.CanAnalyze = canAnalyze
-	data.Message = message
-
-	return data, nil
+	return &AnalysisStatusData{
+		InspectionID:   status.InspectionID,
+		Status:         status.Status,
+		CanAnalyze:     status.CanAnalyze,
+		IsAnalyzing:    status.IsAnalyzing,
+		HasImages:      status.HasImages,
+		PendingImages:  status.PendingImages,
+		TotalImages:    status.TotalImages,
+		AnalyzedImages: status.AnalyzedImages,
+		ViolationCount: status.ViolationCount,
+		Message:        status.Message,
+		PollingEnabled: status.PollingEnabled,
+	}, nil
 }

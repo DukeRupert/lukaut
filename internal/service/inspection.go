@@ -57,6 +57,10 @@ type InspectionService interface {
 	// Returns domain.ENOTFOUND if inspection does not exist or doesn't belong to user.
 	// Returns domain.EINVALID if status transition is invalid.
 	UpdateStatus(ctx context.Context, params domain.UpdateInspectionStatusParams) error
+
+	// GetAnalysisStatus returns the computed analysis status for an inspection.
+	// Returns domain.ENOTFOUND if inspection does not exist or doesn't belong to user.
+	GetAnalysisStatus(ctx context.Context, inspectionID, userID uuid.UUID) (*domain.AnalysisStatus, error)
 }
 
 // =============================================================================
@@ -530,6 +534,56 @@ func (s *inspectionService) rowToInspection(row repository.Inspection) *domain.I
 		CreatedAt:         createdAt,
 		UpdatedAt:         updatedAt,
 	}
+}
+
+// =============================================================================
+// GetAnalysisStatus
+// =============================================================================
+
+// GetAnalysisStatus returns the computed analysis status for an inspection.
+func (s *inspectionService) GetAnalysisStatus(ctx context.Context, inspectionID, userID uuid.UUID) (*domain.AnalysisStatus, error) {
+	const op = "inspection.get_analysis_status"
+
+	inspection, err := s.GetByID(ctx, inspectionID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	pendingCount, err := s.queries.CountPendingImagesByInspectionID(ctx, inspectionID)
+	if err != nil {
+		return nil, domain.Internal(err, op, "failed to count pending images")
+	}
+
+	totalCount, err := s.queries.CountImagesByInspectionID(ctx, inspectionID)
+	if err != nil {
+		return nil, domain.Internal(err, op, "failed to count images")
+	}
+
+	violationCount, err := s.queries.CountViolationsByInspectionID(ctx, inspectionID)
+	if err != nil {
+		return nil, domain.Internal(err, op, "failed to count violations")
+	}
+
+	hasPendingJob, err := s.queries.HasPendingAnalysisJob(ctx, inspectionID.String())
+	if err != nil {
+		return nil, domain.Internal(err, op, "failed to check pending job")
+	}
+
+	canAnalyze, message := inspection.DetermineAnalysisAction(pendingCount, totalCount, hasPendingJob)
+
+	return &domain.AnalysisStatus{
+		InspectionID:   inspectionID,
+		Status:         inspection.Status,
+		CanAnalyze:     canAnalyze,
+		IsAnalyzing:    hasPendingJob,
+		HasImages:      totalCount > 0,
+		PendingImages:  pendingCount,
+		TotalImages:    totalCount,
+		AnalyzedImages: totalCount - pendingCount,
+		ViolationCount: violationCount,
+		Message:        message,
+		PollingEnabled: hasPendingJob,
+	}, nil
 }
 
 // nullUUIDToPtr converts a uuid.NullUUID to a *uuid.UUID.
