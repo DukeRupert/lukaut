@@ -240,6 +240,31 @@ func run() error {
 		}
 	})
 
+	mux.HandleFunc("GET /terms", func(w http.ResponseWriter, r *http.Request) {
+		component := publicpages.TermsPage(publicpages.TermsPageData{
+			CurrentPath: r.URL.Path,
+		})
+		if err := component.Render(r.Context(), w); err != nil {
+			logger.Error("failed to render terms page", "error", err)
+		}
+	})
+	mux.HandleFunc("GET /privacy", func(w http.ResponseWriter, r *http.Request) {
+		component := publicpages.PrivacyPage(publicpages.PrivacyPageData{
+			CurrentPath: r.URL.Path,
+		})
+		if err := component.Render(r.Context(), w); err != nil {
+			logger.Error("failed to render privacy page", "error", err)
+		}
+	})
+	mux.HandleFunc("GET /contact", func(w http.ResponseWriter, r *http.Request) {
+		component := publicpages.ContactPage(publicpages.ContactPageData{
+			CurrentPath: r.URL.Path,
+		})
+		if err := component.Render(r.Context(), w); err != nil {
+			logger.Error("failed to render contact page", "error", err)
+		}
+	})
+
 	// Auth routes (public - no auth required)
 	// Using templ-based routes with CSRF protection
 	authHandler.RegisterTemplRoutes(mux)
