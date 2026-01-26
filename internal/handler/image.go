@@ -138,7 +138,7 @@ func (h *ImageHandler) Upload(w http.ResponseWriter, r *http.Request) {
 
 		// Upload image
 		_, err = h.imageService.Upload(r.Context(), file, fileHeader, inspectionID, user.ID)
-		file.Close()
+		_ = file.Close()
 
 		if err != nil {
 			code := domain.ErrorCode(err)

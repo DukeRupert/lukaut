@@ -174,13 +174,13 @@ func (p *Provider) MatchRegulations(ctx context.Context, params ai.MatchParams) 
 // validateImageParams validates the image analysis parameters
 func (p *Provider) validateImageParams(params ai.AnalyzeImageParams) error {
 	if len(params.ImageData) == 0 {
-		return ai.EAIInvalidImage
+		return ai.ErrAIInvalidImage
 	}
 	if len(params.ImageData) > MaxImageSize {
-		return fmt.Errorf("%w: image size %d exceeds maximum %d", ai.EAIInvalidImage, len(params.ImageData), MaxImageSize)
+		return fmt.Errorf("%w: image size %d exceeds maximum %d", ai.ErrAIInvalidImage, len(params.ImageData), MaxImageSize)
 	}
 	if params.ContentType == "" {
-		return fmt.Errorf("%w: content type is required", ai.EAIInvalidImage)
+		return fmt.Errorf("%w: content type is required", ai.ErrAIInvalidImage)
 	}
 	// Validate content type
 	validTypes := map[string]bool{
@@ -190,7 +190,7 @@ func (p *Provider) validateImageParams(params ai.AnalyzeImageParams) error {
 		"image/webp": true,
 	}
 	if !validTypes[params.ContentType] {
-		return fmt.Errorf("%w: unsupported content type %s", ai.EAIInvalidImage, params.ContentType)
+		return fmt.Errorf("%w: unsupported content type %s", ai.ErrAIInvalidImage, params.ContentType)
 	}
 	return nil
 }
@@ -299,9 +299,9 @@ func (p *Provider) executeRequest(ctx context.Context, req *http.Request) (*apiR
 	resp, err := p.client.Do(req)
 	if err != nil {
 		// Network errors are typically retryable
-		return nil, ai.EAIUnavailable
+		return nil, ai.ErrAIUnavailable
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -331,19 +331,19 @@ func (p *Provider) mapHTTPError(statusCode int, body []byte) error {
 
 	switch statusCode {
 	case http.StatusUnauthorized:
-		return ai.EAIUnauthorized
+		return ai.ErrAIUnauthorized
 	case http.StatusTooManyRequests:
-		return ai.EAIRateLimit
+		return ai.ErrAIRateLimit
 	case http.StatusRequestTimeout:
-		return ai.EAITimeout
+		return ai.ErrAITimeout
 	case http.StatusBadRequest:
 		// Check if it's an image-related error
 		if errResp.Error.Type == "invalid_request_error" {
-			return ai.EAIInvalidImage
+			return ai.ErrAIInvalidImage
 		}
 		return fmt.Errorf("bad request: %s", errResp.Error.Message)
 	case http.StatusServiceUnavailable, http.StatusBadGateway, http.StatusGatewayTimeout:
-		return ai.EAIUnavailable
+		return ai.ErrAIUnavailable
 	default:
 		return fmt.Errorf("API error (status %d): %s", statusCode, errResp.Error.Message)
 	}

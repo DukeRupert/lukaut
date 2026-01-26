@@ -658,7 +658,7 @@ func (h *InspectionHandler) GenerateReport(w http.ResponseWriter, r *http.Reques
 
 	// Customize message based on whether recipient email was provided
 	if recipientEmail != "" {
-		fmt.Fprintf(w, `<div class="rounded-md bg-green-50 p-4">
+		_, _ = fmt.Fprintf(w, `<div class="rounded-md bg-green-50 p-4">
 			<div class="flex">
 				<div class="flex-shrink-0">
 					<svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
@@ -673,7 +673,7 @@ func (h *InspectionHandler) GenerateReport(w http.ResponseWriter, r *http.Reques
 			</div>
 		</div>%s`, format, recipientEmail, pollingScript)
 	} else {
-		fmt.Fprintf(w, `<div class="rounded-md bg-green-50 p-4">
+		_, _ = fmt.Fprintf(w, `<div class="rounded-md bg-green-50 p-4">
 			<div class="flex">
 				<div class="flex-shrink-0">
 					<svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
@@ -756,7 +756,7 @@ func (h *InspectionHandler) UpdateStatusTempl(w http.ResponseWriter, r *http.Req
 	switch newStatus {
 	case domain.InspectionStatusCompleted:
 		w.Header().Set("HX-Trigger", "inspectionCompleted")
-		fmt.Fprint(w, `<div class="rounded-md bg-green-50 p-4">
+		_, _ = fmt.Fprint(w, `<div class="rounded-md bg-green-50 p-4">
 			<div class="flex">
 				<div class="flex-shrink-0">
 					<svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
@@ -772,7 +772,7 @@ func (h *InspectionHandler) UpdateStatusTempl(w http.ResponseWriter, r *http.Req
 		</div>`)
 	case domain.InspectionStatusReview:
 		w.Header().Set("HX-Trigger", "inspectionReopened")
-		fmt.Fprint(w, `<div class="rounded-md bg-yellow-50 p-4">
+		_, _ = fmt.Fprint(w, `<div class="rounded-md bg-yellow-50 p-4">
 			<div class="flex">
 				<div class="flex-shrink-0">
 					<svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
@@ -787,7 +787,7 @@ func (h *InspectionHandler) UpdateStatusTempl(w http.ResponseWriter, r *http.Req
 			</div>
 		</div>`)
 	default:
-		fmt.Fprintf(w, `<div class="rounded-md bg-blue-50 p-4">
+		_, _ = fmt.Fprintf(w, `<div class="rounded-md bg-blue-50 p-4">
 			<div class="flex">
 				<div class="ml-3">
 					<p class="text-sm font-medium text-blue-800">

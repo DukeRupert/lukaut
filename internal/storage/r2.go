@@ -101,7 +101,7 @@ func (s *R2Storage) Put(ctx context.Context, key string, data io.Reader, opts Pu
 	}
 
 	// Wrap data with size limit if specified
-	var reader io.Reader = data
+	reader := data
 	if opts.MaxSize > 0 {
 		reader = io.LimitReader(data, opts.MaxSize+1)
 	}

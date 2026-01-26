@@ -47,7 +47,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("database connection failed: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if err := db.PingContext(ctx); err != nil {
 		return fmt.Errorf("database ping failed: %w", err)

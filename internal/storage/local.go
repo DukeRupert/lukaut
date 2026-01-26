@@ -91,7 +91,7 @@ func (s *LocalStorage) Put(ctx context.Context, key string, data io.Reader, opts
 	if err != nil {
 		return &StorageError{Op: "Put", Key: key, Err: fmt.Errorf("failed to create file: %w", err)}
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Copy data to file with optional size limit
 	var written int64
@@ -100,18 +100,18 @@ func (s *LocalStorage) Put(ctx context.Context, key string, data io.Reader, opts
 		lr := io.LimitReader(data, opts.MaxSize+1)
 		written, err = io.Copy(file, lr)
 		if err != nil {
-			os.Remove(filePath) // Clean up on error
+			_ = os.Remove(filePath) // Clean up on error
 			return &StorageError{Op: "Put", Key: key, Err: fmt.Errorf("failed to write file: %w", err)}
 		}
 		if written > opts.MaxSize {
-			os.Remove(filePath) // Clean up oversized file
+			_ = os.Remove(filePath) // Clean up oversized file
 			return &StorageError{Op: "Put", Key: key, Err: ErrTooLarge}
 		}
 	} else {
 		// No size limit, copy everything
 		written, err = io.Copy(file, data)
 		if err != nil {
-			os.Remove(filePath) // Clean up on error
+			_ = os.Remove(filePath) // Clean up on error
 			return &StorageError{Op: "Put", Key: key, Err: fmt.Errorf("failed to write file: %w", err)}
 		}
 	}

@@ -132,30 +132,30 @@ type ProviderConfig struct {
 
 // Error codes for AI provider operations
 var (
-	// EAIRateLimit indicates the API rate limit has been exceeded
-	EAIRateLimit = errors.New("ai provider rate limit exceeded")
+	// ErrAIRateLimit indicates the API rate limit has been exceeded
+	ErrAIRateLimit = errors.New("ai provider rate limit exceeded")
 
-	// EAIInvalidImage indicates the image format or content is invalid
-	EAIInvalidImage = errors.New("invalid image format or content")
+	// ErrAIInvalidImage indicates the image format or content is invalid
+	ErrAIInvalidImage = errors.New("invalid image format or content")
 
-	// EAIContentPolicy indicates the image violates content policy
-	EAIContentPolicy = errors.New("image violates content policy")
+	// ErrAIContentPolicy indicates the image violates content policy
+	ErrAIContentPolicy = errors.New("image violates content policy")
 
-	// EAITimeout indicates the request timed out
-	EAITimeout = errors.New("ai request timed out")
+	// ErrAITimeout indicates the request timed out
+	ErrAITimeout = errors.New("ai request timed out")
 
-	// EAIUnavailable indicates the AI service is temporarily unavailable
-	EAIUnavailable = errors.New("ai service temporarily unavailable")
+	// ErrAIUnavailable indicates the AI service is temporarily unavailable
+	ErrAIUnavailable = errors.New("ai service temporarily unavailable")
 
-	// EAIUnauthorized indicates invalid API credentials
-	EAIUnauthorized = errors.New("ai provider authentication failed")
+	// ErrAIUnauthorized indicates invalid API credentials
+	ErrAIUnauthorized = errors.New("ai provider authentication failed")
 )
 
 // IsRetryable returns true if the error is a transient error that can be retried
 func IsRetryable(err error) bool {
-	return errors.Is(err, EAIRateLimit) ||
-		errors.Is(err, EAITimeout) ||
-		errors.Is(err, EAIUnavailable)
+	return errors.Is(err, ErrAIRateLimit) ||
+		errors.Is(err, ErrAITimeout) ||
+		errors.Is(err, ErrAIUnavailable)
 }
 
 // WrapError wraps an error with context about the AI operation

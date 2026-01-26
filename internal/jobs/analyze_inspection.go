@@ -175,7 +175,7 @@ func (h *AnalyzeInspectionHandler) analyzeImage(
 	if err != nil {
 		return fmt.Errorf("download image from storage: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	// Read image data into memory
 	imageData, err := io.ReadAll(reader)
@@ -204,7 +204,7 @@ func (h *AnalyzeInspectionHandler) analyzeImage(
 			return fmt.Errorf("ai analysis (retryable): %w", err)
 		}
 		// Invalid image or content policy violations are permanent
-		if errors.Is(err, ai.EAIInvalidImage) || errors.Is(err, ai.EAIContentPolicy) {
+		if errors.Is(err, ai.ErrAIInvalidImage) || errors.Is(err, ai.ErrAIContentPolicy) {
 			return worker.NewPermanentError(fmt.Errorf("ai analysis (permanent): %w", err))
 		}
 		// Other AI errors

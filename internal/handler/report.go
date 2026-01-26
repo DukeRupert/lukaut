@@ -97,7 +97,7 @@ func (h *ReportHandler) Download(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to retrieve report", http.StatusInternalServerError)
 		return
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	// Set response headers
 	w.Header().Set("Content-Type", reportFormat.ContentType())
@@ -219,29 +219,29 @@ func (h *ReportHandler) ListByInspection(w http.ResponseWriter, r *http.Request)
 	// Return HTML partial showing available reports
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if len(userReports) == 0 {
-		fmt.Fprint(w, `<p class="text-sm text-gray-500">No reports generated yet.</p>`)
+		_, _ = fmt.Fprint(w, `<p class="text-sm text-gray-500">No reports generated yet.</p>`)
 		return
 	}
 
 	// Add report-ready class to signal polling should stop
-	fmt.Fprint(w, `<div class="space-y-2 report-ready">`)
+	_, _ = fmt.Fprint(w, `<div class="space-y-2 report-ready">`)
 	for _, report := range userReports {
-		fmt.Fprintf(w, `<div class="flex items-center justify-between bg-gray-50 p-3 rounded-md">`)
-		fmt.Fprintf(w, `<div>`)
-		fmt.Fprintf(w, `<span class="text-sm font-medium text-gray-900">Report generated %s</span>`, report.GeneratedAt.Time.Format("Jan 2, 2006 3:04 PM"))
-		fmt.Fprintf(w, `<span class="ml-2 text-xs text-gray-500">%d violations</span>`, report.ViolationCount)
-		fmt.Fprintf(w, `</div>`)
-		fmt.Fprintf(w, `<div class="flex gap-2">`)
+		_, _ = fmt.Fprintf(w, `<div class="flex items-center justify-between bg-gray-50 p-3 rounded-md">`)
+		_, _ = fmt.Fprintf(w, `<div>`)
+		_, _ = fmt.Fprintf(w, `<span class="text-sm font-medium text-gray-900">Report generated %s</span>`, report.GeneratedAt.Time.Format("Jan 2, 2006 3:04 PM"))
+		_, _ = fmt.Fprintf(w, `<span class="ml-2 text-xs text-gray-500">%d violations</span>`, report.ViolationCount)
+		_, _ = fmt.Fprintf(w, `</div>`)
+		_, _ = fmt.Fprintf(w, `<div class="flex gap-2">`)
 		if report.PdfStorageKey.Valid {
-			fmt.Fprintf(w, `<a href="/reports/%s/download?format=pdf" class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10 hover:bg-red-100">PDF</a>`, report.ID)
+			_, _ = fmt.Fprintf(w, `<a href="/reports/%s/download?format=pdf" class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10 hover:bg-red-100">PDF</a>`, report.ID)
 		}
 		if report.DocxStorageKey.Valid {
-			fmt.Fprintf(w, `<a href="/reports/%s/download?format=docx" class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/10 hover:bg-blue-100">Word</a>`, report.ID)
+			_, _ = fmt.Fprintf(w, `<a href="/reports/%s/download?format=docx" class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/10 hover:bg-blue-100">Word</a>`, report.ID)
 		}
-		fmt.Fprintf(w, `</div>`)
-		fmt.Fprintf(w, `</div>`)
+		_, _ = fmt.Fprintf(w, `</div>`)
+		_, _ = fmt.Fprintf(w, `</div>`)
 	}
-	fmt.Fprint(w, `</div>`)
+	_, _ = fmt.Fprint(w, `</div>`)
 }
 
 // Preview renders an HTML preview of the report without generating PDF/DOCX.
