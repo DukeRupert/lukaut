@@ -196,11 +196,11 @@ type Violation struct {
 }
 
 type ViolationRegulation struct {
-	ID             uuid.UUID      `json:"id"`
-	ViolationID    uuid.UUID      `json:"violation_id"`
-	RegulationID   uuid.UUID      `json:"regulation_id"`
-	RelevanceScore sql.NullString `json:"relevance_score"`
-	AiExplanation  sql.NullString `json:"ai_explanation"`
-	IsPrimary      sql.NullBool   `json:"is_primary"`
-	CreatedAt      sql.NullTime   `json:"created_at"`
+	ID             uuid.UUID       `json:"id"`
+	ViolationID    uuid.UUID       `json:"violation_id"`
+	RegulationID   uuid.UUID       `json:"regulation_id"`
+	RelevanceScore sql.NullFloat64 `json:"relevance_score"`
+	AiExplanation  sql.NullString  `json:"ai_explanation"`
+	IsPrimary      sql.NullBool    `json:"is_primary"`
+	CreatedAt      sql.NullTime    `json:"created_at"`
 }

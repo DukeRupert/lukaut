@@ -14,3 +14,8 @@ sql:
         emit_exact_table_names: false
         emit_enum_valid_method: true
         emit_all_enum_values: true
+        overrides:
+          - column: "violation_regulations.relevance_score"
+            go_type:
+              import: "database/sql"
+              type: "NullFloat64"

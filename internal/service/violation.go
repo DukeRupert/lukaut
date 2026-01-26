@@ -131,11 +131,9 @@ func (s *violationService) GetByIDWithRegulations(ctx context.Context, id, userI
 
 	regulations := make([]domain.ViolationRegulation, 0, len(regRows))
 	for _, row := range regRows {
-		// Parse relevance score (stored as text in DB for precision)
 		relevanceScore := 0.0
 		if row.RelevanceScore.Valid {
-			// Try to parse the string as float, default to 0.0 on error
-			_, _ = fmt.Sscanf(row.RelevanceScore.String, "%f", &relevanceScore)
+			relevanceScore = row.RelevanceScore.Float64
 		}
 
 		regulations = append(regulations, domain.ViolationRegulation{
@@ -491,9 +489,9 @@ func (s *violationService) LinkRegulations(ctx context.Context, violationID uuid
 				_, err := s.queries.CreateViolationRegulation(ctx, repository.CreateViolationRegulationParams{
 					ViolationID: violationID,
 					RegulationID: reg.ID,
-					RelevanceScore: sql.NullString{
-						String: "1.0",
-						Valid:  true,
+					RelevanceScore: sql.NullFloat64{
+						Float64: 1.0,
+						Valid:   true,
 					},
 					AiExplanation: sql.NullString{
 						String: fmt.Sprintf("AI directly suggested regulation %s for %s violation", reg.StandardNumber, category),
@@ -552,14 +550,12 @@ func (s *violationService) LinkRegulations(ctx context.Context, violationID uuid
 
 	for i, reg := range regulations {
 		isPrimary := i == 0
-		rankStr := fmt.Sprintf("%.6f", reg.Rank)
-
 		_, err := s.queries.CreateViolationRegulation(ctx, repository.CreateViolationRegulationParams{
 			ViolationID: violationID,
 			RegulationID: reg.ID,
-			RelevanceScore: sql.NullString{
-				String: rankStr,
-				Valid:  true,
+			RelevanceScore: sql.NullFloat64{
+				Float64: float64(reg.Rank),
+				Valid:   true,
 			},
 			AiExplanation: sql.NullString{
 				String: fmt.Sprintf("AI identified this as a %s violation", category),

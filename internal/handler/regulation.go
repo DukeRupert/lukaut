@@ -183,7 +183,7 @@ func (h *RegulationHandler) AddToViolation(w http.ResponseWriter, r *http.Reques
 	_, err = h.repo.CreateViolationRegulation(r.Context(), repository.CreateViolationRegulationParams{
 		ViolationID:    vid,
 		RegulationID:   rid,
-		RelevanceScore: sql.NullString{String: "1.0", Valid: true},
+		RelevanceScore: sql.NullFloat64{Float64: 1.0, Valid: true},
 		AiExplanation:  sql.NullString{String: "Manually added by inspector", Valid: true},
 		IsPrimary:      sql.NullBool{Bool: false, Valid: true},
 	})

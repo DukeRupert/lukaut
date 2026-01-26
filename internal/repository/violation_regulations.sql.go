@@ -27,11 +27,11 @@ RETURNING id, violation_id, regulation_id, relevance_score, ai_explanation, is_p
 `
 
 type AddRegulationToViolationParams struct {
-	ViolationID    uuid.UUID      `json:"violation_id"`
-	RegulationID   uuid.UUID      `json:"regulation_id"`
-	RelevanceScore sql.NullString `json:"relevance_score"`
-	AiExplanation  sql.NullString `json:"ai_explanation"`
-	IsPrimary      sql.NullBool   `json:"is_primary"`
+	ViolationID    uuid.UUID       `json:"violation_id"`
+	RegulationID   uuid.UUID       `json:"regulation_id"`
+	RelevanceScore sql.NullFloat64 `json:"relevance_score"`
+	AiExplanation  sql.NullString  `json:"ai_explanation"`
+	IsPrimary      sql.NullBool    `json:"is_primary"`
 }
 
 func (q *Queries) AddRegulationToViolation(ctx context.Context, arg AddRegulationToViolationParams) (ViolationRegulation, error) {
@@ -69,11 +69,11 @@ RETURNING id, violation_id, regulation_id, relevance_score, ai_explanation, is_p
 `
 
 type CreateViolationRegulationParams struct {
-	ViolationID    uuid.UUID      `json:"violation_id"`
-	RegulationID   uuid.UUID      `json:"regulation_id"`
-	RelevanceScore sql.NullString `json:"relevance_score"`
-	AiExplanation  sql.NullString `json:"ai_explanation"`
-	IsPrimary      sql.NullBool   `json:"is_primary"`
+	ViolationID    uuid.UUID       `json:"violation_id"`
+	RegulationID   uuid.UUID       `json:"regulation_id"`
+	RelevanceScore sql.NullFloat64 `json:"relevance_score"`
+	AiExplanation  sql.NullString  `json:"ai_explanation"`
+	IsPrimary      sql.NullBool    `json:"is_primary"`
 }
 
 func (q *Queries) CreateViolationRegulation(ctx context.Context, arg CreateViolationRegulationParams) (ViolationRegulation, error) {
@@ -145,23 +145,23 @@ ORDER BY vr.is_primary DESC, vr.relevance_score DESC
 `
 
 type ListRegulationsByViolationIDRow struct {
-	ID              uuid.UUID      `json:"id"`
-	StandardNumber  string         `json:"standard_number"`
-	Title           string         `json:"title"`
-	Category        string         `json:"category"`
-	Subcategory     sql.NullString `json:"subcategory"`
-	FullText        string         `json:"full_text"`
-	Summary         sql.NullString `json:"summary"`
-	SeverityTypical sql.NullString `json:"severity_typical"`
-	ParentStandard  sql.NullString `json:"parent_standard"`
-	EffectiveDate   sql.NullTime   `json:"effective_date"`
-	LastUpdated     sql.NullTime   `json:"last_updated"`
-	SearchVector    interface{}    `json:"search_vector"`
-	CreatedAt       sql.NullTime   `json:"created_at"`
-	UpdatedAt       sql.NullTime   `json:"updated_at"`
-	RelevanceScore  sql.NullString `json:"relevance_score"`
-	AiExplanation   sql.NullString `json:"ai_explanation"`
-	IsPrimary       sql.NullBool   `json:"is_primary"`
+	ID              uuid.UUID       `json:"id"`
+	StandardNumber  string          `json:"standard_number"`
+	Title           string          `json:"title"`
+	Category        string          `json:"category"`
+	Subcategory     sql.NullString  `json:"subcategory"`
+	FullText        string          `json:"full_text"`
+	Summary         sql.NullString  `json:"summary"`
+	SeverityTypical sql.NullString  `json:"severity_typical"`
+	ParentStandard  sql.NullString  `json:"parent_standard"`
+	EffectiveDate   sql.NullTime    `json:"effective_date"`
+	LastUpdated     sql.NullTime    `json:"last_updated"`
+	SearchVector    interface{}     `json:"search_vector"`
+	CreatedAt       sql.NullTime    `json:"created_at"`
+	UpdatedAt       sql.NullTime    `json:"updated_at"`
+	RelevanceScore  sql.NullFloat64 `json:"relevance_score"`
+	AiExplanation   sql.NullString  `json:"ai_explanation"`
+	IsPrimary       sql.NullBool    `json:"is_primary"`
 }
 
 func (q *Queries) ListRegulationsByViolationID(ctx context.Context, violationID uuid.UUID) ([]ListRegulationsByViolationIDRow, error) {

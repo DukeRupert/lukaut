@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"github.com/DukeRupert/lukaut/internal/domain"
@@ -112,9 +111,7 @@ func (s *reportService) PrepareReportData(ctx context.Context, inspectionID, use
 		for _, r := range regs {
 			relevanceScore := 0.0
 			if r.RelevanceScore.Valid {
-				if parsed, err := strconv.ParseFloat(r.RelevanceScore.String, 64); err == nil {
-					relevanceScore = parsed
-				}
+				relevanceScore = r.RelevanceScore.Float64
 			}
 
 			reportRegs = append(reportRegs, domain.ReportRegulation{
