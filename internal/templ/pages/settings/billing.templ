@@ -1,0 +1,143 @@
+package settings
+
+import "github.com/DukeRupert/lukaut/internal/templ/layouts"
+
+// BillingPage renders the billing settings page.
+//
+// TODO: This is a placeholder stub. Use the UI builder agent with the specs in
+// planning/UI_REQUEST_BILLING_PAGE.md to build the full billing page with:
+//   - Current plan status card (tier, status, period end date)
+//   - Plan comparison cards (Starter $29/mo, Professional $79/mo)
+//   - Action buttons: Upgrade, Manage Billing (portal), Cancel, Reactivate
+//   - htmx wiring for cancel/reactivate actions
+//   - Stripe Checkout form for plan selection
+templ BillingPage(data BillingPageData) {
+	@layouts.AppLayout(layouts.AppLayoutData{
+		Title:       "Billing",
+		CurrentPath: data.CurrentPath,
+		User:        userToLayoutUser(data.User),
+		Flash:       data.Flash,
+	}) {
+		<div class="max-w-2xl">
+			@SettingsTabs(TabBilling)
+			<div id="settings-content">
+				@BillingContent(data)
+			</div>
+		</div>
+	}
+}
+
+// BillingContent renders just the billing content (for htmx partial swaps).
+templ BillingContent(data BillingPageData) {
+	@FormCard() {
+		@PageHeader("Billing & Subscription", "Manage your subscription plan and billing details.")
+		<div class="space-y-6">
+			// Current plan status
+			<div class="rounded-lg border border-gray-200 p-4">
+				<div class="flex items-center justify-between">
+					<div>
+						<h3 class="text-sm font-medium text-gray-900">Current Plan</h3>
+						<p class="mt-1 text-sm text-gray-500">
+							if data.Plan.Tier != "" {
+								{ planDisplayName(data.Plan.Tier) }
+								<span class={ statusBadgeClasses(data.Plan.Status) }>
+									{ data.Plan.Status }
+								</span>
+							} else {
+								No active plan
+							}
+						</p>
+						if data.Plan.PeriodEnd != "" {
+							<p class="mt-1 text-xs text-gray-400">
+								if data.Plan.CancelAtEnd {
+									Access until { data.Plan.PeriodEnd }
+								} else {
+									Renews { data.Plan.PeriodEnd }
+								}
+							</p>
+						}
+					</div>
+					if data.Plan.Tier != "" {
+						<form method="POST" action="/settings/billing/portal">
+							<button
+								type="submit"
+								class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+							>
+								Manage Billing
+							</button>
+						</form>
+					}
+				</div>
+			</div>
+			// Placeholder for plan cards — to be built by UI builder
+			<div class="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
+				<svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z"></path>
+				</svg>
+				<h3 class="mt-2 text-sm font-semibold text-gray-900">Plan selection coming soon</h3>
+				<p class="mt-1 text-sm text-gray-500">
+					Plan comparison cards and Stripe checkout integration will be built here.
+				</p>
+			</div>
+			// Cancel / Reactivate actions
+			if data.Plan.Tier != "" && data.Plan.Status == "active" && !data.Plan.CancelAtEnd {
+				<div class="border-t border-gray-200 pt-6">
+					<h3 class="text-sm font-medium text-gray-900 mb-2">Cancel Subscription</h3>
+					<p class="text-sm text-gray-500 mb-4">
+						You will retain access until the end of your current billing period.
+					</p>
+					<button
+						hx-post="/settings/billing/cancel"
+						hx-confirm="Are you sure you want to cancel your subscription? You'll keep access until the end of your billing period."
+						class="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 transition-colors"
+					>
+						Cancel Subscription
+					</button>
+				</div>
+			}
+			if data.Plan.CancelAtEnd {
+				<div class="border-t border-gray-200 pt-6">
+					<div class="rounded-lg bg-amber-50 border border-amber-200 p-4">
+						<h3 class="text-sm font-medium text-amber-800">Subscription Ending</h3>
+						<p class="mt-1 text-sm text-amber-700">
+							Your subscription will end on { data.Plan.PeriodEnd }. You can reactivate to keep your access.
+						</p>
+						<button
+							hx-post="/settings/billing/reactivate"
+							class="mt-3 rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-500 transition-colors"
+						>
+							Reactivate Subscription
+						</button>
+					</div>
+				</div>
+			}
+		</div>
+	}
+}
+
+func planDisplayName(tier string) string {
+	switch tier {
+	case "starter":
+		return "Starter"
+	case "professional":
+		return "Professional"
+	default:
+		return "Unknown"
+	}
+}
+
+func statusBadgeClasses(status string) string {
+	base := "ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+	switch status {
+	case "active":
+		return base + " bg-green-100 text-green-700"
+	case "trialing":
+		return base + " bg-blue-100 text-blue-700"
+	case "canceled":
+		return base + " bg-amber-100 text-amber-700"
+	case "past_due":
+		return base + " bg-red-100 text-red-700"
+	default:
+		return base + " bg-gray-100 text-gray-700"
+	}
+}

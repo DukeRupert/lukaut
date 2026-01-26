@@ -360,6 +360,6 @@ This document catalogs every page in the application and the actions a user can 
 
 ## Notes for UI Review
 
-- **No billing/subscription UI currently wired up** — middleware exists (`RequireActiveSubscription`) but no billing page or Stripe checkout flow is exposed in the routes.
+- **Billing/subscription UI scaffolded (stubs)** — billing tab added to settings nav, stub handlers and routes registered for checkout, portal, cancel, reactivate, and webhook. Backend Stripe integration still TODO. See `internal/handler/billing.go` and `internal/handler/webhook.go` for implementation notes.
 - **Email verification is not enforced** — `RequireEmailVerified` middleware exists but is not applied to any routes.
 - **No user profile photo/avatar upload** — avatars appear to be initials-based only.

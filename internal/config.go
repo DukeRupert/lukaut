@@ -61,6 +61,12 @@ type Config struct {
 
 	// Admin access control
 	AdminEmails []string // List of email addresses with admin access
+
+	// Stripe Billing Configuration
+	// These are required when billing is enabled in production.
+	// In development, billing handlers function as stubs if these are empty.
+	StripeSecretKey    string // Stripe API secret key (sk_test_... or sk_live_...)
+	StripeWebhookSecret string // Stripe webhook signing secret (whsec_...)
 }
 
 func NewConfig() (*Config, error) {
@@ -111,6 +117,10 @@ func NewConfig() (*Config, error) {
 
 		// Invite code defaults (enabled by default for MVP testing)
 		InviteCodesEnabled: getEnvBool("INVITE_CODES_ENABLED", true),
+
+		// Stripe billing (optional — stubs work without these)
+		StripeSecretKey:     getEnv("STRIPE_SECRET_KEY", ""),
+		StripeWebhookSecret: getEnv("STRIPE_WEBHOOK_SECRET", ""),
 	}
 
 	// Parse invite codes from comma-separated environment variable

@@ -198,6 +198,8 @@ func run() error {
 	clientHandler := handler.NewClientHandler(clientService, logger)
 	reportHandler := handler.NewReportHandler(repo, storageService, logger)
 	adminHandler := handler.NewAdminHandler(repo, logger)
+	billingHandler := handler.NewBillingHandler(logger)
+	webhookHandler := handler.NewWebhookHandler(logger)
 
 	// ==========================================================================
 	// Create router and register routes
@@ -296,6 +298,12 @@ func run() error {
 
 	// Report routes (requires authentication)
 	reportHandler.RegisterRoutes(mux, requireUser)
+
+	// Billing routes (requires authentication) - stub handlers
+	billingHandler.RegisterRoutes(mux, requireUser)
+
+	// Webhook routes (public - Stripe calls these directly)
+	webhookHandler.RegisterRoutes(mux)
 
 	// Admin routes (requires authentication and admin role)
 	adminHandler.RegisterRoutes(mux, requireAdmin)
