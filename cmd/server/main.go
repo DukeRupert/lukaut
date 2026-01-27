@@ -217,7 +217,13 @@ func run() error {
 		logger.Info("Stripe not configured — billing handlers will operate as stubs")
 	}
 
-	billingHandler := handler.NewBillingHandler(billingService, userService, cfg.BaseURL, logger)
+	billingPrices := billing.PriceConfig{
+		StarterMonthlyPriceID:      cfg.StripeStarterMonthlyPriceID,
+		StarterYearlyPriceID:       cfg.StripeStarterYearlyPriceID,
+		ProfessionalMonthlyPriceID: cfg.StripeProfessionalMonthlyPriceID,
+		ProfessionalYearlyPriceID:  cfg.StripeProfessionalYearlyPriceID,
+	}
+	billingHandler := handler.NewBillingHandler(billingService, userService, cfg.BaseURL, billingPrices, logger)
 	webhookHandler := handler.NewWebhookHandler(billingService, userService, logger)
 
 	// ==========================================================================

@@ -79,8 +79,17 @@ type BillingPageData struct {
 	CurrentPath string
 	User        *UserDisplay
 	Plan        PlanInfo
+	Prices      PriceConfig
 	Flash       *shared.Flash
 	ActiveTab   Tab
+}
+
+// PriceConfig holds the Stripe price IDs for rendering checkout buttons.
+type PriceConfig struct {
+	StarterMonthlyPriceID      string
+	StarterYearlyPriceID       string
+	ProfessionalMonthlyPriceID string
+	ProfessionalYearlyPriceID  string
 }
 
 // PlanInfo contains the user's current subscription plan details.

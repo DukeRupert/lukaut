@@ -11,14 +11,6 @@ import templruntime "github.com/a-h/templ/runtime"
 import "github.com/DukeRupert/lukaut/internal/templ/layouts"
 
 // BillingPage renders the billing settings page.
-//
-// TODO: This is a placeholder stub. Use the UI builder agent with the specs in
-// planning/UI_REQUEST_BILLING_PAGE.md to build the full billing page with:
-//   - Current plan status card (tier, status, period end date)
-//   - Plan comparison cards (Starter $29/mo, Professional $79/mo)
-//   - Action buttons: Upgrade, Manage Billing (portal), Cancel, Reactivate
-//   - htmx wiring for cancel/reactivate actions
-//   - Stripe Checkout form for plan selection
 func BillingPage(data BillingPageData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -52,7 +44,7 @@ func BillingPage(data BillingPageData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-2xl\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-4xl\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -133,7 +125,7 @@ func BillingContent(data BillingPageData) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(planDisplayName(data.Plan.Tier))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 42, Col: 41}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 34, Col: 41}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -168,7 +160,7 @@ func BillingContent(data BillingPageData) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(data.Plan.Status)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 44, Col: 27}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 36, Col: 27}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -201,7 +193,7 @@ func BillingContent(data BillingPageData) templ.Component {
 					var templ_7745c5c3_Var9 string
 					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(data.Plan.PeriodEnd)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 53, Col: 43}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 45, Col: 43}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 					if templ_7745c5c3_Err != nil {
@@ -215,7 +207,7 @@ func BillingContent(data BillingPageData) templ.Component {
 					var templ_7745c5c3_Var10 string
 					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(data.Plan.PeriodEnd)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 55, Col: 37}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 47, Col: 37}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 					if templ_7745c5c3_Err != nil {
@@ -237,36 +229,216 @@ func BillingContent(data BillingPageData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div></div><div class=\"rounded-lg border-2 border-dashed border-gray-300 p-8 text-center\"><svg class=\"mx-auto h-12 w-12 text-gray-400\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z\"></path></svg><h3 class=\"mt-2 text-sm font-semibold text-gray-900\">Plan selection coming soon</h3><p class=\"mt-1 text-sm text-gray-500\">Plan comparison cards and Stripe checkout integration will be built here.</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div></div><div x-data=\"{ yearly: false }\"><div class=\"flex items-center justify-center gap-3 mb-6\"><span class=\"text-sm font-medium\" :class=\"yearly ? 'text-gray-400' : 'text-gray-900'\">Monthly</span> <button type=\"button\" @click=\"yearly = !yearly\" class=\"relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-safety-orange focus:ring-offset-2\" :class=\"yearly ? 'bg-safety-orange' : 'bg-gray-200'\" role=\"switch\" :aria-checked=\"yearly\"><span aria-hidden=\"true\" class=\"pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out\" :class=\"yearly ? 'translate-x-5' : 'translate-x-0'\"></span></button> <span class=\"text-sm font-medium\" :class=\"yearly ? 'text-gray-900' : 'text-gray-400'\">Yearly <span class=\"ml-1 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700\">Save ~17%</span></span></div><div class=\"grid grid-cols-1 gap-6 sm:grid-cols-2\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var11 = []any{"relative rounded-xl border-2 p-6", planCardBorderClass(data.Plan.Tier, "starter")}
+			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var11...)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div class=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var12 string
+			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var11).String())
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 1, Col: 0}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.Plan.Tier == "starter" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<div class=\"absolute -top-3 left-4\"><span class=\"inline-flex items-center rounded-full bg-navy px-3 py-0.5 text-xs font-semibold text-white\">Current Plan</span></div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<div class=\"mb-4\"><h3 class=\"text-lg font-bold text-navy\">Starter</h3><p class=\"mt-1 text-sm text-gray-500\">For individual inspectors getting started.</p></div><div class=\"mb-6\"><div x-show=\"!yearly\"><span class=\"text-3xl font-bold text-gray-900\">$29</span> <span class=\"text-sm text-gray-500\">/month</span></div><div x-show=\"yearly\" x-cloak><span class=\"text-3xl font-bold text-gray-900\">$290</span> <span class=\"text-sm text-gray-500\">/year</span><p class=\"mt-1 text-xs text-green-600\">$24.17/mo — save $58/yr</p></div></div><ul class=\"space-y-2 mb-6 text-sm text-gray-600\"><li class=\"flex items-center gap-2\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = checkIcon().Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "Up to 20 inspections/month</li><li class=\"flex items-center gap-2\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = checkIcon().Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "AI-powered violation detection</li><li class=\"flex items-center gap-2\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = checkIcon().Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "PDF & DOCX report generation</li><li class=\"flex items-center gap-2\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = checkIcon().Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "OSHA regulation matching</li></ul>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.Plan.Tier != "starter" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<form method=\"POST\" action=\"/settings/billing/checkout\"><input type=\"hidden\" name=\"price_id\" :value=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var13 string
+				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(priceAttrExpr(data.Prices.StarterMonthlyPriceID, data.Prices.StarterYearlyPriceID))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 132, Col: 136}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\"> <button type=\"submit\" class=\"w-full rounded-lg bg-safety-orange px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-safety-orange/90 transition-colors focus:outline-none focus:ring-2 focus:ring-safety-orange focus:ring-offset-2\">Choose Starter</button></form>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var14 = []any{"relative rounded-xl border-2 p-6", planCardBorderClass(data.Plan.Tier, "professional")}
+			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var14...)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<div class=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var15 string
+			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var14).String())
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 1, Col: 0}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.Plan.Tier == "professional" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<div class=\"absolute -top-3 left-4\"><span class=\"inline-flex items-center rounded-full bg-navy px-3 py-0.5 text-xs font-semibold text-white\">Current Plan</span></div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			if data.Plan.Tier != "professional" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<div class=\"absolute -top-3 right-4\"><span class=\"inline-flex items-center rounded-full bg-safety-orange px-3 py-0.5 text-xs font-semibold text-white\">Most Popular</span></div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<div class=\"mb-4\"><h3 class=\"text-lg font-bold text-navy\">Professional</h3><p class=\"mt-1 text-sm text-gray-500\">For busy inspectors and small teams.</p></div><div class=\"mb-6\"><div x-show=\"!yearly\"><span class=\"text-3xl font-bold text-gray-900\">$79</span> <span class=\"text-sm text-gray-500\">/month</span></div><div x-show=\"yearly\" x-cloak><span class=\"text-3xl font-bold text-gray-900\">$790</span> <span class=\"text-sm text-gray-500\">/year</span><p class=\"mt-1 text-xs text-green-600\">$65.83/mo — save $158/yr</p></div></div><ul class=\"space-y-2 mb-6 text-sm text-gray-600\"><li class=\"flex items-center gap-2\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = checkIcon().Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "Unlimited inspections</li><li class=\"flex items-center gap-2\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = checkIcon().Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "Everything in Starter</li><li class=\"flex items-center gap-2\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = checkIcon().Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "Priority AI processing</li><li class=\"flex items-center gap-2\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = checkIcon().Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "Email reports to clients</li></ul>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.Plan.Tier != "professional" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<form method=\"POST\" action=\"/settings/billing/checkout\"><input type=\"hidden\" name=\"price_id\" :value=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var16 string
+				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(priceAttrExpr(data.Prices.ProfessionalMonthlyPriceID, data.Prices.ProfessionalYearlyPriceID))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 189, Col: 146}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "\"> <button type=\"submit\" class=\"w-full rounded-lg bg-navy px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-navy/90 transition-colors focus:outline-none focus:ring-2 focus:ring-navy focus:ring-offset-2\">Choose Professional</button></form>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</div></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if data.Plan.Tier != "" && data.Plan.Status == "active" && !data.Plan.CancelAtEnd {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div class=\"border-t border-gray-200 pt-6\"><h3 class=\"text-sm font-medium text-gray-900 mb-2\">Cancel Subscription</h3><p class=\"text-sm text-gray-500 mb-4\">You will retain access until the end of your current billing period.</p><button hx-post=\"/settings/billing/cancel\" hx-confirm=\"Are you sure you want to cancel your subscription? You'll keep access until the end of your billing period.\" class=\"rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 transition-colors\">Cancel Subscription</button></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<div class=\"border-t border-gray-200 pt-6\"><h3 class=\"text-sm font-medium text-gray-900 mb-2\">Cancel Subscription</h3><p class=\"text-sm text-gray-500 mb-4\">You will retain access until the end of your current billing period.</p><button hx-post=\"/settings/billing/cancel\" hx-confirm=\"Are you sure you want to cancel your subscription? You'll keep access until the end of your billing period.\" class=\"rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 transition-colors\">Cancel Subscription</button></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			if data.Plan.CancelAtEnd {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div class=\"border-t border-gray-200 pt-6\"><div class=\"rounded-lg bg-amber-50 border border-amber-200 p-4\"><h3 class=\"text-sm font-medium text-amber-800\">Subscription Ending</h3><p class=\"mt-1 text-sm text-amber-700\">Your subscription will end on ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<div class=\"border-t border-gray-200 pt-6\"><div class=\"rounded-lg bg-amber-50 border border-amber-200 p-4\"><h3 class=\"text-sm font-medium text-amber-800\">Subscription Ending</h3><p class=\"mt-1 text-sm text-amber-700\">Your subscription will end on ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var11 string
-				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(data.Plan.PeriodEnd)
+				var templ_7745c5c3_Var17 string
+				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(data.Plan.PeriodEnd)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 103, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templ/pages/settings/billing.templ`, Line: 222, Col: 58}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, ". You can reactivate to keep your access.</p><button hx-post=\"/settings/billing/reactivate\" class=\"mt-3 rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-500 transition-colors\">Reactivate Subscription</button></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, ". You can reactivate to keep your access.</p><button hx-post=\"/settings/billing/reactivate\" class=\"mt-3 rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-500 transition-colors\">Reactivate Subscription</button></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -305,6 +477,47 @@ func statusBadgeClasses(status string) string {
 	default:
 		return base + " bg-gray-100 text-gray-700"
 	}
+}
+
+func planCardBorderClass(currentTier, cardTier string) string {
+	if currentTier == cardTier {
+		return "border-navy bg-navy/5"
+	}
+	return "border-gray-200"
+}
+
+// priceAttrExpr builds the Alpine.js expression for the price_id hidden input.
+func priceAttrExpr(monthlyID, yearlyID string) string {
+	return "yearly ? '" + yearlyID + "' : '" + monthlyID + "'"
+}
+
+func checkIcon() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var18 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var18 == nil {
+			templ_7745c5c3_Var18 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<svg class=\"h-4 w-4 flex-shrink-0 text-green-500\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path fill-rule=\"evenodd\" d=\"M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z\" clip-rule=\"evenodd\"></path></svg>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
 }
 
 var _ = templruntime.GeneratedTemplate

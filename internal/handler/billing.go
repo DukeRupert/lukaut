@@ -29,16 +29,18 @@ type BillingHandler struct {
 	billing     billing.Service
 	userService service.UserService
 	baseURL     string
+	prices      billing.PriceConfig
 	logger      *slog.Logger
 }
 
 // NewBillingHandler creates a new BillingHandler.
 // billingService may be nil when Stripe is not configured (development mode).
-func NewBillingHandler(billingService billing.Service, userService service.UserService, baseURL string, logger *slog.Logger) *BillingHandler {
+func NewBillingHandler(billingService billing.Service, userService service.UserService, baseURL string, prices billing.PriceConfig, logger *slog.Logger) *BillingHandler {
 	return &BillingHandler{
 		billing:     billingService,
 		userService: userService,
 		baseURL:     baseURL,
+		prices:      prices,
 		logger:      logger,
 	}
 }
@@ -83,6 +85,12 @@ func (h *BillingHandler) ShowBilling(w http.ResponseWriter, r *http.Request) {
 		User:        domainUserToDisplay(user),
 		ActiveTab:   settings.TabBilling,
 		Plan:        plan,
+		Prices: settings.PriceConfig{
+			StarterMonthlyPriceID:      h.prices.StarterMonthlyPriceID,
+			StarterYearlyPriceID:       h.prices.StarterYearlyPriceID,
+			ProfessionalMonthlyPriceID: h.prices.ProfessionalMonthlyPriceID,
+			ProfessionalYearlyPriceID:  h.prices.ProfessionalYearlyPriceID,
+		},
 	}
 
 	var flash *shared.Flash

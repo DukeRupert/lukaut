@@ -3,14 +3,6 @@ package settings
 import "github.com/DukeRupert/lukaut/internal/templ/layouts"
 
 // BillingPage renders the billing settings page.
-//
-// TODO: This is a placeholder stub. Use the UI builder agent with the specs in
-// planning/UI_REQUEST_BILLING_PAGE.md to build the full billing page with:
-//   - Current plan status card (tier, status, period end date)
-//   - Plan comparison cards (Starter $29/mo, Professional $79/mo)
-//   - Action buttons: Upgrade, Manage Billing (portal), Cancel, Reactivate
-//   - htmx wiring for cancel/reactivate actions
-//   - Stripe Checkout form for plan selection
 templ BillingPage(data BillingPageData) {
 	@layouts.AppLayout(layouts.AppLayoutData{
 		Title:       "Billing",
@@ -18,7 +10,7 @@ templ BillingPage(data BillingPageData) {
 		User:        userToLayoutUser(data.User),
 		Flash:       data.Flash,
 	}) {
-		<div class="max-w-2xl">
+		<div class="max-w-4xl">
 			@SettingsTabs(TabBilling)
 			<div id="settings-content">
 				@BillingContent(data)
@@ -69,15 +61,142 @@ templ BillingContent(data BillingPageData) {
 					}
 				</div>
 			</div>
-			// Placeholder for plan cards — to be built by UI builder
-			<div class="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
-				<svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z"></path>
-				</svg>
-				<h3 class="mt-2 text-sm font-semibold text-gray-900">Plan selection coming soon</h3>
-				<p class="mt-1 text-sm text-gray-500">
-					Plan comparison cards and Stripe checkout integration will be built here.
-				</p>
+			// Plan comparison cards with monthly/yearly toggle
+			<div x-data="{ yearly: false }">
+				// Toggle
+				<div class="flex items-center justify-center gap-3 mb-6">
+					<span class="text-sm font-medium" :class="yearly ? 'text-gray-400' : 'text-gray-900'">Monthly</span>
+					<button
+						type="button"
+						@click="yearly = !yearly"
+						class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-safety-orange focus:ring-offset-2"
+						:class="yearly ? 'bg-safety-orange' : 'bg-gray-200'"
+						role="switch"
+						:aria-checked="yearly"
+					>
+						<span
+							aria-hidden="true"
+							class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+							:class="yearly ? 'translate-x-5' : 'translate-x-0'"
+						></span>
+					</button>
+					<span class="text-sm font-medium" :class="yearly ? 'text-gray-900' : 'text-gray-400'">
+						Yearly
+						<span class="ml-1 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Save ~17%</span>
+					</span>
+				</div>
+				// Plan cards
+				<div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+					// Starter plan
+					<div class={ "relative rounded-xl border-2 p-6", planCardBorderClass(data.Plan.Tier, "starter") }>
+						if data.Plan.Tier == "starter" {
+							<div class="absolute -top-3 left-4">
+								<span class="inline-flex items-center rounded-full bg-navy px-3 py-0.5 text-xs font-semibold text-white">Current Plan</span>
+							</div>
+						}
+						<div class="mb-4">
+							<h3 class="text-lg font-bold text-navy">Starter</h3>
+							<p class="mt-1 text-sm text-gray-500">For individual inspectors getting started.</p>
+						</div>
+						<div class="mb-6">
+							<div x-show="!yearly">
+								<span class="text-3xl font-bold text-gray-900">$29</span>
+								<span class="text-sm text-gray-500">/month</span>
+							</div>
+							<div x-show="yearly" x-cloak>
+								<span class="text-3xl font-bold text-gray-900">$290</span>
+								<span class="text-sm text-gray-500">/year</span>
+								<p class="mt-1 text-xs text-green-600">$24.17/mo — save $58/yr</p>
+							</div>
+						</div>
+						<ul class="space-y-2 mb-6 text-sm text-gray-600">
+							<li class="flex items-center gap-2">
+								@checkIcon()
+								Up to 20 inspections/month
+							</li>
+							<li class="flex items-center gap-2">
+								@checkIcon()
+								AI-powered violation detection
+							</li>
+							<li class="flex items-center gap-2">
+								@checkIcon()
+								PDF & DOCX report generation
+							</li>
+							<li class="flex items-center gap-2">
+								@checkIcon()
+								OSHA regulation matching
+							</li>
+						</ul>
+						if data.Plan.Tier != "starter" {
+							<form method="POST" action="/settings/billing/checkout">
+								<input type="hidden" name="price_id" :value={ priceAttrExpr(data.Prices.StarterMonthlyPriceID, data.Prices.StarterYearlyPriceID) } />
+								<button
+									type="submit"
+									class="w-full rounded-lg bg-safety-orange px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-safety-orange/90 transition-colors focus:outline-none focus:ring-2 focus:ring-safety-orange focus:ring-offset-2"
+								>
+									Choose Starter
+								</button>
+							</form>
+						}
+					</div>
+					// Professional plan
+					<div class={ "relative rounded-xl border-2 p-6", planCardBorderClass(data.Plan.Tier, "professional") }>
+						if data.Plan.Tier == "professional" {
+							<div class="absolute -top-3 left-4">
+								<span class="inline-flex items-center rounded-full bg-navy px-3 py-0.5 text-xs font-semibold text-white">Current Plan</span>
+							</div>
+						}
+						if data.Plan.Tier != "professional" {
+							<div class="absolute -top-3 right-4">
+								<span class="inline-flex items-center rounded-full bg-safety-orange px-3 py-0.5 text-xs font-semibold text-white">Most Popular</span>
+							</div>
+						}
+						<div class="mb-4">
+							<h3 class="text-lg font-bold text-navy">Professional</h3>
+							<p class="mt-1 text-sm text-gray-500">For busy inspectors and small teams.</p>
+						</div>
+						<div class="mb-6">
+							<div x-show="!yearly">
+								<span class="text-3xl font-bold text-gray-900">$79</span>
+								<span class="text-sm text-gray-500">/month</span>
+							</div>
+							<div x-show="yearly" x-cloak>
+								<span class="text-3xl font-bold text-gray-900">$790</span>
+								<span class="text-sm text-gray-500">/year</span>
+								<p class="mt-1 text-xs text-green-600">$65.83/mo — save $158/yr</p>
+							</div>
+						</div>
+						<ul class="space-y-2 mb-6 text-sm text-gray-600">
+							<li class="flex items-center gap-2">
+								@checkIcon()
+								Unlimited inspections
+							</li>
+							<li class="flex items-center gap-2">
+								@checkIcon()
+								Everything in Starter
+							</li>
+							<li class="flex items-center gap-2">
+								@checkIcon()
+								Priority AI processing
+							</li>
+							<li class="flex items-center gap-2">
+								@checkIcon()
+								Email reports to clients
+							</li>
+						</ul>
+						if data.Plan.Tier != "professional" {
+							<form method="POST" action="/settings/billing/checkout">
+								<input type="hidden" name="price_id" :value={ priceAttrExpr(data.Prices.ProfessionalMonthlyPriceID, data.Prices.ProfessionalYearlyPriceID) } />
+								<button
+									type="submit"
+									class="w-full rounded-lg bg-navy px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-navy/90 transition-colors focus:outline-none focus:ring-2 focus:ring-navy focus:ring-offset-2"
+								>
+									Choose Professional
+								</button>
+							</form>
+						}
+					</div>
+				</div>
 			</div>
 			// Cancel / Reactivate actions
 			if data.Plan.Tier != "" && data.Plan.Status == "active" && !data.Plan.CancelAtEnd {
@@ -140,4 +259,22 @@ func statusBadgeClasses(status string) string {
 	default:
 		return base + " bg-gray-100 text-gray-700"
 	}
+}
+
+func planCardBorderClass(currentTier, cardTier string) string {
+	if currentTier == cardTier {
+		return "border-navy bg-navy/5"
+	}
+	return "border-gray-200"
+}
+
+// priceAttrExpr builds the Alpine.js expression for the price_id hidden input.
+func priceAttrExpr(monthlyID, yearlyID string) string {
+	return "yearly ? '" + yearlyID + "' : '" + monthlyID + "'"
+}
+
+templ checkIcon() {
+	<svg class="h-4 w-4 flex-shrink-0 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+		<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"></path>
+	</svg>
 }
