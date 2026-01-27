@@ -303,12 +303,27 @@ module.exports = {
 // WithUser loads user from session cookie (if present)
 func WithUser(userService service.UserService) func(http.Handler) http.Handler
 
-// RequireUser blocks unauthenticated requests
+// RequireUser blocks unauthenticated requests (redirects to /login)
 func RequireUser(next http.Handler) http.Handler
+
+// RequireEmailVerified redirects unverified users to /verify-email-reminder
+func RequireEmailVerified(next http.Handler) http.Handler
 
 // RequireActiveSubscription checks Stripe subscription status
 func RequireActiveSubscription(next http.Handler) http.Handler
 ```
+
+**Common Middleware Stacks (composed via `middleware.Stack`):**
+```go
+requireUser       := middleware.Stack(authMw.WithUser, authMw.RequireUser)
+requireVerified   := middleware.Stack(authMw.WithUser, authMw.RequireUser, authMw.RequireEmailVerified)
+requireSubscription := middleware.Stack(authMw.WithUser, authMw.RequireUser, authMw.RequireEmailVerified, authMw.RequireActiveSubscription)
+```
+
+**Route protection levels:**
+- `requireUser` — Settings, profile, verify-email-reminder (unverified users still need access)
+- `requireVerified` — Dashboard, inspections, most feature routes
+- `requireSubscription` — AI analysis (`POST /inspections/{id}/analyze`), report generation (`POST /inspections/{id}/reports`)
 
 ---
 
@@ -598,7 +613,7 @@ func (s *ImageService) Upload(ctx context.Context, params UploadParams) (*Image,
 
 ### Choice: Stripe Subscriptions
 
-**Package:** `github.com/stripe/stripe-go/v76`
+**Package:** `github.com/stripe/stripe-go/v79`
 
 **Rationale:**
 - Industry standard
@@ -606,67 +621,61 @@ func (s *ImageService) Upload(ctx context.Context, params UploadParams) (*Image,
 - Consistent with Hiri
 - Customer portal for self-service billing management
 
+### Billing Service Architecture
+
+```go
+// internal/billing/stripe.go
+type Service interface {
+    CreateCustomer(ctx context.Context, email, name string) (string, error)
+    CreateCheckoutSession(ctx context.Context, params CheckoutParams) (string, error)
+    CreatePortalSession(ctx context.Context, customerID, returnURL string) (string, error)
+    GetSubscription(ctx context.Context, subscriptionID string) (*SubscriptionInfo, error)
+    CancelSubscription(ctx context.Context, subscriptionID string) error
+    ReactivateSubscription(ctx context.Context, subscriptionID string) error
+    VerifyWebhookSignature(payload []byte, signature string) (stripe.Event, error)
+    TierForPriceID(priceID string) string
+}
+```
+
+The `stripeService` implementation is conditionally created in `main.go` — when `STRIPE_SECRET_KEY` is empty, billing handlers receive `nil` and return a graceful "billing not configured" error. This allows development without Stripe keys.
+
+**Price Configuration:**
+Four price IDs are loaded from environment variables and stored in `billing.PriceConfig`:
+```go
+type PriceConfig struct {
+    StarterMonthlyPriceID      string  // STRIPE_STARTER_MONTHLY_PRICE_ID
+    StarterYearlyPriceID       string  // STRIPE_STARTER_YEARLY_PRICE_ID
+    ProfessionalMonthlyPriceID string  // STRIPE_PROFESSIONAL_MONTHLY_PRICE_ID
+    ProfessionalYearlyPriceID  string  // STRIPE_PROFESSIONAL_YEARLY_PRICE_ID
+}
+```
+
 **Subscription Tiers:**
+| Tier | Monthly | Yearly |
+|------|---------|--------|
+| Starter | $29/mo | $290/yr |
+| Professional | $79/mo | $790/yr |
+
+Tier derivation uses a `map[priceID]tier` built at construction time, so the billing service can resolve which tier a given Stripe price ID corresponds to.
+
+**Webhook Events (6 handled):**
+- `checkout.session.completed` — Create Stripe customer link, set initial subscription
+- `customer.subscription.created` — Activate account, derive tier from price ID
+- `customer.subscription.updated` — Handle plan changes, status transitions
+- `customer.subscription.deleted` — Deactivate account (set status to "canceled")
+- `invoice.payment_succeeded` — Log successful payment
+- `invoice.payment_failed` — Log failed payment (notification TODO)
+
+Webhook handler (`internal/handler/webhook.go`) verifies signatures via `billing.VerifyWebhookSignature`, reads request body with 64KB limit, and routes events to type-specific handlers. Subscription events share a `processSubscriptionEvent` helper that unmarshals the subscription, looks up the user by Stripe customer ID, determines the tier, and updates the database.
+
+**Subscription-Gated Routes:**
 ```go
-// Defined in Stripe, referenced by price ID
-var SubscriptionTiers = map[string]Tier{
-    "starter": {
-        Name:           "Starter",
-        PriceID:        "price_starter_monthly",
-        ReportsPerMonth: 20,
-        PriceCents:     9900,  // $99/month
-    },
-    "professional": {
-        Name:           "Professional", 
-        PriceID:        "price_professional_monthly",
-        ReportsPerMonth: -1,  // Unlimited
-        PriceCents:     14900,  // $149/month
-    },
-}
+// These routes require an active or trialing subscription
+mux.Handle("POST /inspections/{id}/analyze", requireSubscription(...))
+mux.Handle("POST /inspections/{id}/reports", requireSubscription(...))
 ```
 
-**Webhook Events:**
-- `customer.subscription.created` — Activate account
-- `customer.subscription.updated` — Handle plan changes
-- `customer.subscription.deleted` — Deactivate account
-- `invoice.payment_failed` — Notify user, grace period
-- `invoice.paid` — Reset monthly usage counters
-
-**Usage Enforcement:**
-```go
-// Middleware to check subscription status and usage limits
-func RequireActiveSubscription(queries *repository.Queries) func(http.Handler) http.Handler {
-    return func(next http.Handler) http.Handler {
-        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            user := middleware.GetUserFromContext(r.Context())
-            
-            // Check subscription status
-            if user.SubscriptionStatus != "active" && user.SubscriptionStatus != "trialing" {
-                // Redirect to billing page
-                http.Redirect(w, r, "/settings/billing", http.StatusSeeOther)
-                return
-            }
-            
-            next.ServeHTTP(w, r)
-        })
-    }
-}
-
-// Check before report generation
-func (s *ReportService) CanGenerateReport(ctx context.Context, userID uuid.UUID) (bool, error) {
-    user, _ := s.queries.GetUser(ctx, userID)
-    
-    if user.SubscriptionTier == "professional" {
-        return true, nil  // Unlimited
-    }
-    
-    // Count reports this month
-    count, _ := s.queries.CountReportsThisMonth(ctx, userID)
-    limit := SubscriptionTiers[user.SubscriptionTier].ReportsPerMonth
-    
-    return count < limit, nil
-}
-```
+Users without an active subscription see a warning banner on the dashboard linking to `/settings/billing`.
 
 ---
 
@@ -1127,6 +1136,7 @@ lukaut/
 │   │   ├── local.go             # Local filesystem (dev)
 │   │   └── r2.go                # Cloudflare R2 (prod)
 │   ├── billing/                 # Stripe integration
+│   │   └── stripe.go            # Service interface + stripeService implementation
 │   ├── email/                   # Email service (SMTP/Postmark)
 │   ├── report/                  # Report generation
 │   │   ├── report.go            # Generator interface, ImageDownloader interface
@@ -1143,15 +1153,18 @@ lukaut/
 │   ├── session/                 # Shared session constants
 │   │   └── constants.go         # CookieName, CookiePath, CookieMaxAge
 │   ├── handler/                 # HTTP handlers
-│   │   ├── auth.go
+│   │   ├── auth.go              # Login, register, email verification
+│   │   ├── billing.go           # Stripe checkout, portal, cancel/reactivate
+│   │   ├── dashboard.go         # Dashboard with subscription status
 │   │   ├── inspection.go
-│   │   ├── inspection_new.go    # Templ-based handlers
+│   │   ├── inspection_new.go    # Templ-based handlers (route registration)
 │   │   ├── violation.go
 │   │   ├── report.go
 │   │   ├── settings.go
+│   │   ├── webhook.go           # Stripe webhook signature verification + event routing
 │   │   └── client.go
 │   ├── middleware/              # HTTP middleware
-│   │   ├── auth.go              # WithUser, RequireUser
+│   │   ├── auth.go              # WithUser, RequireUser, RequireEmailVerified, RequireActiveSubscription
 │   │   └── middleware.go        # Stack helper
 │   ├── jobs/                    # Background job handlers
 │   │   ├── analyze_inspection.go
@@ -1433,10 +1446,10 @@ CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 ### Phase 3: Polish & Launch (Weeks 9-12)
 
 **Billing:**
-- [ ] Stripe subscription integration
-- [ ] Starter and Professional tiers
+- [x] Stripe subscription integration (billing.Service + webhook handler)
+- [x] Starter and Professional tiers ($29/$79 monthly, $290/$790 yearly)
 - [ ] Usage tracking and limits
-- [ ] Customer portal access
+- [x] Customer portal access (Stripe Billing Portal sessions)
 
 **Sites Management:**
 - [ ] Create/edit reusable sites
@@ -1474,6 +1487,11 @@ CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 | 2025-01 | Shared session constants package | `internal/session/` eliminates duplication between handler and middleware without import cycles |
 | 2025-01 | NullFloat64 for relevance_score | sqlc column override + DECIMAL(7,6) precision for full-text search ranks |
 | 2025-01 | Domain pagination methods | Use `ListInspectionsResult.CurrentPage()` etc. directly instead of intermediary helpers |
+| 2025-01 | billing.Service interface | Provider abstraction for Stripe; nil-safe for dev without keys |
+| 2025-01 | Conditional billing initialization | `main.go` creates billing service only when `STRIPE_SECRET_KEY` is set; handlers check `nil` |
+| 2025-01 | RequireEmailVerified middleware | Separate middleware layer between RequireUser and RequireActiveSubscription |
+| 2025-01 | Subscription-gated routes in main.go | Analyze and report POST routes removed from `RegisterTemplRoutes`, registered separately with `requireSubscription` stack |
+| 2025-01 | External test package for handler tests | `package handler_test` avoids import cycle (handler→middleware→handler) in integration tests |
 
 ---
 
