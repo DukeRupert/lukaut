@@ -67,6 +67,12 @@ type Config struct {
 	// In development, billing handlers function as stubs if these are empty.
 	StripeSecretKey    string // Stripe API secret key (sk_test_... or sk_live_...)
 	StripeWebhookSecret string // Stripe webhook signing secret (whsec_...)
+
+	// Stripe Price IDs for subscription plans
+	StripeStarterMonthlyPriceID      string
+	StripeStarterYearlyPriceID       string
+	StripeProfessionalMonthlyPriceID string
+	StripeProfessionalYearlyPriceID  string
 }
 
 func NewConfig() (*Config, error) {
@@ -121,6 +127,12 @@ func NewConfig() (*Config, error) {
 		// Stripe billing (optional — stubs work without these)
 		StripeSecretKey:     getEnv("STRIPE_SECRET_KEY", ""),
 		StripeWebhookSecret: getEnv("STRIPE_WEBHOOK_SECRET", ""),
+
+		// Stripe price IDs (optional — required when billing is enabled)
+		StripeStarterMonthlyPriceID:      getEnv("STRIPE_STARTER_MONTHLY_PRICE_ID", ""),
+		StripeStarterYearlyPriceID:       getEnv("STRIPE_STARTER_YEARLY_PRICE_ID", ""),
+		StripeProfessionalMonthlyPriceID: getEnv("STRIPE_PROFESSIONAL_MONTHLY_PRICE_ID", ""),
+		StripeProfessionalYearlyPriceID:  getEnv("STRIPE_PROFESSIONAL_YEARLY_PRICE_ID", ""),
 	}
 
 	// Parse invite codes from comma-separated environment variable
