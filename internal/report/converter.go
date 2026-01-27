@@ -51,7 +51,7 @@ func (c *WeasyPrintConverter) Convert(ctx context.Context, html []byte, w io.Wri
 	if err != nil {
 		return fmt.Errorf("create temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	inputPath := filepath.Join(tmpDir, "input.html")
 	outputPath := filepath.Join(tmpDir, "output.pdf")
@@ -118,7 +118,7 @@ func (c *PandocConverter) Convert(ctx context.Context, html []byte, w io.Writer)
 	if err != nil {
 		return fmt.Errorf("create temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	inputPath := filepath.Join(tmpDir, "input.html")
 	outputPath := filepath.Join(tmpDir, "output.docx")
