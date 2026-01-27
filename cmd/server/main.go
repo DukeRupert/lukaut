@@ -15,6 +15,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/ai"
 	"github.com/DukeRupert/lukaut/internal/ai/anthropic"
 	"github.com/DukeRupert/lukaut/internal/ai/mock"
+	"github.com/DukeRupert/lukaut/internal/billing"
 	"github.com/DukeRupert/lukaut/internal/email"
 	"github.com/DukeRupert/lukaut/internal/handler"
 	"github.com/DukeRupert/lukaut/internal/invite"
@@ -198,8 +199,26 @@ func run() error {
 	clientHandler := handler.NewClientHandler(clientService, logger)
 	reportHandler := handler.NewReportHandler(repo, storageService, logger)
 	adminHandler := handler.NewAdminHandler(repo, logger)
-	billingHandler := handler.NewBillingHandler(logger)
-	webhookHandler := handler.NewWebhookHandler(logger)
+	// Initialize billing service (conditionally — nil when Stripe not configured)
+	var billingService billing.Service
+	if cfg.StripeSecretKey != "" {
+		billingService = billing.NewStripeService(
+			cfg.StripeSecretKey,
+			cfg.StripeWebhookSecret,
+			billing.PriceConfig{
+				StarterMonthlyPriceID:      cfg.StripeStarterMonthlyPriceID,
+				StarterYearlyPriceID:       cfg.StripeStarterYearlyPriceID,
+				ProfessionalMonthlyPriceID: cfg.StripeProfessionalMonthlyPriceID,
+				ProfessionalYearlyPriceID:  cfg.StripeProfessionalYearlyPriceID,
+			},
+		)
+		logger.Info("Stripe billing service initialized")
+	} else {
+		logger.Info("Stripe not configured — billing handlers will operate as stubs")
+	}
+
+	billingHandler := handler.NewBillingHandler(billingService, userService, cfg.BaseURL, logger)
+	webhookHandler := handler.NewWebhookHandler(billingService, userService, logger)
 
 	// ==========================================================================
 	// Create router and register routes

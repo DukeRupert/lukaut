@@ -1,78 +1,59 @@
 // Package handler contains HTTP handlers for the Lukaut application.
 //
-// This file defines stub handlers for the billing/subscription management flow.
-// These handlers will be wired up once the Stripe billing service is implemented.
+// This file implements billing/subscription management handlers backed by Stripe.
 //
-// Routes to be handled:
-//   - GET  /settings/billing          -> ShowBilling (display current plan, status, actions)
-//   - POST /settings/billing/checkout -> CreateCheckout (create Stripe Checkout session, redirect)
-//   - POST /settings/billing/portal   -> OpenPortal (create Stripe Customer Portal session, redirect)
-//   - POST /settings/billing/cancel   -> CancelSubscription (cancel at period end via htmx)
-//   - POST /settings/billing/reactivate -> ReactivateSubscription (undo pending cancellation via htmx)
-//   - GET  /settings/billing/success  -> CheckoutSuccess (return URL after Stripe Checkout)
+// Routes handled:
+//   - GET  /settings/billing           -> ShowBilling
+//   - POST /settings/billing/checkout  -> CreateCheckout
+//   - POST /settings/billing/portal    -> OpenPortal
+//   - POST /settings/billing/cancel    -> CancelSubscription
+//   - POST /settings/billing/reactivate -> ReactivateSubscription
+//   - GET  /settings/billing/success   -> CheckoutSuccess
 package handler
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/DukeRupert/lukaut/internal/auth"
+	"github.com/DukeRupert/lukaut/internal/billing"
+	"github.com/DukeRupert/lukaut/internal/service"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/settings"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
 )
 
 // BillingHandler handles billing and subscription management HTTP requests.
-//
-// Dependencies (to be injected when billing service is implemented):
-//   - UserService: for reading/updating user subscription data
-//   - BillingService: for Stripe API calls (checkout sessions, portal sessions, etc.)
-//   - Logger: structured logging
 type BillingHandler struct {
-	logger *slog.Logger
+	billing     billing.Service
+	userService service.UserService
+	baseURL     string
+	logger      *slog.Logger
 }
 
 // NewBillingHandler creates a new BillingHandler.
-//
-// TODO: Add BillingService dependency once internal/billing/stripe.go is implemented.
-// Signature will become: NewBillingHandler(billingService billing.Service, logger *slog.Logger)
-func NewBillingHandler(logger *slog.Logger) *BillingHandler {
+// billingService may be nil when Stripe is not configured (development mode).
+func NewBillingHandler(billingService billing.Service, userService service.UserService, baseURL string, logger *slog.Logger) *BillingHandler {
 	return &BillingHandler{
-		logger: logger,
+		billing:     billingService,
+		userService: userService,
+		baseURL:     baseURL,
+		logger:      logger,
 	}
 }
 
 // RegisterRoutes registers billing routes on the provided mux.
-// All routes require authentication (requireUser middleware).
 func (h *BillingHandler) RegisterRoutes(mux *http.ServeMux, requireUser func(http.Handler) http.Handler) {
 	mux.Handle("GET /settings/billing", requireUser(http.HandlerFunc(h.ShowBilling)))
 	mux.Handle("GET /settings/billing/success", requireUser(http.HandlerFunc(h.CheckoutSuccess)))
-
-	// POST actions (htmx)
 	mux.Handle("POST /settings/billing/checkout", requireUser(http.HandlerFunc(h.CreateCheckout)))
 	mux.Handle("POST /settings/billing/portal", requireUser(http.HandlerFunc(h.OpenPortal)))
 	mux.Handle("POST /settings/billing/cancel", requireUser(http.HandlerFunc(h.CancelSubscription)))
 	mux.Handle("POST /settings/billing/reactivate", requireUser(http.HandlerFunc(h.ReactivateSubscription)))
 }
 
-// =============================================================================
-// GET /settings/billing - Show Billing Page
-// =============================================================================
-//
-// Purpose: Display the user's current subscription status and available actions.
-//
-// Inputs:
-//   - Authenticated user from context (via auth.GetUser)
-//
-// Outputs:
-//   - Renders the billing settings page template with:
-//     - Current plan name and tier (Starter/Professional)
-//     - Subscription status (active, trialing, canceled, past_due, inactive)
-//     - Current period end date (for active subscriptions)
-//     - Available plan options with pricing
-//     - Action buttons: Upgrade, Manage (portal), Cancel, Reactivate
-//
-// Template data: settings.BillingPageData (to be created by UI builder)
-
+// ShowBilling renders the billing settings page with current subscription info.
 func (h *BillingHandler) ShowBilling(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r.Context())
 	if user == nil {
@@ -80,20 +61,28 @@ func (h *BillingHandler) ShowBilling(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Fetch subscription details from Stripe via BillingService
-	// subscription, err := h.billingService.GetSubscription(user.SubscriptionID)
+	plan := settings.PlanInfo{
+		Tier:   string(user.SubscriptionTier),
+		Status: string(user.SubscriptionStatus),
+	}
+
+	// Fetch live subscription details from Stripe if available
+	if h.billing != nil && user.SubscriptionID != "" {
+		sub, err := h.billing.GetSubscription(user.SubscriptionID)
+		if err != nil {
+			h.logger.Warn("failed to fetch stripe subscription", "error", err, "subscription_id", user.SubscriptionID)
+		} else {
+			plan.PeriodEnd = time.Unix(sub.CurrentPeriodEnd, 0).Format("January 2, 2006")
+			plan.CancelAtEnd = sub.CancelAtPeriodEnd
+			plan.Status = string(sub.Status)
+		}
+	}
 
 	data := settings.BillingPageData{
 		CurrentPath: "/settings/billing",
 		User:        domainUserToDisplay(user),
 		ActiveTab:   settings.TabBilling,
-		Plan: settings.PlanInfo{
-			Tier:   string(user.SubscriptionTier),
-			Status: string(user.SubscriptionStatus),
-			// TODO: Populate from Stripe subscription object:
-			// PeriodEnd:   subscription.CurrentPeriodEnd
-			// CancelAtEnd: subscription.CancelAtPeriodEnd
-		},
+		Plan:        plan,
 	}
 
 	var flash *shared.Flash
@@ -118,37 +107,17 @@ func (h *BillingHandler) ShowBilling(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// =============================================================================
-// POST /settings/billing/checkout - Create Stripe Checkout Session
-// =============================================================================
-//
-// Purpose: Create a Stripe Checkout session for the selected plan and redirect
-//          the user to Stripe's hosted checkout page.
-//
-// Inputs:
-//   - Form value "price_id": The Stripe Price ID for the selected plan
-//   - Authenticated user from context
-//
-// Outputs:
-//   - 303 redirect to Stripe Checkout URL on success
-//   - Error flash and re-render billing page on failure
-//
-// Stripe API calls needed:
-//   - stripe.Customer.Create (if user has no StripeCustomerID)
-//   - stripe.CheckoutSession.Create with:
-//     - Mode: "subscription"
-//     - SuccessURL: baseURL + "/settings/billing/success?session_id={CHECKOUT_SESSION_ID}"
-//     - CancelURL:  baseURL + "/settings/billing"
-//     - CustomerEmail or Customer ID
-//     - LineItems with the selected price_id
-//
-// Side effects:
-//   - May create a Stripe customer and save StripeCustomerID to user record
-
+// CreateCheckout creates a Stripe Checkout session and redirects to it.
 func (h *BillingHandler) CreateCheckout(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r.Context())
 	if user == nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	if h.billing == nil {
+		h.logger.Warn("checkout attempted but Stripe is not configured")
+		http.Redirect(w, r, "/settings/billing", http.StatusSeeOther)
 		return
 	}
 
@@ -160,42 +129,45 @@ func (h *BillingHandler) CreateCheckout(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	h.logger.Info("checkout stub called",
-		"user_id", user.ID,
-		"price_id", priceID,
-	)
+	// Ensure user has a Stripe customer
+	customerID := user.StripeCustomerID
+	if customerID == "" {
+		var err error
+		customerID, err = h.billing.CreateCustomer(user.Email, user.Name)
+		if err != nil {
+			h.logger.Error("failed to create stripe customer", "error", err, "user_id", user.ID)
+			http.Error(w, "Failed to initialize billing", http.StatusInternalServerError)
+			return
+		}
+		if err := h.userService.UpdateStripeCustomer(r.Context(), user.ID, customerID); err != nil {
+			h.logger.Error("failed to save stripe customer ID", "error", err, "user_id", user.ID)
+		}
+	}
 
-	// TODO: Implement Stripe Checkout session creation
-	// 1. Ensure user has a Stripe customer ID (create if needed)
-	// 2. Create checkout session via billingService.CreateCheckoutSession(user, priceID)
-	// 3. Redirect to session.URL
+	successURL := fmt.Sprintf("%s/settings/billing/success?session_id={CHECKOUT_SESSION_ID}", h.baseURL)
+	cancelURL := fmt.Sprintf("%s/settings/billing", h.baseURL)
 
-	http.Redirect(w, r, "/settings/billing", http.StatusSeeOther)
+	checkoutURL, err := h.billing.CreateCheckoutSession(customerID, priceID, successURL, cancelURL)
+	if err != nil {
+		h.logger.Error("failed to create checkout session", "error", err, "user_id", user.ID)
+		http.Error(w, "Failed to create checkout session", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, checkoutURL, http.StatusSeeOther)
 }
 
-// =============================================================================
-// POST /settings/billing/portal - Open Stripe Customer Portal
-// =============================================================================
-//
-// Purpose: Create a Stripe Customer Portal session for managing payment methods,
-//          viewing invoices, and updating billing details.
-//
-// Inputs:
-//   - Authenticated user with a StripeCustomerID
-//
-// Outputs:
-//   - 303 redirect to Stripe Customer Portal URL
-//   - Error flash if user has no Stripe customer (shouldn't happen for subscribers)
-//
-// Stripe API calls needed:
-//   - stripe.BillingPortalSession.Create with:
-//     - Customer: user.StripeCustomerID
-//     - ReturnURL: baseURL + "/settings/billing"
-
+// OpenPortal creates a Stripe Customer Portal session and redirects to it.
 func (h *BillingHandler) OpenPortal(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r.Context())
 	if user == nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	if h.billing == nil {
+		h.logger.Warn("portal requested but Stripe is not configured")
+		http.Redirect(w, r, "/settings/billing", http.StatusSeeOther)
 		return
 	}
 
@@ -205,36 +177,18 @@ func (h *BillingHandler) OpenPortal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logger.Info("portal stub called", "user_id", user.ID)
+	returnURL := fmt.Sprintf("%s/settings/billing", h.baseURL)
+	portalURL, err := h.billing.CreatePortalSession(user.StripeCustomerID, returnURL)
+	if err != nil {
+		h.logger.Error("failed to create portal session", "error", err, "user_id", user.ID)
+		http.Error(w, "Failed to open billing portal", http.StatusInternalServerError)
+		return
+	}
 
-	// TODO: Implement Stripe Customer Portal session
-	// 1. Create portal session via billingService.CreatePortalSession(user.StripeCustomerID)
-	// 2. Redirect to session.URL
-
-	http.Redirect(w, r, "/settings/billing", http.StatusSeeOther)
+	http.Redirect(w, r, portalURL, http.StatusSeeOther)
 }
 
-// =============================================================================
-// POST /settings/billing/cancel - Cancel Subscription
-// =============================================================================
-//
-// Purpose: Cancel the user's subscription at the end of the current billing period.
-//          The user retains access until the period ends.
-//
-// Inputs:
-//   - Authenticated user with an active SubscriptionID
-//
-// Outputs (htmx):
-//   - On success: HX-Trigger toast with cancellation confirmation message
-//   - On success: HX-Redirect to /settings/billing?canceled=1
-//   - On error: HX-Trigger toast with error message
-//
-// Stripe API calls needed:
-//   - stripe.Subscription.Update with CancelAtPeriodEnd: true
-//
-// Side effects:
-//   - Updates user.SubscriptionStatus to "canceled" in local DB
-
+// CancelSubscription sets the subscription to cancel at period end.
 func (h *BillingHandler) CancelSubscription(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r.Context())
 	if user == nil {
@@ -242,48 +196,30 @@ func (h *BillingHandler) CancelSubscription(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if h.billing == nil {
+		w.Header().Set("HX-Trigger", `{"showToast": {"message": "Billing is not configured.", "type": "error"}}`)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	if user.SubscriptionID == "" {
-		h.logger.Warn("cancel requested but user has no subscription", "user_id", user.ID)
 		w.Header().Set("HX-Trigger", `{"showToast": {"message": "No active subscription to cancel.", "type": "error"}}`)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	h.logger.Info("cancel subscription stub called",
-		"user_id", user.ID,
-		"subscription_id", user.SubscriptionID,
-	)
+	if err := h.billing.CancelSubscription(user.SubscriptionID); err != nil {
+		h.logger.Error("failed to cancel subscription", "error", err, "user_id", user.ID)
+		w.Header().Set("HX-Trigger", `{"showToast": {"message": "Failed to cancel subscription. Please try again.", "type": "error"}}`)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-	// TODO: Implement subscription cancellation
-	// 1. Call billingService.CancelSubscription(user.SubscriptionID)
-	// 2. Update user subscription status in DB
-	// 3. Return HX-Redirect header
-
-	w.Header().Set("HX-Trigger", `{"showToast": {"message": "Subscription cancellation is not yet implemented.", "type": "warning"}}`)
+	w.Header().Set("HX-Redirect", "/settings/billing?canceled=1")
 	w.WriteHeader(http.StatusOK)
 }
 
-// =============================================================================
-// POST /settings/billing/reactivate - Reactivate Canceled Subscription
-// =============================================================================
-//
-// Purpose: Undo a pending cancellation, keeping the subscription active beyond
-//          the current period end.
-//
-// Inputs:
-//   - Authenticated user with a canceled (but not yet expired) SubscriptionID
-//
-// Outputs (htmx):
-//   - On success: HX-Trigger toast with reactivation message
-//   - On success: HX-Redirect to /settings/billing?updated=1
-//   - On error: HX-Trigger toast with error message
-//
-// Stripe API calls needed:
-//   - stripe.Subscription.Update with CancelAtPeriodEnd: false
-//
-// Side effects:
-//   - Updates user.SubscriptionStatus to "active" in local DB
-
+// ReactivateSubscription removes the cancel-at-period-end flag.
 func (h *BillingHandler) ReactivateSubscription(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r.Context())
 	if user == nil {
@@ -291,48 +227,31 @@ func (h *BillingHandler) ReactivateSubscription(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	if h.billing == nil {
+		w.Header().Set("HX-Trigger", `{"showToast": {"message": "Billing is not configured.", "type": "error"}}`)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	if user.SubscriptionID == "" {
-		h.logger.Warn("reactivate requested but user has no subscription", "user_id", user.ID)
 		w.Header().Set("HX-Trigger", `{"showToast": {"message": "No subscription to reactivate.", "type": "error"}}`)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	h.logger.Info("reactivate subscription stub called",
-		"user_id", user.ID,
-		"subscription_id", user.SubscriptionID,
-	)
+	if err := h.billing.ReactivateSubscription(user.SubscriptionID); err != nil {
+		h.logger.Error("failed to reactivate subscription", "error", err, "user_id", user.ID)
+		w.Header().Set("HX-Trigger", `{"showToast": {"message": "Failed to reactivate subscription. Please try again.", "type": "error"}}`)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-	// TODO: Implement subscription reactivation
-	// 1. Call billingService.ReactivateSubscription(user.SubscriptionID)
-	// 2. Update user subscription status in DB
-	// 3. Return HX-Redirect header
-
-	w.Header().Set("HX-Trigger", `{"showToast": {"message": "Subscription reactivation is not yet implemented.", "type": "warning"}}`)
+	w.Header().Set("HX-Redirect", "/settings/billing?updated=1")
 	w.WriteHeader(http.StatusOK)
 }
 
-// =============================================================================
-// GET /settings/billing/success - Checkout Success Return URL
-// =============================================================================
-//
-// Purpose: Handle the return from a successful Stripe Checkout session.
-//          Optionally verify the session and update user data before redirecting.
-//
-// Inputs:
-//   - Query param "session_id": The Stripe Checkout session ID (from redirect URL template)
-//   - Authenticated user from context
-//
-// Outputs:
-//   - 303 redirect to /settings/billing?updated=1
-//
-// Stripe API calls (optional, webhooks handle this too):
-//   - stripe.CheckoutSession.Get to verify payment
-//   - Update user subscription fields if not yet done by webhook
-//
-// Note: The webhook handler (checkout.session.completed) is the primary mechanism
-// for updating subscription data. This handler mainly provides a good UX redirect.
-
+// CheckoutSuccess handles the return from Stripe Checkout.
+// The webhook is the authoritative update path; this just provides a good UX redirect.
 func (h *BillingHandler) CheckoutSuccess(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r.Context())
 	if user == nil {
@@ -341,14 +260,7 @@ func (h *BillingHandler) CheckoutSuccess(w http.ResponseWriter, r *http.Request)
 	}
 
 	sessionID := r.URL.Query().Get("session_id")
-	h.logger.Info("checkout success return",
-		"user_id", user.ID,
-		"session_id", sessionID,
-	)
-
-	// TODO: Optionally verify checkout session via billingService
-	// This is belt-and-suspenders; the webhook is the authoritative update path.
+	h.logger.Info("checkout success return", "user_id", user.ID, "session_id", sessionID)
 
 	http.Redirect(w, r, "/settings/billing?updated=1", http.StatusSeeOther)
 }
-
