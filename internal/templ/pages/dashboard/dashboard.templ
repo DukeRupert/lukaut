@@ -28,12 +28,13 @@ type DashboardInspection struct {
 
 // DashboardPageData contains all data needed to render the dashboard page
 type DashboardPageData struct {
-	CurrentPath       string
-	User              *layouts.UserInfo
-	Stats             DashboardStats
-	RecentInspections []DashboardInspection
-	Flash             *shared.Flash
-	CSRFToken         string
+	CurrentPath        string
+	User               *layouts.UserInfo
+	Stats              DashboardStats
+	RecentInspections  []DashboardInspection
+	Flash              *shared.Flash
+	CSRFToken          string
+	SubscriptionStatus string // "active", "trialing", "inactive", etc.
 }
 
 // DashboardPage renders the full dashboard page
@@ -51,6 +52,27 @@ templ DashboardPage(data DashboardPageData) {
 
 // DashboardContent renders just the dashboard content (for htmx swaps)
 templ DashboardContent(data DashboardPageData) {
+	<!-- Subscription warning banner -->
+	if data.SubscriptionStatus != "" && data.SubscriptionStatus != "active" && data.SubscriptionStatus != "trialing" {
+		<div class="rounded-lg bg-amber-50 border border-amber-200 p-4 mb-6">
+			<div class="flex">
+				<div class="flex-shrink-0">
+					<svg class="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+						<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+					</svg>
+				</div>
+				<div class="ml-3">
+					<h3 class="text-sm font-medium text-amber-800">Subscription Required</h3>
+					<p class="mt-1 text-sm text-amber-700">
+						You need an active subscription to use AI analysis and report generation.
+						<a href="/settings/billing" class="font-medium text-amber-800 underline hover:text-amber-900">
+							View plans
+						</a>
+					</p>
+				</div>
+			</div>
+		</div>
+	}
 	<!-- Onboarding banner for users without business profile -->
 	if data.User != nil && !data.User.HasBusinessProfile {
 		@shared.OnboardingBanner()

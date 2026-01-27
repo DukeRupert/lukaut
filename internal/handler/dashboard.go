@@ -177,10 +177,11 @@ func (h *DashboardHandler) ShowTempl(w http.ResponseWriter, r *http.Request) {
 			Email:              user.Email,
 			HasBusinessProfile: user.HasBusinessProfile(),
 		},
-		Stats:             stats,
-		RecentInspections: recentInspections,
-		Flash:             nil, // TODO: Get flash from session
-		CSRFToken:         csrfToken,
+		Stats:              stats,
+		RecentInspections:  recentInspections,
+		Flash:              nil, // TODO: Get flash from session
+		CSRFToken:          csrfToken,
+		SubscriptionStatus: string(user.SubscriptionStatus),
 	}
 
 	// Render dashboard using templ

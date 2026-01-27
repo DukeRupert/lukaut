@@ -812,13 +812,11 @@ func (h *InspectionHandler) RegisterTemplRoutes(mux *http.ServeMux, requireUser 
 	mux.Handle("GET /inspections/{id}/edit", requireUser(http.HandlerFunc(h.EditTempl)))
 	mux.Handle("PUT /inspections/{id}", requireUser(http.HandlerFunc(h.Update)))
 	mux.Handle("DELETE /inspections/{id}", requireUser(http.HandlerFunc(h.Delete)))
-	mux.Handle("POST /inspections/{id}/analyze", requireUser(http.HandlerFunc(h.TriggerAnalysis)))
 	mux.Handle("GET /inspections/{id}/status", requireUser(http.HandlerFunc(h.GetStatus)))
 	mux.Handle("GET /inspections/{id}/review", requireUser(http.HandlerFunc(h.ReviewTempl)))
 	mux.Handle("GET /inspections/{id}/review/queue", requireUser(http.HandlerFunc(h.ReviewQueueTempl)))
 	mux.Handle("PUT /inspections/{id}/review/queue/violations/{vid}/status", requireUser(http.HandlerFunc(h.ReviewQueueUpdateStatus)))
 	mux.Handle("GET /inspections/{id}/violations-summary", requireUser(http.HandlerFunc(h.ViolationsSummary)))
-	mux.Handle("POST /inspections/{id}/reports", requireUser(http.HandlerFunc(h.GenerateReport)))
 	mux.Handle("PUT /inspections/{id}/status", requireUser(http.HandlerFunc(h.UpdateStatusTempl)))
 }
 

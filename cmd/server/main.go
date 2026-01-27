@@ -299,6 +299,7 @@ func run() error {
 	// Create middleware stacks for protected routes
 	requireUser := middleware.Stack(authMw.WithUser, authMw.RequireUser)
 	requireVerified := middleware.Stack(authMw.WithUser, authMw.RequireUser, authMw.RequireEmailVerified)
+	requireSubscription := middleware.Stack(authMw.WithUser, authMw.RequireUser, authMw.RequireEmailVerified, authMw.RequireActiveSubscription)
 	requireAdmin := middleware.Stack(authMw.WithUser, authMw.RequireUser, authMw.RequireAdmin)
 
 	// Email verification reminder (requires auth, but NOT email verification)
@@ -314,6 +315,10 @@ func run() error {
 	regulationHandler.RegisterTemplRoutes(mux, requireVerified)
 	clientHandler.RegisterTemplRoutes(mux, requireVerified)
 	reportHandler.RegisterRoutes(mux, requireVerified)
+
+	// Subscription-gated routes (requires active subscription)
+	mux.Handle("POST /inspections/{id}/analyze", requireSubscription(http.HandlerFunc(inspectionHandler.TriggerAnalysis)))
+	mux.Handle("POST /inspections/{id}/reports", requireSubscription(http.HandlerFunc(inspectionHandler.GenerateReport)))
 
 	// Account management routes (requires authentication, no email verification needed)
 	settingsHandler.RegisterTemplRoutes(mux, requireUser)
