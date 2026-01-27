@@ -160,6 +160,20 @@ type UserService interface {
 	// DeleteExpiredPasswordResetTokens removes all expired password reset tokens.
 	// This should be called periodically (e.g., daily) as a cleanup task.
 	DeleteExpiredPasswordResetTokens(ctx context.Context) error
+
+	// =========================================================================
+	// Billing Methods
+	// =========================================================================
+
+	// UpdateStripeCustomer saves the Stripe customer ID for a user.
+	UpdateStripeCustomer(ctx context.Context, userID uuid.UUID, stripeCustomerID string) error
+
+	// UpdateSubscription updates a user's subscription status, tier, and ID.
+	UpdateSubscription(ctx context.Context, userID uuid.UUID, status, tier, subscriptionID string) error
+
+	// GetByStripeCustomerID retrieves a user by their Stripe customer ID.
+	// Returns domain.ENOTFOUND if no user has that customer ID.
+	GetByStripeCustomerID(ctx context.Context, stripeCustomerID string) (*domain.User, error)
 }
 
 // =============================================================================
@@ -1223,6 +1237,61 @@ func (s *userService) DeleteExpiredPasswordResetTokens(ctx context.Context) erro
 
 	s.logger.Info("expired password reset tokens cleaned up")
 	return nil
+}
+
+// =============================================================================
+// Billing Methods Implementation
+// =============================================================================
+
+// UpdateStripeCustomer saves the Stripe customer ID for a user.
+func (s *userService) UpdateStripeCustomer(ctx context.Context, userID uuid.UUID, stripeCustomerID string) error {
+	const op = "UserService.UpdateStripeCustomer"
+
+	err := s.queries.UpdateUserStripeCustomer(ctx, repository.UpdateUserStripeCustomerParams{
+		ID:               userID,
+		StripeCustomerID: domain.ToNullString(stripeCustomerID),
+	})
+	if err != nil {
+		return domain.Internal(err, op, "Failed to update Stripe customer ID")
+	}
+
+	s.logger.Info("stripe customer ID updated", "user_id", userID, "stripe_customer_id", stripeCustomerID)
+	return nil
+}
+
+// UpdateSubscription updates a user's subscription status, tier, and subscription ID.
+func (s *userService) UpdateSubscription(ctx context.Context, userID uuid.UUID, status, tier, subscriptionID string) error {
+	const op = "UserService.UpdateSubscription"
+
+	err := s.queries.UpdateUserSubscription(ctx, repository.UpdateUserSubscriptionParams{
+		ID:                 userID,
+		SubscriptionStatus: domain.ToNullString(status),
+		SubscriptionTier:   domain.ToNullString(tier),
+		SubscriptionID:     domain.ToNullString(subscriptionID),
+	})
+	if err != nil {
+		return domain.Internal(err, op, "Failed to update subscription")
+	}
+
+	s.logger.Info("subscription updated", "user_id", userID, "status", status, "tier", tier)
+	return nil
+}
+
+// GetByStripeCustomerID retrieves a user by their Stripe customer ID.
+func (s *userService) GetByStripeCustomerID(ctx context.Context, stripeCustomerID string) (*domain.User, error) {
+	const op = "UserService.GetByStripeCustomerID"
+
+	repoUser, err := s.queries.GetUserByStripeCustomerID(ctx, domain.ToNullString(stripeCustomerID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.NotFound(op, "user", stripeCustomerID)
+		}
+		return nil, domain.Internal(err, op, "Failed to retrieve user by Stripe customer ID")
+	}
+
+	user := repoUserToDomain(repoUser)
+	user.PasswordHash = ""
+	return user, nil
 }
 
 // =============================================================================

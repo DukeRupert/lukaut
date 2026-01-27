@@ -100,6 +100,18 @@ func (m *mockUserService) DeleteExpiredPasswordResetTokens(ctx context.Context) 
 	return nil
 }
 
+func (m *mockUserService) UpdateStripeCustomer(ctx context.Context, userID uuid.UUID, stripeCustomerID string) error {
+	return nil
+}
+
+func (m *mockUserService) UpdateSubscription(ctx context.Context, userID uuid.UUID, status, tier, subscriptionID string) error {
+	return nil
+}
+
+func (m *mockUserService) GetByStripeCustomerID(ctx context.Context, stripeCustomerID string) (*domain.User, error) {
+	return nil, errors.New("not implemented")
+}
+
 // =============================================================================
 // Test Helpers
 // =============================================================================

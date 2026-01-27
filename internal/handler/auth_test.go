@@ -39,6 +39,9 @@ type mockUserService struct {
 	ValidatePasswordResetTokenFunc           func(ctx context.Context, token string) (uuid.UUID, error)
 	ResetPasswordFunc                        func(ctx context.Context, params domain.ResetPasswordParams) error
 	DeleteExpiredPasswordResetTokensFunc     func(ctx context.Context) error
+	UpdateStripeCustomerFunc                 func(ctx context.Context, userID uuid.UUID, stripeCustomerID string) error
+	UpdateSubscriptionFunc                   func(ctx context.Context, userID uuid.UUID, status, tier, subscriptionID string) error
+	GetByStripeCustomerIDFunc                func(ctx context.Context, stripeCustomerID string) (*domain.User, error)
 }
 
 func (m *mockUserService) Register(ctx context.Context, params domain.RegisterParams) (*domain.User, error) {
@@ -158,6 +161,27 @@ func (m *mockUserService) DeleteExpiredPasswordResetTokens(ctx context.Context) 
 		return m.DeleteExpiredPasswordResetTokensFunc(ctx)
 	}
 	return nil
+}
+
+func (m *mockUserService) UpdateStripeCustomer(ctx context.Context, userID uuid.UUID, stripeCustomerID string) error {
+	if m.UpdateStripeCustomerFunc != nil {
+		return m.UpdateStripeCustomerFunc(ctx, userID, stripeCustomerID)
+	}
+	return nil
+}
+
+func (m *mockUserService) UpdateSubscription(ctx context.Context, userID uuid.UUID, status, tier, subscriptionID string) error {
+	if m.UpdateSubscriptionFunc != nil {
+		return m.UpdateSubscriptionFunc(ctx, userID, status, tier, subscriptionID)
+	}
+	return nil
+}
+
+func (m *mockUserService) GetByStripeCustomerID(ctx context.Context, stripeCustomerID string) (*domain.User, error) {
+	if m.GetByStripeCustomerIDFunc != nil {
+		return m.GetByStripeCustomerIDFunc(ctx, stripeCustomerID)
+	}
+	return nil, errors.New("GetByStripeCustomerIDFunc not implemented")
 }
 
 // =============================================================================
