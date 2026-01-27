@@ -27,14 +27,17 @@ templ VerifyEmailReminderPage(data VerifyEmailReminderPageData) {
 					We sent a verification link to <span class="font-medium text-foreground">{ data.Email }</span>.
 				</p>
 			}
-			<div class="space-y-3">
-				// Resend verification email via htmx
+			<div class="space-y-3" x-data="{ cooldown: 0 }" x-init="$watch('cooldown', v => { if (v > 0) setTimeout(() => cooldown--, 1000) })">
+				// Resend verification email via htmx with 60s cooldown
 				<button
 					hx-post="/verify-email-reminder/resend"
 					hx-swap="outerHTML"
-					class="inline-flex justify-center rounded-lg px-3.5 py-2.5 sm:px-3 sm:py-1.5 text-base/6 sm:text-sm/6 font-semibold bg-primary text-white shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
+					@click="cooldown = 60"
+					:disabled="cooldown > 0"
+					class="inline-flex justify-center rounded-lg px-3.5 py-2.5 sm:px-3 sm:py-1.5 text-base/6 sm:text-sm/6 font-semibold bg-primary text-white shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
-					Resend verification email
+					<span x-show="cooldown === 0">Resend verification email</span>
+					<span x-show="cooldown > 0" x-cloak>Resend in <span x-text="cooldown"></span>s</span>
 				</button>
 				<p class="text-xs text-muted-foreground">
 					Check your spam folder if you don't see the email.

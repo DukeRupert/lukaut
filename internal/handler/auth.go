@@ -923,6 +923,12 @@ func (h *AuthHandler) ShowVerifyEmailReminderTempl(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// Already verified — redirect to dashboard
+	if user.EmailVerified {
+		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+		return
+	}
+
 	data := auth.VerifyEmailReminderPageData{
 		Email: user.Email,
 	}
