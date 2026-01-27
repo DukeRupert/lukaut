@@ -1,6 +1,6 @@
-# Billing & Subscription — Implementation TODO
+# Implementation TODO — Billing & Email Verification
 
-This document tracks the remaining work to make billing fully functional. The scaffolding (stub handlers, routes, settings tab, placeholder template) is already in place and compiling.
+This document tracks remaining implementation work for features that have been scaffolded (stub handlers, routes, templates) but need backend integration to become functional.
 
 ---
 
@@ -192,3 +192,70 @@ The `RequireActiveSubscription` middleware already exists in `internal/middlewar
 ```
 
 Tasks 1+2 and 4+5 can each be done in parallel. Task 3 is the integration point. Task 6 is a follow-up after the billing flow is live and tested.
+
+---
+---
+
+# Email Verification Enforcement
+
+Email verification was already fully implemented (send token, verify token, resend flow) but was never enforced. The `RequireEmailVerified` middleware existed but was not applied to any routes, and its redirect target (`/verify-email-reminder`) did not exist.
+
+## What exists now
+
+| File | What it does |
+|---|---|
+| `internal/middleware/auth.go` | `RequireEmailVerified` middleware — redirects unverified users to `/verify-email-reminder` |
+| `internal/handler/auth.go` | Two new handlers: `ShowVerifyEmailReminderTempl` (GET) and `ResendVerificationForCurrentUserTempl` (POST) |
+| `internal/templ/pages/auth/verify_email_reminder.templ` | Reminder page with email display, htmx resend button, and sign-out link |
+| `internal/templ/pages/auth/types.go` | `VerifyEmailReminderPageData` type |
+| `cmd/server/main.go` | `requireVerified` middleware stack applied to feature routes; `requireUser` kept for account management routes |
+
+### Route middleware assignments
+
+| Middleware | Routes |
+|---|---|
+| `requireVerified` (auth + email verified) | Dashboard, Inspections, Images, Violations, Regulations, Clients, Reports |
+| `requireUser` (auth only, no email check) | Settings, Billing |
+| `requireAdmin` (auth + admin) | Admin |
+| No auth | Public pages, Auth pages (login/register/verify/reset), Webhooks |
+
+### Verify email reminder routes
+
+| Method | Path | Handler | Middleware |
+|---|---|---|---|
+| GET | `/verify-email-reminder` | `ShowVerifyEmailReminderTempl` | `requireUser` |
+| POST | `/verify-email-reminder/resend` | `ResendVerificationForCurrentUserTempl` | `requireUser` |
+
+These routes intentionally use `requireUser` (not `requireVerified`) to avoid a redirect loop.
+
+## TODO
+
+### 7. Add an unverified-email banner to the dashboard
+
+When the `requireVerified` middleware is in the chain, unverified users never reach the dashboard — they get redirected. However, if you want a softer approach (warn instead of block), you could:
+
+- Remove `requireVerified` from the dashboard route
+- Add a persistent banner at the top of the dashboard when `!user.EmailVerified`
+- The banner links to `/verify-email-reminder` or offers an inline resend button
+- This is a UX decision — the current hard-block approach is simpler and more secure
+
+### 8. Handle edge cases in verification flow
+
+- **Already-verified user visits `/verify-email-reminder`:** The handler should detect this and redirect to `/dashboard` instead of showing the reminder page. Currently it renders the page regardless.
+- **Token expiration messaging:** The reminder page could show when the last verification email was sent and when it expires (24 hours). This requires passing the token creation timestamp through `VerifyEmailReminderPageData`.
+- **Rate limiting resends:** The resend button has no rate limiting. A user could spam it. Consider adding a cooldown (e.g., 60 seconds between sends) either client-side (disable button with Alpine.js timer) or server-side (check last token creation time).
+
+### 9. Send verification email on registration
+
+Verify that the registration handler (`RegisterTempl`) already sends the verification email after creating the user account. If not, add `go h.sendVerificationEmail(...)` to the registration success path. Based on code review, this is already implemented — `sendVerificationEmail` is called in the registration handler.
+
+### 10. Test the middleware enforcement
+
+Write integration tests confirming:
+- Unverified user accessing `/dashboard` gets redirected to `/verify-email-reminder`
+- Unverified user accessing `/settings` is allowed through (no redirect)
+- Verified user accessing `/dashboard` passes through normally
+- Unverified user accessing `/verify-email-reminder` sees the page (no loop)
+- POST to `/verify-email-reminder/resend` triggers email send and returns partial
+
+The middleware unit tests in `internal/middleware/auth_test.go` already test `RequireEmailVerified` in isolation. What's needed are route-level tests confirming the middleware is wired correctly.

@@ -361,5 +361,5 @@ This document catalogs every page in the application and the actions a user can 
 ## Notes for UI Review
 
 - **Billing/subscription UI scaffolded (stubs)** — billing tab added to settings nav, stub handlers and routes registered for checkout, portal, cancel, reactivate, and webhook. Backend Stripe integration still TODO. See `internal/handler/billing.go` and `internal/handler/webhook.go` for implementation notes.
-- **Email verification is not enforced** — `RequireEmailVerified` middleware exists but is not applied to any routes.
+- **Email verification now enforced** — `RequireEmailVerified` middleware applied to all feature routes (inspections, violations, reports, etc.). Verify-email-reminder page and resend handler added. Settings/billing exempt so unverified users can manage their account. See `BILLING_TODO.md` tasks 7-10 for remaining edge cases.
 - **No user profile photo/avatar upload** — avatars appear to be initials-based only.

@@ -273,33 +273,25 @@ func run() error {
 
 	// Create middleware stacks for protected routes
 	requireUser := middleware.Stack(authMw.WithUser, authMw.RequireUser)
+	requireVerified := middleware.Stack(authMw.WithUser, authMw.RequireUser, authMw.RequireEmailVerified)
 	requireAdmin := middleware.Stack(authMw.WithUser, authMw.RequireUser, authMw.RequireAdmin)
 
-	// Dashboard (requires authentication) - using templ
-	mux.Handle("GET /dashboard", requireUser(http.HandlerFunc(dashboardHandler.ShowTempl)))
+	// Email verification reminder (requires auth, but NOT email verification)
+	authHandler.RegisterVerifyEmailReminderRoutes(mux, requireUser)
 
-	// Inspection routes (requires authentication) - using templ
-	inspectionHandler.RegisterTemplRoutes(mux, requireUser)
+	// Dashboard (requires authentication + verified email) - using templ
+	mux.Handle("GET /dashboard", requireVerified(http.HandlerFunc(dashboardHandler.ShowTempl)))
 
-	// Image routes (requires authentication)
-	imageHandler.RegisterRoutes(mux, requireUser)
+	// Feature routes (requires authentication + verified email)
+	inspectionHandler.RegisterTemplRoutes(mux, requireVerified)
+	imageHandler.RegisterRoutes(mux, requireVerified)
+	violationHandler.RegisterRoutes(mux, requireVerified)
+	regulationHandler.RegisterTemplRoutes(mux, requireVerified)
+	clientHandler.RegisterTemplRoutes(mux, requireVerified)
+	reportHandler.RegisterRoutes(mux, requireVerified)
 
-	// Violation routes (requires authentication)
-	violationHandler.RegisterRoutes(mux, requireUser)
-
-	// Regulation routes (requires authentication) - using templ
-	regulationHandler.RegisterTemplRoutes(mux, requireUser)
-
-	// Settings routes (requires authentication) - using templ
+	// Account management routes (requires authentication, no email verification needed)
 	settingsHandler.RegisterTemplRoutes(mux, requireUser)
-
-	// Client routes (requires authentication) - using templ
-	clientHandler.RegisterTemplRoutes(mux, requireUser)
-
-	// Report routes (requires authentication)
-	reportHandler.RegisterRoutes(mux, requireUser)
-
-	// Billing routes (requires authentication) - stub handlers
 	billingHandler.RegisterRoutes(mux, requireUser)
 
 	// Webhook routes (public - Stripe calls these directly)

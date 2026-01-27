@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	authpkg "github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/csrf"
 	"github.com/DukeRupert/lukaut/internal/domain"
 	"github.com/DukeRupert/lukaut/internal/email"
@@ -335,7 +336,7 @@ func (h *AuthHandler) RegisterTemplRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /login", h.LoginTempl)
 	mux.HandleFunc("POST /logout", h.Logout)
 
-	// Email verification routes
+	// Email verification routes (public — user may not be logged in)
 	mux.HandleFunc("GET /verify-email", h.ShowVerifyEmailTempl)
 	mux.HandleFunc("GET /resend-verification", h.ShowResendVerificationTempl)
 	mux.HandleFunc("POST /resend-verification", h.ResendVerificationTempl)
@@ -345,6 +346,16 @@ func (h *AuthHandler) RegisterTemplRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /forgot-password", h.ForgotPasswordTempl)
 	mux.HandleFunc("GET /reset-password", h.ShowResetPasswordTempl)
 	mux.HandleFunc("POST /reset-password", h.ResetPasswordTempl)
+}
+
+// RegisterVerifyEmailReminderRoutes registers the email verification reminder routes.
+//
+// These routes require authentication (requireUser) but must NOT use RequireEmailVerified
+// middleware, otherwise unverified users would be stuck in a redirect loop.
+// Call this separately from RegisterTemplRoutes because it needs the requireUser middleware.
+func (h *AuthHandler) RegisterVerifyEmailReminderRoutes(mux *http.ServeMux, requireUser func(http.Handler) http.Handler) {
+	mux.Handle("GET /verify-email-reminder", requireUser(http.HandlerFunc(h.ShowVerifyEmailReminderTempl)))
+	mux.Handle("POST /verify-email-reminder/resend", requireUser(http.HandlerFunc(h.ResendVerificationForCurrentUserTempl)))
 }
 
 // =============================================================================
@@ -883,6 +894,90 @@ func (h *AuthHandler) renderResendVerificationTemplError(w http.ResponseWriter, 
 
 	if err := auth.ResendVerificationPage(data).Render(r.Context(), w); err != nil {
 		h.logger.Error("failed to render resend verification page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// =============================================================================
+// GET /verify-email-reminder - Show Email Verification Reminder
+// =============================================================================
+//
+// Purpose: Display a page telling the logged-in user they need to verify their
+//          email before they can access the application. This is the redirect
+//          target of the RequireEmailVerified middleware.
+//
+// Inputs:
+//   - Authenticated user from context (via auth.GetUser)
+//
+// Outputs:
+//   - Renders the verify-email-reminder template with the user's email address
+//   - Page shows: message, email address, resend button, sign out link
+//
+// Note: This route needs requireUser middleware (user must be logged in)
+//       but NOT RequireEmailVerified (that would cause a redirect loop).
+
+func (h *AuthHandler) ShowVerifyEmailReminderTempl(w http.ResponseWriter, r *http.Request) {
+	user := authpkg.GetUser(r.Context())
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	data := auth.VerifyEmailReminderPageData{
+		Email: user.Email,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := auth.VerifyEmailReminderPage(data).Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render verify email reminder page", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// =============================================================================
+// POST /verify-email-reminder/resend - Resend Verification (htmx, for logged-in users)
+// =============================================================================
+//
+// Purpose: Resend the verification email for the currently logged-in user.
+//          Called via htmx from the reminder page. Unlike POST /resend-verification,
+//          this doesn't need an email form field — it uses the authenticated user.
+//
+// Inputs:
+//   - Authenticated user from context
+//
+// Outputs (htmx):
+//   - Returns the VerifyEmailReminderResent partial (replaces the resend button)
+//
+// Side effects:
+//   - Creates a new verification token
+//   - Sends verification email asynchronously
+
+func (h *AuthHandler) ResendVerificationForCurrentUserTempl(w http.ResponseWriter, r *http.Request) {
+	user := authpkg.GetUser(r.Context())
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	if user.EmailVerified {
+		// Already verified — redirect to dashboard
+		w.Header().Set("HX-Redirect", "/dashboard")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Send verification email asynchronously
+	go h.sendVerificationEmail(r.Context(), user.ID, user.Email, user.Name)
+
+	h.logger.Info("verification email resend requested from reminder page",
+		"user_id", user.ID,
+		"email", user.Email,
+	)
+
+	// Return the "sent" confirmation partial for htmx swap
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := auth.VerifyEmailReminderResent().Render(r.Context(), w); err != nil {
+		h.logger.Error("failed to render verification resent partial", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }

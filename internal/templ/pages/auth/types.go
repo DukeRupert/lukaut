@@ -54,6 +54,14 @@ type ResendVerificationPageData struct {
 	CSRFToken string
 }
 
+// VerifyEmailReminderPageData contains data for the email verification reminder page.
+//
+// This page is shown to logged-in users whose email is not yet verified.
+// The RequireEmailVerified middleware redirects unverified users here.
+type VerifyEmailReminderPageData struct {
+	Email string // The user's email address (shown so they know where to check)
+}
+
 // FormData holds form field values for repopulation after validation errors
 type FormData struct {
 	Email       string
