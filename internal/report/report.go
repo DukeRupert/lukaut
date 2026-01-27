@@ -163,6 +163,14 @@ type ImageData struct {
 	ContentType string
 }
 
+// DownloadImage fetches an image from a URL and returns its data.
+// Uses a default HTTPImageDownloader internally.
+func DownloadImage(ctx context.Context, url string) (*ImageData, error) {
+	return defaultDownloader.Download(ctx, url)
+}
+
+var defaultDownloader = NewHTTPImageDownloader()
+
 // ImageDownloader abstracts image fetching for report generation.
 // This allows testing report generation without network I/O.
 type ImageDownloader interface {

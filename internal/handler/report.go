@@ -9,7 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/DukeRupert/lukaut/internal/auth"
@@ -334,9 +333,7 @@ func (h *ReportHandler) aggregateReportData(
 		for _, reg := range regs {
 			relevanceScore := 0.0
 			if reg.RelevanceScore.Valid {
-				if parsed, parseErr := parseFloat(reg.RelevanceScore.String); parseErr == nil {
-					relevanceScore = parsed
-				}
+				relevanceScore = reg.RelevanceScore.Float64
 			}
 
 			reportRegs = append(reportRegs, domain.ReportRegulation{
@@ -409,11 +406,6 @@ func (h *ReportHandler) aggregateReportData(
 		Violations:  reportViolations,
 		GeneratedAt: time.Now(),
 	}, nil
-}
-
-// parseFloat is a helper to parse float strings.
-func parseFloat(s string) (float64, error) {
-	return strconv.ParseFloat(s, 64)
 }
 
 // RegisterRoutes registers report routes on the provided ServeMux.

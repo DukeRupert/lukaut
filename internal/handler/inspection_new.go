@@ -682,7 +682,7 @@ func (h *InspectionHandler) GenerateReport(w http.ResponseWriter, r *http.Reques
 				</div>
 				<div class="ml-3">
 					<p class="text-sm font-medium text-green-800">
-						Report generation started! It will appear below when ready.
+						Report generation started! The %s report will appear below when ready.
 					</p>
 				</div>
 			</div>
