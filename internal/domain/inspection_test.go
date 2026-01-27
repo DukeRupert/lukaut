@@ -8,20 +8,20 @@ import (
 
 func TestInspection_DetermineAnalysisAction(t *testing.T) {
 	tests := []struct {
-		name          string
-		status        InspectionStatus
-		pendingImages int64
-		totalImages   int64
-		jobInProgress bool
+		name           string
+		status         InspectionStatus
+		pendingImages  int64
+		totalImages    int64
+		jobInProgress  bool
 		wantCanAnalyze bool
 		wantMessage    string
 	}{
 		// Draft status
 		{
-			name:           "draft with no images",
-			status:         InspectionStatusDraft,
-			totalImages:    0,
-			wantMessage:    "Upload photos to begin analysis",
+			name:        "draft with no images",
+			status:      InspectionStatusDraft,
+			totalImages: 0,
+			wantMessage: "Upload photos to begin analysis",
 		},
 		{
 			name:           "draft with 1 pending image",
@@ -40,19 +40,19 @@ func TestInspection_DetermineAnalysisAction(t *testing.T) {
 			wantMessage:    "Ready to analyze 5 images",
 		},
 		{
-			name:           "draft with job in progress",
-			status:         InspectionStatusDraft,
-			pendingImages:  3,
-			totalImages:    5,
-			jobInProgress:  true,
-			wantMessage:    "Analyzing images...",
+			name:          "draft with job in progress",
+			status:        InspectionStatusDraft,
+			pendingImages: 3,
+			totalImages:   5,
+			jobInProgress: true,
+			wantMessage:   "Analyzing images...",
 		},
 		{
-			name:           "draft with all images analyzed",
-			status:         InspectionStatusDraft,
-			pendingImages:  0,
-			totalImages:    5,
-			wantMessage:    "All images have been analyzed",
+			name:          "draft with all images analyzed",
+			status:        InspectionStatusDraft,
+			pendingImages: 0,
+			totalImages:   5,
+			wantMessage:   "All images have been analyzed",
 		},
 
 		// Analyzing status

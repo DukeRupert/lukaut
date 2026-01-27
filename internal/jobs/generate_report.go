@@ -213,4 +213,3 @@ func (h *GenerateReportHandler) Handle(ctx context.Context, payload []byte) erro
 
 	return nil
 }
-

@@ -65,7 +65,7 @@ type Config struct {
 	// Stripe Billing Configuration
 	// These are required when billing is enabled in production.
 	// In development, billing handlers function as stubs if these are empty.
-	StripeSecretKey    string // Stripe API secret key (sk_test_... or sk_live_...)
+	StripeSecretKey     string // Stripe API secret key (sk_test_... or sk_live_...)
 	StripeWebhookSecret string // Stripe webhook signing secret (whsec_...)
 
 	// Stripe Price IDs for subscription plans

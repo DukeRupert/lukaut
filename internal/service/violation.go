@@ -487,7 +487,7 @@ func (s *violationService) LinkRegulations(ctx context.Context, violationID uuid
 			for i, reg := range aiRegs {
 				isPrimary := i == 0
 				_, err := s.queries.CreateViolationRegulation(ctx, repository.CreateViolationRegulationParams{
-					ViolationID: violationID,
+					ViolationID:  violationID,
 					RegulationID: reg.ID,
 					RelevanceScore: sql.NullFloat64{
 						Float64: 1.0,
@@ -551,7 +551,7 @@ func (s *violationService) LinkRegulations(ctx context.Context, violationID uuid
 	for i, reg := range regulations {
 		isPrimary := i == 0
 		_, err := s.queries.CreateViolationRegulation(ctx, repository.CreateViolationRegulationParams{
-			ViolationID: violationID,
+			ViolationID:  violationID,
 			RegulationID: reg.ID,
 			RelevanceScore: sql.NullFloat64{
 				Float64: float64(reg.Rank),
