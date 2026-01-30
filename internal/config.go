@@ -73,6 +73,11 @@ type Config struct {
 	StripeStarterYearlyPriceID       string
 	StripeProfessionalMonthlyPriceID string
 	StripeProfessionalYearlyPriceID  string
+
+	// Metrics endpoint authentication
+	// If both are empty, the /metrics endpoint will be unprotected (not recommended)
+	MetricsUsername string
+	MetricsPassword string
 }
 
 func NewConfig() (*Config, error) {
@@ -133,6 +138,10 @@ func NewConfig() (*Config, error) {
 		StripeStarterYearlyPriceID:       getEnv("STRIPE_STARTER_YEARLY_PRICE_ID", ""),
 		StripeProfessionalMonthlyPriceID: getEnv("STRIPE_PROFESSIONAL_MONTHLY_PRICE_ID", ""),
 		StripeProfessionalYearlyPriceID:  getEnv("STRIPE_PROFESSIONAL_YEARLY_PRICE_ID", ""),
+
+		// Metrics authentication
+		MetricsUsername: getEnv("METRICS_USERNAME", ""),
+		MetricsPassword: getEnv("METRICS_PASSWORD", ""),
 	}
 
 	// Parse invite codes from comma-separated environment variable
