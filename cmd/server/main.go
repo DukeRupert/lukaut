@@ -264,14 +264,8 @@ func run() error {
 		_, _ = w.Write([]byte("OK"))
 	})
 
-	// Prometheus metrics endpoint (protected with basic auth)
-	metricsAuth := middleware.NewMetricsAuthMiddleware(cfg.MetricsUsername, cfg.MetricsPassword)
-	if cfg.MetricsUsername != "" && cfg.MetricsPassword != "" {
-		logger.Info("metrics endpoint protected with basic auth")
-	} else {
-		logger.Warn("metrics endpoint is NOT protected - set METRICS_USERNAME and METRICS_PASSWORD")
-	}
-	mux.Handle("GET /metrics", metricsAuth.Handler(promhttp.Handler()))
+	// Prometheus metrics endpoint
+	mux.Handle("GET /metrics", promhttp.Handler())
 
 	// Public pages - using templ
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
