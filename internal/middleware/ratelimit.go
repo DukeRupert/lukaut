@@ -189,14 +189,14 @@ func (m *RateLimitMiddleware) Limit(next http.Handler) http.Handler {
 			if isAPIRequest(r) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
-				json.NewEncoder(w).Encode(map[string]string{
+				_ = json.NewEncoder(w).Encode(map[string]string{
 					"error":   "rate_limit_exceeded",
 					"message": "Too many requests. Please try again later.",
 				})
 			} else {
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				w.WriteHeader(http.StatusTooManyRequests)
-				w.Write([]byte(`<!DOCTYPE html>
+				_, _ = w.Write([]byte(`<!DOCTYPE html>
 <html>
 <head><title>Too Many Requests</title></head>
 <body>

@@ -208,7 +208,7 @@ func TestRequestLoggingMiddleware_PassesRequestThrough(t *testing.T) {
 		handlerCalled = true
 		w.Header().Set("X-Custom", "value")
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("response body"))
+		_, _ = w.Write([]byte("response body"))
 	})
 
 	wrapped := mw.Handler(handler)

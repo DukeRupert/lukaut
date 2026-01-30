@@ -142,9 +142,9 @@ func TestValidatePassword_ValidPasswords(t *testing.T) {
 
 func TestValidatePassword_ErrorMessages(t *testing.T) {
 	testCases := []struct {
-		name            string
-		password        string
-		errorContains   string
+		name          string
+		password      string
+		errorContains string
 	}{
 		{"too short", "Ab1", "at least 8"},
 		{"no letter", "12345678", "letter"},
