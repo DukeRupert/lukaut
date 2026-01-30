@@ -942,10 +942,12 @@ func (s *userService) CreateEmailVerificationToken(ctx context.Context, userID u
 // - Token is deleted after use (one-time use)
 func (s *userService) VerifyEmail(ctx context.Context, token string) error {
 	const op = "UserService.VerifyEmail"
+	// Generic error message to prevent token enumeration attacks
+	const genericError = "Invalid or expired verification link"
 
 	// 1. Validate token format (should be 64 hex chars)
 	if len(token) != 64 {
-		return domain.Invalid(op, "Invalid verification token")
+		return domain.Invalid(op, genericError)
 	}
 
 	// 2. Hash the token
@@ -955,23 +957,28 @@ func (s *userService) VerifyEmail(ctx context.Context, token string) error {
 	verificationToken, err := s.queries.GetEmailVerificationTokenByHash(ctx, tokenHash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return domain.NotFound(op, "verification token", "")
+			// Don't reveal whether token exists - use generic message
+			return domain.Invalid(op, genericError)
 		}
-		return domain.Internal(err, op, "Failed to retrieve verification token")
+		return domain.Internal(err, op, "Failed to verify email")
 	}
 
 	// 4. Get the user
 	user, err := s.queries.GetUserByID(ctx, verificationToken.UserID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return domain.NotFound(op, "user", verificationToken.UserID.String())
+			// User was deleted but token exists - use generic message
+			return domain.Invalid(op, genericError)
 		}
-		return domain.Internal(err, op, "Failed to retrieve user")
+		return domain.Internal(err, op, "Failed to verify email")
 	}
 
-	// 5. Check if already verified
+	// 5. Check if already verified - succeed silently to prevent enumeration
 	if user.EmailVerified.Valid && user.EmailVerified.Bool {
-		return domain.Conflict(op, "Email is already verified")
+		// Already verified - delete the token and return success
+		_ = s.queries.DeleteEmailVerificationToken(ctx, tokenHash)
+		s.logger.Info("email already verified, silent success", "user_id", user.ID)
+		return nil
 	}
 
 	// 6. Mark user as verified
@@ -1129,10 +1136,12 @@ func (s *userService) CreatePasswordResetToken(ctx context.Context, email string
 // - Used to validate before showing the password form
 func (s *userService) ValidatePasswordResetToken(ctx context.Context, token string) (uuid.UUID, error) {
 	const op = "UserService.ValidatePasswordResetToken"
+	// Generic error message to prevent token enumeration attacks
+	const genericError = "Invalid or expired reset link"
 
 	// 1. Validate token format
 	if len(token) != 64 {
-		return uuid.Nil, domain.Invalid(op, "Invalid reset token")
+		return uuid.Nil, domain.Invalid(op, genericError)
 	}
 
 	// 2. Hash the token
@@ -1142,9 +1151,10 @@ func (s *userService) ValidatePasswordResetToken(ctx context.Context, token stri
 	resetToken, err := s.queries.GetPasswordResetTokenByHash(ctx, tokenHash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return uuid.Nil, domain.NotFound(op, "reset token", "")
+			// Don't reveal whether token exists - use generic message
+			return uuid.Nil, domain.Invalid(op, genericError)
 		}
-		return uuid.Nil, domain.Internal(err, op, "Failed to retrieve reset token")
+		return uuid.Nil, domain.Internal(err, op, "Failed to process reset request")
 	}
 
 	// 4. Return user ID
@@ -1168,15 +1178,17 @@ func (s *userService) ValidatePasswordResetToken(ctx context.Context, token stri
 // - New password is validated for strength
 func (s *userService) ResetPassword(ctx context.Context, params domain.ResetPasswordParams) error {
 	const op = "UserService.ResetPassword"
+	// Generic error message to prevent token enumeration attacks
+	const genericTokenError = "Invalid or expired reset link"
 
 	// 1. Validate token format
 	if len(params.Token) != 64 {
-		return domain.Invalid(op, "Invalid reset token")
+		return domain.Invalid(op, genericTokenError)
 	}
 
-	// 2. Validate new password
+	// 2. Validate new password (this error is fine to be specific - user needs feedback)
 	if err := validatePassword(params.NewPassword); err != nil {
-		return domain.Wrap(err, domain.EINVALID, op, "Invalid new password")
+		return err // Return the specific password validation error
 	}
 
 	// 3. Hash the token
@@ -1186,9 +1198,10 @@ func (s *userService) ResetPassword(ctx context.Context, params domain.ResetPass
 	resetToken, err := s.queries.GetPasswordResetTokenByHash(ctx, tokenHash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return domain.NotFound(op, "reset token", "")
+			// Don't reveal whether token exists - use generic message
+			return domain.Invalid(op, genericTokenError)
 		}
-		return domain.Internal(err, op, "Failed to retrieve reset token")
+		return domain.Internal(err, op, "Failed to process reset request")
 	}
 
 	// 5. Hash new password
