@@ -731,6 +731,75 @@ const (
 )
 ```
 
+### JobEnqueuer Interface
+
+Job enqueueing is abstracted through an interface to maintain clean layer separation:
+
+```go
+// internal/worker/enqueue.go
+type JobEnqueuer interface {
+    EnqueueAnalyzeInspection(ctx context.Context, inspectionID, userID uuid.UUID, opts ...EnqueueOption) (repository.Job, error)
+    EnqueueGenerateReport(ctx context.Context, inspectionID, userID uuid.UUID, format, recipientEmail string, opts ...EnqueueOption) (repository.Job, error)
+}
+
+// Implementation wraps repository.Queries
+type jobEnqueuer struct {
+    queries *repository.Queries
+}
+
+func NewJobEnqueuer(queries *repository.Queries) JobEnqueuer
+```
+
+**Service Layer Integration:**
+
+Services define a simplified JobEnqueuer interface (without variadic options) to avoid circular imports:
+
+```go
+// internal/service/inspection.go
+type JobEnqueuer interface {
+    EnqueueAnalyzeInspection(ctx context.Context, inspectionID, userID uuid.UUID) (repository.Job, error)
+    EnqueueGenerateReport(ctx context.Context, inspectionID, userID uuid.UUID, format, recipientEmail string) (repository.Job, error)
+}
+```
+
+An adapter in `main.go` bridges the two interfaces:
+
+```go
+type serviceJobEnqueuer struct {
+    enqueuer worker.JobEnqueuer
+}
+
+func (a *serviceJobEnqueuer) EnqueueAnalyzeInspection(ctx context.Context, inspectionID, userID uuid.UUID) (repository.Job, error) {
+    return a.enqueuer.EnqueueAnalyzeInspection(ctx, inspectionID, userID)
+}
+```
+
+**Handler → Service Flow:**
+
+Handlers never call worker functions directly. Instead:
+
+```go
+// Handler delegates to service
+func (h *InspectionHandler) TriggerAnalysis(w http.ResponseWriter, r *http.Request) {
+    err := h.inspectionService.TriggerAnalysis(ctx, inspectionID, userID)
+    // ...
+}
+
+// Service validates and enqueues
+func (s *inspectionService) TriggerAnalysis(ctx context.Context, inspectionID, userID uuid.UUID) error {
+    // Validate eligibility
+    status, err := s.GetAnalysisStatus(ctx, inspectionID, userID)
+    if !status.CanAnalyze {
+        return domain.Invalid("inspection.trigger_analysis", status.Message)
+    }
+    // Enqueue via injected interface
+    _, err = s.jobEnqueuer.EnqueueAnalyzeInspection(ctx, inspectionID, userID)
+    return err
+}
+```
+
+This pattern keeps business logic (eligibility checks) in the service layer and makes handlers fully testable with mocked services.
+
 **Job Schema:**
 ```sql
 CREATE TABLE jobs (
@@ -1145,11 +1214,11 @@ lukaut/
 │   ├── repository/              # Database queries (sqlc generated)
 │   ├── service/                 # Business logic / orchestration layer
 │   │   ├── user.go
-│   │   ├── inspection.go        # StartAnalysis, CompleteAnalysis, GetAnalysisStatus
+│   │   ├── inspection.go        # TriggerAnalysis, HasPendingAnalysisJob, GetAnalysisStatus
 │   │   ├── violation.go         # LinkRegulations
 │   │   ├── client.go
 │   │   ├── image.go
-│   │   └── report.go            # PrepareReportData
+│   │   └── report.go            # PrepareReportData, GetByID, ListByInspection, TriggerGeneration
 │   ├── session/                 # Shared session constants
 │   │   └── constants.go         # CookieName, CookiePath, CookieMaxAge
 │   ├── handler/                 # HTTP handlers
@@ -1169,7 +1238,7 @@ lukaut/
 │   ├── jobs/                    # Background job handlers
 │   │   ├── analyze_inspection.go
 │   │   └── generate_report.go
-│   ├── worker/                  # Job queue processing
+│   ├── worker/                  # Job queue processing + JobEnqueuer interface
 │   ├── metrics/                 # Prometheus metrics
 │   ├── templ/                   # Templ components & pages
 │   │   ├── components/          # Shared UI components (pagination, etc.)
@@ -1492,6 +1561,9 @@ CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 | 2025-01 | RequireEmailVerified middleware | Separate middleware layer between RequireUser and RequireActiveSubscription |
 | 2025-01 | Subscription-gated routes in main.go | Analyze and report POST routes removed from `RegisterTemplRoutes`, registered separately with `requireSubscription` stack |
 | 2025-01 | External test package for handler tests | `package handler_test` avoids import cycle (handler→middleware→handler) in integration tests |
+| 2026-01 | JobEnqueuer interface for services | Decouple handlers from repository/worker; services own job orchestration with injected enqueuer |
+| 2026-01 | Simplified service.JobEnqueuer interface | Avoids circular imports by defining simpler interface in service package; adapter bridges in main.go |
+| 2026-01 | Service methods for job triggering | `TriggerAnalysis`, `HasPendingAnalysisJob`, `TriggerGeneration` keep business logic in service layer |
 
 ---
 
