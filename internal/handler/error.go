@@ -95,8 +95,8 @@ func ValidationErrorResponse(w http.ResponseWriter, r *http.Request, logger *slo
 		return
 	}
 
-	// For HTML forms, return simple error message
-	http.Error(w, "Validation failed: "+err.Error(), http.StatusBadRequest)
+	// For HTML forms, return simple error message without exposing internal details
+	http.Error(w, "Validation failed. Please check your input and try again.", http.StatusBadRequest)
 }
 
 // NotFoundResponse is a convenience wrapper for 404 errors.
