@@ -28,6 +28,7 @@ const (
 type SubscriptionTier string
 
 const (
+	SubscriptionTierFree         SubscriptionTier = "free"
 	SubscriptionTierStarter      SubscriptionTier = "starter"
 	SubscriptionTierProfessional SubscriptionTier = "professional"
 )

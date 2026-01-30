@@ -164,6 +164,15 @@ func RateLimit(op string) *Error {
 	}
 }
 
+// QuotaExceeded creates a quota exceeded error with usage details.
+func QuotaExceeded(op string, quotaType QuotaType, used, limit int64) *Error {
+	return &Error{
+		Code:    ERATELIMIT,
+		Op:      op,
+		Message: fmt.Sprintf("Monthly %s quota exceeded (%d/%d). Upgrade your plan for more.", quotaType, used, limit),
+	}
+}
+
 // ValidationError represents field-level validation errors.
 type ValidationError struct {
 	Op     string

@@ -71,3 +71,13 @@ SELECT EXISTS (
     AND status IN ('pending', 'running')
     AND payload->>'inspection_id' = $1::text
 ) AS has_pending;
+
+-- name: CountCompletedJobsByUserAndType :one
+-- Count completed jobs for a user within a date range (for quota checking)
+SELECT COUNT(*) as count
+FROM jobs
+WHERE job_type = $1
+AND status = 'completed'
+AND payload->>'user_id' = $2::text
+AND completed_at >= $3
+AND completed_at < $4;

@@ -99,9 +99,10 @@ type InspectionService interface {
 
 // inspectionService implements the InspectionService interface.
 type inspectionService struct {
-	queries     *repository.Queries
-	jobEnqueuer JobEnqueuer
-	logger      *slog.Logger
+	queries      *repository.Queries
+	jobEnqueuer  JobEnqueuer
+	quotaService QuotaService
+	logger       *slog.Logger
 }
 
 // NewInspectionService creates a new InspectionService.
@@ -109,20 +110,23 @@ type inspectionService struct {
 // Parameters:
 // - queries: Repository queries for database access
 // - jobEnqueuer: Job enqueuer for background jobs (can be nil if job enqueueing not needed)
+// - quotaService: Quota service for rate limiting (can be nil to disable quota checks)
 // - logger: Structured logger for operation logging
 //
 // Example usage:
 //
-//	inspectionService := service.NewInspectionService(repo, jobEnqueuer, logger)
+//	inspectionService := service.NewInspectionService(repo, jobEnqueuer, quotaService, logger)
 func NewInspectionService(
 	queries *repository.Queries,
 	jobEnqueuer JobEnqueuer,
+	quotaService QuotaService,
 	logger *slog.Logger,
 ) InspectionService {
 	return &inspectionService{
-		queries:     queries,
-		jobEnqueuer: jobEnqueuer,
-		logger:      logger,
+		queries:      queries,
+		jobEnqueuer:  jobEnqueuer,
+		quotaService: quotaService,
+		logger:       logger,
 	}
 }
 
@@ -710,6 +714,29 @@ func (s *inspectionService) TriggerAnalysis(ctx context.Context, inspectionID, u
 
 	if s.jobEnqueuer == nil {
 		return domain.Internal(nil, op, "job enqueuer not configured")
+	}
+
+	// Check quota if quota service is configured
+	if s.quotaService != nil {
+		// Get user's subscription tier
+		user, err := s.queries.GetUserByID(ctx, userID)
+		if err != nil {
+			return domain.Internal(err, op, "failed to get user")
+		}
+
+		// Determine tier: use subscription tier if active, otherwise free
+		tier := domain.SubscriptionTierFree
+		status := domain.SubscriptionStatus(domain.NullStringValue(user.SubscriptionStatus))
+		if status == domain.SubscriptionStatusActive || status == domain.SubscriptionStatusTrialing {
+			tierStr := domain.NullStringValue(user.SubscriptionTier)
+			if tierStr != "" {
+				tier = domain.SubscriptionTier(tierStr)
+			}
+		}
+
+		if err := s.quotaService.CheckAnalysisQuota(ctx, userID, tier); err != nil {
+			return err
+		}
 	}
 
 	_, err := s.jobEnqueuer.EnqueueAnalyzeInspection(ctx, inspectionID, userID)

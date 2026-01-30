@@ -42,10 +42,11 @@ type ReportService interface {
 // =============================================================================
 
 type reportService struct {
-	queries     *repository.Queries
-	storage     storage.Storage
-	jobEnqueuer JobEnqueuer
-	logger      *slog.Logger
+	queries      *repository.Queries
+	storage      storage.Storage
+	jobEnqueuer  JobEnqueuer
+	quotaService QuotaService
+	logger       *slog.Logger
 }
 
 // NewReportService creates a new ReportService.
@@ -53,13 +54,15 @@ func NewReportService(
 	queries *repository.Queries,
 	storage storage.Storage,
 	jobEnqueuer JobEnqueuer,
+	quotaService QuotaService,
 	logger *slog.Logger,
 ) ReportService {
 	return &reportService{
-		queries:     queries,
-		storage:     storage,
-		jobEnqueuer: jobEnqueuer,
-		logger:      logger,
+		queries:      queries,
+		storage:      storage,
+		jobEnqueuer:  jobEnqueuer,
+		quotaService: quotaService,
+		logger:       logger,
 	}
 }
 
@@ -304,6 +307,29 @@ func (s *reportService) TriggerGeneration(ctx context.Context, inspectionID, use
 
 	if s.jobEnqueuer == nil {
 		return domain.Internal(nil, op, "job enqueuer not configured")
+	}
+
+	// Check quota if quota service is configured
+	if s.quotaService != nil {
+		// Get user's subscription tier
+		user, err := s.queries.GetUserByID(ctx, userID)
+		if err != nil {
+			return domain.Internal(err, op, "failed to get user")
+		}
+
+		// Determine tier: use subscription tier if active, otherwise free
+		tier := domain.SubscriptionTierFree
+		status := domain.SubscriptionStatus(domain.NullStringValue(user.SubscriptionStatus))
+		if status == domain.SubscriptionStatusActive || status == domain.SubscriptionStatusTrialing {
+			tierStr := domain.NullStringValue(user.SubscriptionTier)
+			if tierStr != "" {
+				tier = domain.SubscriptionTier(tierStr)
+			}
+		}
+
+		if err := s.quotaService.CheckReportQuota(ctx, userID, tier); err != nil {
+			return err
+		}
 	}
 
 	_, err := s.jobEnqueuer.EnqueueGenerateReport(ctx, inspectionID, userID, format, recipientEmail)

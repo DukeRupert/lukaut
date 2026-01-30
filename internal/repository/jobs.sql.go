@@ -14,6 +14,36 @@ import (
 	"github.com/google/uuid"
 )
 
+const countCompletedJobsByUserAndType = `-- name: CountCompletedJobsByUserAndType :one
+SELECT COUNT(*) as count
+FROM jobs
+WHERE job_type = $1
+AND status = 'completed'
+AND payload->>'user_id' = $2::text
+AND completed_at >= $3
+AND completed_at < $4
+`
+
+type CountCompletedJobsByUserAndTypeParams struct {
+	JobType       string       `json:"job_type"`
+	Column2       string       `json:"column_2"`
+	CompletedAt   sql.NullTime `json:"completed_at"`
+	CompletedAt_2 sql.NullTime `json:"completed_at_2"`
+}
+
+// Count completed jobs for a user within a date range (for quota checking)
+func (q *Queries) CountCompletedJobsByUserAndType(ctx context.Context, arg CountCompletedJobsByUserAndTypeParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countCompletedJobsByUserAndType,
+		arg.JobType,
+		arg.Column2,
+		arg.CompletedAt,
+		arg.CompletedAt_2,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteCompletedJobsOlderThan = `-- name: DeleteCompletedJobsOlderThan :exec
 DELETE FROM jobs
 WHERE status = 'completed'

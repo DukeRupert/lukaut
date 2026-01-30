@@ -92,12 +92,15 @@ func run() error {
 	// Initialize job enqueuer for services
 	jobEnqueuer := newServiceJobEnqueuer(worker.NewJobEnqueuer(repo))
 
+	// Initialize quota service for rate limiting
+	quotaService := service.NewQuotaService(repo, logger)
+
 	// Initialize services
 	userService := service.NewUserService(repo, logger)
-	inspectionService := service.NewInspectionService(repo, jobEnqueuer, logger)
+	inspectionService := service.NewInspectionService(repo, jobEnqueuer, quotaService, logger)
 	violationService := service.NewViolationService(repo, logger)
 	clientService := service.NewClientService(repo, logger)
-	reportService := service.NewReportService(repo, storageService, jobEnqueuer, logger)
+	reportService := service.NewReportService(repo, storageService, jobEnqueuer, quotaService, logger)
 	regulationService := service.NewRegulationService(repo, logger)
 
 	// Initialize thumbnail processor
