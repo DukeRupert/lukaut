@@ -43,10 +43,16 @@ const (
 	// The token is then hex-encoded to 64 characters for storage/transmission.
 	SessionTokenBytes = 32
 
-	// SessionDuration is how long a session remains valid.
-	// 7 days balances security with user convenience for a B2B application.
-	// Consider shorter durations for higher security requirements.
-	SessionDuration = 7 * 24 * time.Hour
+	// DefaultSessionDuration is the default session lifetime.
+	// 24 hours is more secure than 7 days while still being convenient.
+	// This can be overridden via configuration.
+	DefaultSessionDuration = 24 * time.Hour
+
+	// MinSessionDuration is the minimum allowed session duration.
+	MinSessionDuration = 15 * time.Minute
+
+	// MaxSessionDuration is the maximum allowed session duration.
+	MaxSessionDuration = 30 * 24 * time.Hour
 
 	// MinPasswordLength is the minimum password length.
 	// NIST SP 800-63B recommends 8+ characters minimum.
@@ -180,22 +186,51 @@ type UserService interface {
 // Implementation
 // =============================================================================
 
-// userService is the concrete implementation of UserService.
-type userService struct {
-	queries *repository.Queries
-	logger  *slog.Logger
+// UserServiceConfig contains configuration for the user service.
+type UserServiceConfig struct {
+	// SessionDuration is how long sessions remain valid.
+	// If zero, DefaultSessionDuration is used.
+	// Values are clamped to MinSessionDuration and MaxSessionDuration.
+	SessionDuration time.Duration
 }
 
-// NewUserService creates a new UserService instance.
+// userService is the concrete implementation of UserService.
+type userService struct {
+	queries         *repository.Queries
+	logger          *slog.Logger
+	sessionDuration time.Duration
+}
+
+// NewUserService creates a new UserService instance with default configuration.
 //
 // Dependencies:
 // - queries: sqlc-generated database queries
 // - logger: structured logger for operation logging
 func NewUserService(queries *repository.Queries, logger *slog.Logger) UserService {
+	return NewUserServiceWithConfig(queries, logger, UserServiceConfig{})
+}
+
+// NewUserServiceWithConfig creates a new UserService with custom configuration.
+func NewUserServiceWithConfig(queries *repository.Queries, logger *slog.Logger, cfg UserServiceConfig) UserService {
 	return &userService{
-		queries: queries,
-		logger:  logger,
+		queries:         queries,
+		logger:          logger,
+		sessionDuration: normalizeSessionDuration(cfg.SessionDuration),
 	}
+}
+
+// normalizeSessionDuration ensures the session duration is within valid bounds.
+func normalizeSessionDuration(d time.Duration) time.Duration {
+	if d == 0 {
+		return DefaultSessionDuration
+	}
+	if d < MinSessionDuration {
+		return MinSessionDuration
+	}
+	if d > MaxSessionDuration {
+		return MaxSessionDuration
+	}
+	return d
 }
 
 // =============================================================================
@@ -341,8 +376,8 @@ func (s *userService) Login(ctx context.Context, email, password string) (*domai
 	// Hash session token for storage
 	tokenHash := hashSessionToken(token)
 
-	// Calculate session expiration
-	expiresAt := time.Now().Add(SessionDuration)
+	// Calculate session expiration using configured duration
+	expiresAt := time.Now().Add(s.sessionDuration)
 
 	// Create session in database
 	_, err = s.queries.CreateSession(ctx, repository.CreateSessionParams{

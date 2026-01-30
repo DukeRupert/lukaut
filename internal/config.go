@@ -62,6 +62,9 @@ type Config struct {
 	// Admin access control
 	AdminEmails []string // List of email addresses with admin access
 
+	// Session configuration
+	SessionDuration time.Duration // How long user sessions remain valid (default: 24h)
+
 	// Stripe Billing Configuration
 	// These are required when billing is enabled in production.
 	// In development, billing handlers function as stubs if these are empty.
@@ -123,6 +126,9 @@ func NewConfig() (*Config, error) {
 
 		// Invite code defaults (enabled by default for MVP testing)
 		InviteCodesEnabled: getEnvBool("INVITE_CODES_ENABLED", true),
+
+		// Session duration (default 24 hours, can be configured)
+		SessionDuration: getEnvDuration("SESSION_DURATION", 24*time.Hour),
 
 		// Stripe billing (optional — stubs work without these)
 		StripeSecretKey:     getEnv("STRIPE_SECRET_KEY", ""),

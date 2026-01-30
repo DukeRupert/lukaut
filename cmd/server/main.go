@@ -96,7 +96,10 @@ func run() error {
 	quotaService := service.NewQuotaService(repo, logger)
 
 	// Initialize services
-	userService := service.NewUserService(repo, logger)
+	userService := service.NewUserServiceWithConfig(repo, logger, service.UserServiceConfig{
+		SessionDuration: cfg.SessionDuration,
+	})
+	logger.Info("session configuration", "duration", cfg.SessionDuration)
 	inspectionService := service.NewInspectionService(repo, jobEnqueuer, quotaService, logger)
 	violationService := service.NewViolationService(repo, logger)
 	clientService := service.NewClientService(repo, logger)
