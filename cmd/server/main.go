@@ -349,10 +349,14 @@ func run() error {
 	// Start server
 	// ==========================================================================
 
-	// Apply security headers middleware
+	// Apply middleware chain (outermost first)
+	// 1. Request logging (logs all requests with timing)
+	// 2. Security headers (sets HTTP security headers)
+	// 3. Metrics (Prometheus metrics collection)
+	requestLoggingMw := middleware.NewRequestLoggingMiddleware(logger)
 	securityMw := middleware.NewSecurityHeadersMiddleware(isSecure)
-	handler := securityMw.Handler(metrics.Middleware(mux))
-	logger.Info("security headers middleware enabled", "hsts", isSecure)
+	handler := requestLoggingMw.Handler(securityMw.Handler(metrics.Middleware(mux)))
+	logger.Info("middleware enabled", "request_logging", true, "security_headers", true, "hsts", isSecure)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
