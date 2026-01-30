@@ -349,9 +349,14 @@ func run() error {
 	// Start server
 	// ==========================================================================
 
+	// Apply security headers middleware
+	securityMw := middleware.NewSecurityHeadersMiddleware(isSecure)
+	handler := securityMw.Handler(metrics.Middleware(mux))
+	logger.Info("security headers middleware enabled", "hsts", isSecure)
+
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: metrics.Middleware(mux),
+		Handler: handler,
 	}
 
 	// Channel to listen for interrupt signals
