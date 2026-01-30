@@ -872,6 +872,9 @@ func validateEmail(email string) error {
 // Rules:
 // - Minimum length: 8 characters (NIST SP 800-63B)
 // - Maximum length: 72 characters (bcrypt limit)
+// - Must contain at least one letter
+// - Must contain at least one number
+// - Must not be a common password
 func validatePassword(password string) error {
 	if len(password) < MinPasswordLength {
 		return domain.Invalid("", "Password must be at least 8 characters")
@@ -881,7 +884,83 @@ func validatePassword(password string) error {
 		return domain.Invalid("", "Password must be 72 characters or less")
 	}
 
+	// Check for at least one letter
+	hasLetter := false
+	for _, c := range password {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') {
+			hasLetter = true
+			break
+		}
+	}
+	if !hasLetter {
+		return domain.Invalid("", "Password must contain at least one letter")
+	}
+
+	// Check for at least one number
+	hasNumber := false
+	for _, c := range password {
+		if c >= '0' && c <= '9' {
+			hasNumber = true
+			break
+		}
+	}
+	if !hasNumber {
+		return domain.Invalid("", "Password must contain at least one number")
+	}
+
+	// Check against common passwords
+	if isCommonPassword(password) {
+		return domain.Invalid("", "Password is too common. Please choose a more unique password.")
+	}
+
 	return nil
+}
+
+// isCommonPassword checks if the password is in our list of common passwords.
+// This list includes the most common passwords that meet our basic requirements.
+func isCommonPassword(password string) bool {
+	// Common passwords that would otherwise pass our validation.
+	// These are lowercase for case-insensitive comparison.
+	commonPasswords := map[string]bool{
+		"password1":    true,
+		"password12":   true,
+		"password123":  true,
+		"qwerty123":    true,
+		"qwerty1234":   true,
+		"letmein1":     true,
+		"letmein12":    true,
+		"welcome1":     true,
+		"welcome12":    true,
+		"admin123":     true,
+		"admin1234":    true,
+		"abc12345":     true,
+		"abcd1234":     true,
+		"123456ab":     true,
+		"1234abcd":     true,
+		"iloveyou1":    true,
+		"sunshine1":    true,
+		"princess1":    true,
+		"football1":    true,
+		"baseball1":    true,
+		"dragon123":    true,
+		"master123":    true,
+		"monkey123":    true,
+		"shadow123":    true,
+		"michael1":     true,
+		"jennifer1":    true,
+		"trustno1":     true,
+		"passw0rd":     true,
+		"p@ssword1":    true,
+		"p@ssw0rd":     true,
+		"changeme1":    true,
+		"test1234":     true,
+		"testing1":     true,
+		"testing123":   true,
+	}
+
+	// Check case-insensitively
+	lower := strings.ToLower(password)
+	return commonPasswords[lower]
 }
 
 // contains checks if a string contains a substring
