@@ -330,6 +330,58 @@ func (q *Queries) ListConfirmedViolationsByInspectionID(ctx context.Context, ins
 	return items, nil
 }
 
+const listConfirmedViolationsByInspectionIDAndUserID = `-- name: ListConfirmedViolationsByInspectionIDAndUserID :many
+SELECT v.id, v.inspection_id, v.image_id, v.description, v.ai_description, v.confidence, v.bounding_box, v.status, v.severity, v.inspector_notes, v.sort_order, v.created_at, v.updated_at FROM violations v
+JOIN inspections i ON i.id = v.inspection_id
+WHERE v.inspection_id = $1
+AND i.user_id = $2
+AND v.status = 'confirmed'
+ORDER BY v.sort_order ASC, v.created_at ASC
+`
+
+type ListConfirmedViolationsByInspectionIDAndUserIDParams struct {
+	InspectionID uuid.UUID `json:"inspection_id"`
+	UserID       uuid.UUID `json:"user_id"`
+}
+
+// List confirmed violations with user authorization check (defense in depth)
+func (q *Queries) ListConfirmedViolationsByInspectionIDAndUserID(ctx context.Context, arg ListConfirmedViolationsByInspectionIDAndUserIDParams) ([]Violation, error) {
+	rows, err := q.db.QueryContext(ctx, listConfirmedViolationsByInspectionIDAndUserID, arg.InspectionID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Violation{}
+	for rows.Next() {
+		var i Violation
+		if err := rows.Scan(
+			&i.ID,
+			&i.InspectionID,
+			&i.ImageID,
+			&i.Description,
+			&i.AiDescription,
+			&i.Confidence,
+			&i.BoundingBox,
+			&i.Status,
+			&i.Severity,
+			&i.InspectorNotes,
+			&i.SortOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listViolationsByInspectionID = `-- name: ListViolationsByInspectionID :many
 SELECT id, inspection_id, image_id, description, ai_description, confidence, bounding_box, status, severity, inspector_notes, sort_order, created_at, updated_at FROM violations
 WHERE inspection_id = $1

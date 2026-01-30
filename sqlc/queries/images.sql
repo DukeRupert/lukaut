@@ -58,3 +58,22 @@ WHERE id = $1;
 SELECT COUNT(*) FROM images
 WHERE inspection_id = $1
 AND (analysis_status IS NULL OR analysis_status = 'pending');
+
+-- name: ListPendingImagesByInspectionIDAndUserID :many
+-- List pending images with user authorization check (defense in depth)
+SELECT img.* FROM images img
+JOIN inspections ins ON ins.id = img.inspection_id
+WHERE ins.id = $1
+AND ins.user_id = $2
+AND img.analysis_status = 'pending'
+ORDER BY img.created_at ASC;
+
+-- name: UpdateImageAnalysisStatusWithAuth :exec
+-- Update image analysis status with user authorization check
+UPDATE images
+SET analysis_status = $3,
+    analysis_completed_at = $4
+FROM inspections
+WHERE images.id = $1
+AND images.inspection_id = inspections.id
+AND inspections.user_id = $2;

@@ -104,8 +104,11 @@ func (s *reportService) PrepareReportData(ctx context.Context, inspectionID, use
 		}
 	}
 
-	// Fetch confirmed violations
-	violations, err := s.queries.ListConfirmedViolationsByInspectionID(ctx, inspectionID)
+	// Fetch confirmed violations (with authorization check for defense in depth)
+	violations, err := s.queries.ListConfirmedViolationsByInspectionIDAndUserID(ctx, repository.ListConfirmedViolationsByInspectionIDAndUserIDParams{
+		InspectionID: inspectionID,
+		UserID:       userID,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("fetch confirmed violations: %w", err)
 	}

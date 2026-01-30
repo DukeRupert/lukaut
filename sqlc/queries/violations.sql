@@ -103,3 +103,12 @@ USING inspections i
 WHERE v.id = $1
 AND v.inspection_id = i.id
 AND i.user_id = $2;
+
+-- name: ListConfirmedViolationsByInspectionIDAndUserID :many
+-- List confirmed violations with user authorization check (defense in depth)
+SELECT v.* FROM violations v
+JOIN inspections i ON i.id = v.inspection_id
+WHERE v.inspection_id = $1
+AND i.user_id = $2
+AND v.status = 'confirmed'
+ORDER BY v.sort_order ASC, v.created_at ASC;

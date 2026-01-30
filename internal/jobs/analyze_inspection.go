@@ -85,8 +85,11 @@ func (h *AnalyzeInspectionHandler) Handle(ctx context.Context, payload []byte) e
 		return fmt.Errorf("start analysis: %w", err)
 	}
 
-	// 3. Fetch pending images
-	images, err := h.queries.ListPendingImagesByInspectionID(ctx, p.InspectionID)
+	// 3. Fetch pending images (with authorization check for defense in depth)
+	images, err := h.queries.ListPendingImagesByInspectionIDAndUserID(ctx, repository.ListPendingImagesByInspectionIDAndUserIDParams{
+		ID:     p.InspectionID,
+		UserID: p.UserID,
+	})
 	if err != nil {
 		return fmt.Errorf("fetch pending images: %w", err)
 	}
@@ -109,10 +112,12 @@ func (h *AnalyzeInspectionHandler) Handle(ctx context.Context, payload []byte) e
 			imgLogger := h.logger.With("image_id", img.ID, "inspection_id", p.InspectionID)
 			imgLogger.Info("Processing image", "storage_key", img.StorageKey)
 
-			// Mark image as analyzing
-			if err := h.queries.UpdateImageAnalysisStatus(ctx, repository.UpdateImageAnalysisStatusParams{
-				ID:             img.ID,
-				AnalysisStatus: sql.NullString{String: domain.ImageAnalysisStatusAnalyzing.String(), Valid: true},
+			// Mark image as analyzing (with authorization check)
+			if err := h.queries.UpdateImageAnalysisStatusWithAuth(ctx, repository.UpdateImageAnalysisStatusWithAuthParams{
+				ID:                  img.ID,
+				UserID:              p.UserID,
+				AnalysisStatus:      sql.NullString{String: domain.ImageAnalysisStatusAnalyzing.String(), Valid: true},
+				AnalysisCompletedAt: sql.NullTime{},
 			}); err != nil {
 				imgLogger.Error("Failed to mark image as analyzing", "error", err)
 				failCount.Add(1)
@@ -125,15 +130,15 @@ func (h *AnalyzeInspectionHandler) Handle(ctx context.Context, payload []byte) e
 				failCount.Add(1)
 				metrics.ImagesAnalyzed.WithLabelValues("error").Inc()
 
-				// Mark image as failed
-				if markErr := h.markImageFailed(ctx, img.ID); markErr != nil {
+				// Mark image as failed (with authorization check)
+				if markErr := h.markImageFailed(ctx, img.ID, p.UserID); markErr != nil {
 					imgLogger.Error("Failed to mark image as failed", "error", markErr)
 				}
 				return
 			}
 
-			// Mark image as completed
-			if err := h.markImageCompleted(ctx, img.ID); err != nil {
+			// Mark image as completed (with authorization check)
+			if err := h.markImageCompleted(ctx, img.ID, p.UserID); err != nil {
 				imgLogger.Error("Failed to mark image as completed", "error", err)
 				// Don't fail - image was analyzed successfully
 			}
@@ -297,18 +302,22 @@ func (h *AnalyzeInspectionHandler) storeViolation(
 	return nil
 }
 
-// markImageFailed updates an image's analysis status to failed.
-func (h *AnalyzeInspectionHandler) markImageFailed(ctx context.Context, imageID uuid.UUID) error {
-	return h.queries.UpdateImageAnalysisStatus(ctx, repository.UpdateImageAnalysisStatusParams{
-		ID:             imageID,
-		AnalysisStatus: sql.NullString{String: domain.ImageAnalysisStatusFailed.String(), Valid: true},
+// markImageFailed updates an image's analysis status to failed (with authorization check).
+func (h *AnalyzeInspectionHandler) markImageFailed(ctx context.Context, imageID, userID uuid.UUID) error {
+	return h.queries.UpdateImageAnalysisStatusWithAuth(ctx, repository.UpdateImageAnalysisStatusWithAuthParams{
+		ID:                  imageID,
+		UserID:              userID,
+		AnalysisStatus:      sql.NullString{String: domain.ImageAnalysisStatusFailed.String(), Valid: true},
+		AnalysisCompletedAt: sql.NullTime{},
 	})
 }
 
-// markImageCompleted updates an image's analysis status to completed.
-func (h *AnalyzeInspectionHandler) markImageCompleted(ctx context.Context, imageID uuid.UUID) error {
-	return h.queries.UpdateImageAnalysisStatus(ctx, repository.UpdateImageAnalysisStatusParams{
-		ID:             imageID,
-		AnalysisStatus: sql.NullString{String: domain.ImageAnalysisStatusCompleted.String(), Valid: true},
+// markImageCompleted updates an image's analysis status to completed (with authorization check).
+func (h *AnalyzeInspectionHandler) markImageCompleted(ctx context.Context, imageID, userID uuid.UUID) error {
+	return h.queries.UpdateImageAnalysisStatusWithAuth(ctx, repository.UpdateImageAnalysisStatusWithAuthParams{
+		ID:                  imageID,
+		UserID:              userID,
+		AnalysisStatus:      sql.NullString{String: domain.ImageAnalysisStatusCompleted.String(), Valid: true},
+		AnalysisCompletedAt: sql.NullTime{},
 	})
 }

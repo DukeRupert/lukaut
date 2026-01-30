@@ -291,6 +291,57 @@ func (q *Queries) ListPendingImagesByInspectionID(ctx context.Context, inspectio
 	return items, nil
 }
 
+const listPendingImagesByInspectionIDAndUserID = `-- name: ListPendingImagesByInspectionIDAndUserID :many
+SELECT img.id, img.inspection_id, img.storage_key, img.thumbnail_key, img.original_filename, img.content_type, img.size_bytes, img.width, img.height, img.analysis_status, img.analysis_completed_at, img.created_at FROM images img
+JOIN inspections ins ON ins.id = img.inspection_id
+WHERE ins.id = $1
+AND ins.user_id = $2
+AND img.analysis_status = 'pending'
+ORDER BY img.created_at ASC
+`
+
+type ListPendingImagesByInspectionIDAndUserIDParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+// List pending images with user authorization check (defense in depth)
+func (q *Queries) ListPendingImagesByInspectionIDAndUserID(ctx context.Context, arg ListPendingImagesByInspectionIDAndUserIDParams) ([]Image, error) {
+	rows, err := q.db.QueryContext(ctx, listPendingImagesByInspectionIDAndUserID, arg.ID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Image{}
+	for rows.Next() {
+		var i Image
+		if err := rows.Scan(
+			&i.ID,
+			&i.InspectionID,
+			&i.StorageKey,
+			&i.ThumbnailKey,
+			&i.OriginalFilename,
+			&i.ContentType,
+			&i.SizeBytes,
+			&i.Width,
+			&i.Height,
+			&i.AnalysisStatus,
+			&i.AnalysisCompletedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateImageAnalysisStatus = `-- name: UpdateImageAnalysisStatus :exec
 UPDATE images
 SET analysis_status = $2,
@@ -306,5 +357,33 @@ type UpdateImageAnalysisStatusParams struct {
 
 func (q *Queries) UpdateImageAnalysisStatus(ctx context.Context, arg UpdateImageAnalysisStatusParams) error {
 	_, err := q.db.ExecContext(ctx, updateImageAnalysisStatus, arg.ID, arg.AnalysisStatus, arg.AnalysisCompletedAt)
+	return err
+}
+
+const updateImageAnalysisStatusWithAuth = `-- name: UpdateImageAnalysisStatusWithAuth :exec
+UPDATE images
+SET analysis_status = $3,
+    analysis_completed_at = $4
+FROM inspections
+WHERE images.id = $1
+AND images.inspection_id = inspections.id
+AND inspections.user_id = $2
+`
+
+type UpdateImageAnalysisStatusWithAuthParams struct {
+	ID                  uuid.UUID      `json:"id"`
+	UserID              uuid.UUID      `json:"user_id"`
+	AnalysisStatus      sql.NullString `json:"analysis_status"`
+	AnalysisCompletedAt sql.NullTime   `json:"analysis_completed_at"`
+}
+
+// Update image analysis status with user authorization check
+func (q *Queries) UpdateImageAnalysisStatusWithAuth(ctx context.Context, arg UpdateImageAnalysisStatusWithAuthParams) error {
+	_, err := q.db.ExecContext(ctx, updateImageAnalysisStatusWithAuth,
+		arg.ID,
+		arg.UserID,
+		arg.AnalysisStatus,
+		arg.AnalysisCompletedAt,
+	)
 	return err
 }
