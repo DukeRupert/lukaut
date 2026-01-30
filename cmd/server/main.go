@@ -195,7 +195,16 @@ func run() error {
 	}
 
 	// Initialize handlers
-	authHandler := handler.NewAuthHandler(userService, emailService, inviteValidator, logger, isSecure)
+	// Initialize rate limiter for auth endpoints
+	authRateLimiter := middleware.NewAuthRateLimiter(logger)
+	logger.Info("auth rate limiting enabled",
+		"login_limit", "5 per 15 minutes",
+		"register_limit", "3 per hour",
+		"password_reset_limit", "3 per hour",
+	)
+
+	authHandler := handler.NewAuthHandler(userService, emailService, inviteValidator, logger, isSecure).
+		WithRateLimiter(authRateLimiter)
 	dashboardHandler := handler.NewDashboardHandler(repo, logger)
 	inspectionHandler := handler.NewInspectionHandler(inspectionService, imageService, violationService, clientService, reportService, logger)
 	imageHandler := handler.NewImageHandler(imageService, inspectionService, logger)

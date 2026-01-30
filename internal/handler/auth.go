@@ -7,6 +7,7 @@ package handler
 import (
 	"context"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -36,6 +37,22 @@ type TemplateRenderer interface {
 	RenderPartial(w http.ResponseWriter, name string, data interface{})
 }
 
+// AuthRateLimiter defines the interface for rate limiting authentication endpoints.
+// This interface allows the handler package to use rate limiting without importing
+// the middleware package (avoiding import cycles).
+type AuthRateLimiter interface {
+	// LimitLogin returns middleware for rate limiting login attempts.
+	LimitLogin(next http.Handler) http.Handler
+	// LimitRegister returns middleware for rate limiting registration attempts.
+	LimitRegister(next http.Handler) http.Handler
+	// LimitPasswordReset returns middleware for rate limiting password reset requests.
+	LimitPasswordReset(next http.Handler) http.Handler
+	// RecordFailedLogin records a failed login attempt for the given IP.
+	RecordFailedLogin(ip string)
+	// ResetLogin clears the rate limit for an IP after successful login.
+	ResetLogin(ip string)
+}
+
 // AuthHandler handles authentication-related HTTP requests.
 //
 // Dependencies:
@@ -55,6 +72,7 @@ type AuthHandler struct {
 	userService     service.UserService
 	emailService    email.EmailService
 	inviteValidator *invite.Validator
+	rateLimiter     AuthRateLimiter
 	logger          *slog.Logger
 	isSecure        bool
 }
@@ -85,6 +103,13 @@ func NewAuthHandler(
 		logger:          logger,
 		isSecure:        isSecure,
 	}
+}
+
+// WithRateLimiter sets the rate limiter for authentication endpoints.
+// Call this after NewAuthHandler to enable rate limiting.
+func (h *AuthHandler) WithRateLimiter(rl AuthRateLimiter) *AuthHandler {
+	h.rateLimiter = rl
+	return h
 }
 
 // =============================================================================
@@ -310,6 +335,36 @@ func isSafeRedirectURL(rawURL string) bool {
 	return true
 }
 
+// getClientIP extracts the client IP from the request, considering proxy headers.
+func getClientIP(r *http.Request) string {
+	// Check X-Forwarded-For first (most common proxy header)
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// X-Forwarded-For can contain multiple IPs: client, proxy1, proxy2
+		// The first one is the original client
+		ips := strings.Split(xff, ",")
+		if len(ips) > 0 {
+			clientIP := strings.TrimSpace(ips[0])
+			if clientIP != "" {
+				return clientIP
+			}
+		}
+	}
+
+	// Check X-Real-IP (nginx)
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return strings.TrimSpace(xri)
+	}
+
+	// Fall back to RemoteAddr
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		// RemoteAddr might not have a port
+		return r.RemoteAddr
+	}
+
+	return ip
+}
+
 // =============================================================================
 // Templ-based Auth Routes with CSRF Protection
 // =============================================================================
@@ -330,22 +385,31 @@ func isSafeRedirectURL(rawURL string) bool {
 // - GET  /reset-password      -> ShowResetPasswordTempl
 // - POST /reset-password      -> ResetPasswordTempl
 func (h *AuthHandler) RegisterTemplRoutes(mux *http.ServeMux) {
+	// GET routes (no rate limiting needed)
 	mux.HandleFunc("GET /register", h.ShowRegisterTempl)
-	mux.HandleFunc("POST /register", h.RegisterTempl)
 	mux.HandleFunc("GET /login", h.ShowLoginTempl)
-	mux.HandleFunc("POST /login", h.LoginTempl)
-	mux.HandleFunc("POST /logout", h.Logout)
-
-	// Email verification routes (public — user may not be logged in)
 	mux.HandleFunc("GET /verify-email", h.ShowVerifyEmailTempl)
 	mux.HandleFunc("GET /resend-verification", h.ShowResendVerificationTempl)
-	mux.HandleFunc("POST /resend-verification", h.ResendVerificationTempl)
-
-	// Password reset routes
 	mux.HandleFunc("GET /forgot-password", h.ShowForgotPasswordTempl)
-	mux.HandleFunc("POST /forgot-password", h.ForgotPasswordTempl)
 	mux.HandleFunc("GET /reset-password", h.ShowResetPasswordTempl)
-	mux.HandleFunc("POST /reset-password", h.ResetPasswordTempl)
+
+	// POST routes - apply rate limiting if configured
+	if h.rateLimiter != nil {
+		mux.Handle("POST /register", h.rateLimiter.LimitRegister(http.HandlerFunc(h.RegisterTempl)))
+		mux.Handle("POST /login", h.rateLimiter.LimitLogin(http.HandlerFunc(h.LoginTempl)))
+		mux.Handle("POST /resend-verification", h.rateLimiter.LimitPasswordReset(http.HandlerFunc(h.ResendVerificationTempl)))
+		mux.Handle("POST /forgot-password", h.rateLimiter.LimitPasswordReset(http.HandlerFunc(h.ForgotPasswordTempl)))
+		mux.Handle("POST /reset-password", h.rateLimiter.LimitPasswordReset(http.HandlerFunc(h.ResetPasswordTempl)))
+	} else {
+		mux.HandleFunc("POST /register", h.RegisterTempl)
+		mux.HandleFunc("POST /login", h.LoginTempl)
+		mux.HandleFunc("POST /resend-verification", h.ResendVerificationTempl)
+		mux.HandleFunc("POST /forgot-password", h.ForgotPasswordTempl)
+		mux.HandleFunc("POST /reset-password", h.ResetPasswordTempl)
+	}
+
+	// Logout doesn't need rate limiting (requires valid session)
+	mux.HandleFunc("POST /logout", h.Logout)
 }
 
 // RegisterVerifyEmailReminderRoutes registers the email verification reminder routes.
@@ -460,6 +524,12 @@ func (h *AuthHandler) LoginTempl(w http.ResponseWriter, r *http.Request) {
 	// Call UserService.Login
 	loginResult, err := h.userService.Login(r.Context(), email, password)
 	if err != nil {
+		// Record failed login attempt for rate limiting
+		if h.rateLimiter != nil {
+			clientIP := getClientIP(r)
+			h.rateLimiter.RecordFailedLogin(clientIP)
+		}
+
 		code := domain.ErrorCode(err)
 		switch code {
 		case domain.EUNAUTHORIZED:
@@ -476,6 +546,12 @@ func (h *AuthHandler) LoginTempl(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 		return
+	}
+
+	// Reset rate limit counter on successful login
+	if h.rateLimiter != nil {
+		clientIP := getClientIP(r)
+		h.rateLimiter.ResetLogin(clientIP)
 	}
 
 	// Set session cookie
