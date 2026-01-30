@@ -5,14 +5,12 @@
 package handler
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
 	"log/slog"
 	"net/http"
 
 	"github.com/DukeRupert/lukaut/internal/auth"
-	"github.com/DukeRupert/lukaut/internal/repository"
+	"github.com/DukeRupert/lukaut/internal/domain"
+	"github.com/DukeRupert/lukaut/internal/service"
 	"github.com/google/uuid"
 )
 
@@ -87,18 +85,21 @@ type RegulationDetailPartialData struct {
 
 // RegulationHandler handles regulation-related HTTP requests.
 type RegulationHandler struct {
-	repo   *repository.Queries
-	logger *slog.Logger
+	regulationService service.RegulationService
+	violationService  service.ViolationService
+	logger            *slog.Logger
 }
 
 // NewRegulationHandler creates a new RegulationHandler.
 func NewRegulationHandler(
-	repo *repository.Queries,
+	regulationService service.RegulationService,
+	violationService service.ViolationService,
 	logger *slog.Logger,
 ) *RegulationHandler {
 	return &RegulationHandler{
-		repo:   repo,
-		logger: logger,
+		regulationService: regulationService,
+		violationService:  violationService,
+		logger:            logger,
 	}
 }
 
@@ -130,74 +131,16 @@ func (h *RegulationHandler) AddToViolation(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Verify user owns the violation
-	violation, err := h.repo.GetViolationByID(r.Context(), vid)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "Violation not found", http.StatusNotFound)
-		} else {
-			h.logger.Error("failed to get violation", "error", err, "violation_id", vid)
-			http.Error(w, "Failed to verify violation", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// Get inspection to verify ownership
-	inspection, err := h.repo.GetInspectionByID(r.Context(), violation.InspectionID)
-	if err != nil {
-		h.logger.Error("failed to get inspection", "error", err, "inspection_id", violation.InspectionID)
-		http.Error(w, "Failed to verify ownership", http.StatusInternalServerError)
-		return
-	}
-	if inspection.UserID != user.ID {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-
-	// Verify regulation exists
-	_, err = h.repo.GetRegulationDetail(r.Context(), rid)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "Regulation not found", http.StatusNotFound)
-		} else {
-			h.logger.Error("failed to get regulation", "error", err, "regulation_id", rid)
-			http.Error(w, "Failed to verify regulation", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// Check if already linked
-	_, err = h.repo.GetViolationRegulation(r.Context(), repository.GetViolationRegulationParams{
+	// Link regulation to violation (idempotent)
+	err = h.regulationService.LinkToViolation(r.Context(), domain.LinkRegulationParams{
 		ViolationID:  vid,
 		RegulationID: rid,
-	})
-	if err == nil {
-		// Already linked
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("Regulation already linked"))
-		return
-	}
-
-	// Link regulation to violation (as non-primary by default)
-	_, err = h.repo.CreateViolationRegulation(r.Context(), repository.CreateViolationRegulationParams{
-		ViolationID:    vid,
-		RegulationID:   rid,
-		RelevanceScore: sql.NullFloat64{Float64: 1.0, Valid: true},
-		AiExplanation:  sql.NullString{String: "Manually added by inspector", Valid: true},
-		IsPrimary:      sql.NullBool{Bool: false, Valid: true},
+		UserID:       user.ID,
 	})
 	if err != nil {
-		h.logger.Error("failed to link regulation to violation", "error", err, "violation_id", vid, "regulation_id", rid)
-		http.Error(w, "Failed to add regulation", http.StatusInternalServerError)
+		h.handleServiceError(w, err, "link regulation")
 		return
 	}
-
-	h.logger.Info("regulation linked to violation",
-		"violation_id", vid,
-		"regulation_id", rid,
-		"user_id", user.ID,
-	)
 
 	// Return success
 	w.Header().Set("Content-Type", "text/plain")
@@ -234,46 +177,16 @@ func (h *RegulationHandler) RemoveFromViolation(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Verify user owns the violation
-	violation, err := h.repo.GetViolationByID(r.Context(), vid)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "Violation not found", http.StatusNotFound)
-		} else {
-			h.logger.Error("failed to get violation", "error", err, "violation_id", vid)
-			http.Error(w, "Failed to verify violation", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// Get inspection to verify ownership
-	inspection, err := h.repo.GetInspectionByID(r.Context(), violation.InspectionID)
-	if err != nil {
-		h.logger.Error("failed to get inspection", "error", err, "inspection_id", violation.InspectionID)
-		http.Error(w, "Failed to verify ownership", http.StatusInternalServerError)
-		return
-	}
-	if inspection.UserID != user.ID {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-
-	// Remove the link
-	err = h.repo.RemoveRegulationFromViolation(r.Context(), repository.RemoveRegulationFromViolationParams{
+	// Unlink regulation from violation (idempotent)
+	err = h.regulationService.UnlinkFromViolation(r.Context(), domain.UnlinkRegulationParams{
 		ViolationID:  vid,
 		RegulationID: rid,
+		UserID:       user.ID,
 	})
 	if err != nil {
-		h.logger.Error("failed to unlink regulation from violation", "error", err, "violation_id", vid, "regulation_id", rid)
-		http.Error(w, "Failed to remove regulation", http.StatusInternalServerError)
+		h.handleServiceError(w, err, "unlink regulation")
 		return
 	}
-
-	h.logger.Info("regulation unlinked from violation",
-		"violation_id", vid,
-		"regulation_id", rid,
-		"user_id", user.ID,
-	)
 
 	// Return success
 	w.Header().Set("Content-Type", "text/plain")
@@ -287,92 +200,76 @@ func (h *RegulationHandler) RemoveFromViolation(w http.ResponseWriter, r *http.R
 // =============================================================================
 
 // searchRegulations performs a full-text search on regulations.
-func (h *RegulationHandler) searchRegulations(ctx context.Context, query string, limit, offset int32) ([]RegulationSummary, int64, error) {
-	// Get search results
-	results, err := h.repo.SearchRegulationsWithOffset(ctx, repository.SearchRegulationsWithOffsetParams{
-		WebsearchToTsquery: query,
-		Limit:              limit,
-		Offset:             offset,
-	})
+func (h *RegulationHandler) searchRegulations(r *http.Request, query string, limit, offset int32) ([]RegulationSummary, int64, error) {
+	result, err := h.regulationService.Search(r.Context(), query, limit, offset)
 	if err != nil {
-		return nil, 0, fmt.Errorf("search regulations: %w", err)
+		return nil, 0, err
 	}
 
-	// Get total count
-	total, err := h.repo.CountSearchResults(ctx, query)
-	if err != nil {
-		return nil, 0, fmt.Errorf("count search results: %w", err)
+	// Convert domain type to handler type
+	summaries := make([]RegulationSummary, len(result.Regulations))
+	for i, reg := range result.Regulations {
+		summaries[i] = RegulationSummary{
+			ID:              reg.ID,
+			StandardNumber:  reg.StandardNumber,
+			Title:           reg.Title,
+			Category:        reg.Category,
+			Subcategory:     reg.Subcategory,
+			Summary:         reg.Summary,
+			SeverityTypical: reg.SeverityTypical,
+			Rank:            reg.Rank,
+		}
 	}
 
-	// Convert to summary type
-	summaries := make([]RegulationSummary, len(results))
-	for i, r := range results {
-		summary := RegulationSummary{
-			ID:             r.ID,
-			StandardNumber: r.StandardNumber,
-			Title:          r.Title,
-			Category:       r.Category,
-			Rank:           r.Rank,
-		}
-		if r.Subcategory.Valid {
-			summary.Subcategory = r.Subcategory.String
-		}
-		if r.Summary.Valid {
-			summary.Summary = r.Summary.String
-		}
-		if r.SeverityTypical.Valid {
-			summary.SeverityTypical = r.SeverityTypical.String
-		}
-		summaries[i] = summary
-	}
-
-	return summaries, total, nil
+	return summaries, result.Total, nil
 }
 
 // browseRegulations lists regulations optionally filtered by category.
-func (h *RegulationHandler) browseRegulations(ctx context.Context, category string, limit, offset int32) ([]RegulationSummary, int64, error) {
-	var categoryFilter sql.NullString
-	if category != "" {
-		categoryFilter = sql.NullString{String: category, Valid: true}
-	}
-
-	// Get regulations
-	results, err := h.repo.ListRegulations(ctx, repository.ListRegulationsParams{
-		Category: categoryFilter,
-		Limit:    limit,
-		Offset:   offset,
-	})
+func (h *RegulationHandler) browseRegulations(r *http.Request, category string, limit, offset int32) ([]RegulationSummary, int64, error) {
+	result, err := h.regulationService.Browse(r.Context(), category, limit, offset)
 	if err != nil {
-		return nil, 0, fmt.Errorf("list regulations: %w", err)
+		return nil, 0, err
 	}
 
-	// Get total count
-	total, err := h.repo.CountRegulations(ctx, categoryFilter)
-	if err != nil {
-		return nil, 0, fmt.Errorf("count regulations: %w", err)
+	// Convert domain type to handler type
+	summaries := make([]RegulationSummary, len(result.Regulations))
+	for i, reg := range result.Regulations {
+		summaries[i] = RegulationSummary{
+			ID:              reg.ID,
+			StandardNumber:  reg.StandardNumber,
+			Title:           reg.Title,
+			Category:        reg.Category,
+			Subcategory:     reg.Subcategory,
+			Summary:         reg.Summary,
+			SeverityTypical: reg.SeverityTypical,
+			Rank:            reg.Rank,
+		}
 	}
 
-	// Convert to summary type
-	summaries := make([]RegulationSummary, len(results))
-	for i, r := range results {
-		summary := RegulationSummary{
-			ID:             r.ID,
-			StandardNumber: r.StandardNumber,
-			Title:          r.Title,
-			Category:       r.Category,
-			Rank:           0, // Not applicable for browse
+	return summaries, result.Total, nil
+}
+
+// =============================================================================
+// Error Handling
+// =============================================================================
+
+// handleServiceError converts domain errors to HTTP responses.
+func (h *RegulationHandler) handleServiceError(w http.ResponseWriter, err error, operation string) {
+	if domainErr, ok := err.(*domain.Error); ok {
+		switch domainErr.Code {
+		case domain.ENOTFOUND:
+			http.Error(w, domainErr.Message, http.StatusNotFound)
+		case domain.EFORBIDDEN:
+			http.Error(w, "Forbidden", http.StatusForbidden)
+		case domain.EINVALID:
+			http.Error(w, domainErr.Message, http.StatusBadRequest)
+		default:
+			h.logger.Error("service error", "error", err, "operation", operation)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
-		if r.Subcategory.Valid {
-			summary.Subcategory = r.Subcategory.String
-		}
-		if r.Summary.Valid {
-			summary.Summary = r.Summary.String
-		}
-		if r.SeverityTypical.Valid {
-			summary.SeverityTypical = r.SeverityTypical.String
-		}
-		summaries[i] = summary
+		return
 	}
 
-	return summaries, total, nil
+	h.logger.Error("unexpected error", "error", err, "operation", operation)
+	http.Error(w, "Internal server error", http.StatusInternalServerError)
 }

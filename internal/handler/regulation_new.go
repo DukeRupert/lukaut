@@ -4,7 +4,6 @@
 package handler
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
-	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/regulations"
 	"github.com/DukeRupert/lukaut/internal/templ/partials"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
@@ -46,7 +44,7 @@ func (h *RegulationHandler) IndexTempl(w http.ResponseWriter, r *http.Request) {
 	offset := int32((page - 1) * int(perPage))
 
 	// Fetch categories for dropdown
-	categories, err := h.repo.ListAllCategories(r.Context())
+	categories, err := h.regulationService.ListCategories(r.Context())
 	if err != nil {
 		h.logger.Error("failed to fetch categories", "error", err)
 		categories = []string{} // Continue with empty list
@@ -58,7 +56,7 @@ func (h *RegulationHandler) IndexTempl(w http.ResponseWriter, r *http.Request) {
 
 	if query != "" {
 		// Search mode
-		regs, total, err = h.searchRegulations(r.Context(), query, perPage, offset)
+		regs, total, err = h.searchRegulations(r, query, perPage, offset)
 		if err != nil {
 			h.logger.Error("failed to search regulations", "error", err, "query", query)
 			h.renderIndexErrorTempl(w, r, user, "Failed to search regulations. Please try again.")
@@ -66,7 +64,7 @@ func (h *RegulationHandler) IndexTempl(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Browse mode (optionally filtered by category)
-		regs, total, err = h.browseRegulations(r.Context(), category, perPage, offset)
+		regs, total, err = h.browseRegulations(r, category, perPage, offset)
 		if err != nil {
 			h.logger.Error("failed to browse regulations", "error", err, "category", category)
 			h.renderIndexErrorTempl(w, r, user, "Failed to load regulations. Please try again.")
@@ -149,10 +147,10 @@ func (h *RegulationHandler) SearchTempl(w http.ResponseWriter, r *http.Request) 
 
 	if query != "" {
 		// Search mode
-		regs, total, err = h.searchRegulations(r.Context(), query, perPage, offset)
+		regs, total, err = h.searchRegulations(r, query, perPage, offset)
 	} else {
 		// Browse mode (optionally filtered by category)
-		regs, total, err = h.browseRegulations(r.Context(), category, perPage, offset)
+		regs, total, err = h.browseRegulations(r, category, perPage, offset)
 	}
 
 	if err != nil {
@@ -220,27 +218,10 @@ func (h *RegulationHandler) InlineSearchTempl(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Verify user owns the violation
-	violation, err := h.repo.GetViolationByID(r.Context(), vid)
+	// Verify user owns the violation (via ViolationService)
+	_, err = h.violationService.GetByID(r.Context(), vid, user.ID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "Violation not found", http.StatusNotFound)
-		} else {
-			h.logger.Error("failed to get violation", "error", err, "violation_id", vid)
-			http.Error(w, "Failed to verify violation", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// Get inspection to verify ownership
-	inspection, err := h.repo.GetInspectionByID(r.Context(), violation.InspectionID)
-	if err != nil {
-		h.logger.Error("failed to get inspection", "error", err, "inspection_id", violation.InspectionID)
-		http.Error(w, "Failed to verify ownership", http.StatusInternalServerError)
-		return
-	}
-	if inspection.UserID != user.ID {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+		h.handleServiceError(w, err, "verify violation ownership")
 		return
 	}
 
@@ -253,13 +234,12 @@ func (h *RegulationHandler) InlineSearchTempl(w http.ResponseWriter, r *http.Req
 
 	// Determine whether to search or return empty
 	var regs []RegulationSummary
-	var err2 error
 
 	if query != "" {
 		// Search mode
-		regs, _, err2 = h.searchRegulations(r.Context(), query, perPage, offset)
-		if err2 != nil {
-			h.logger.Error("failed to search regulations", "error", err2, "query", query)
+		regs, _, err = h.searchRegulations(r, query, perPage, offset)
+		if err != nil {
+			h.logger.Error("failed to search regulations", "error", err, "query", query)
 			http.Error(w, "Failed to search regulations", http.StatusInternalServerError)
 			return
 		}
@@ -270,15 +250,15 @@ func (h *RegulationHandler) InlineSearchTempl(w http.ResponseWriter, r *http.Req
 
 	// Convert to inline display types
 	inlineRegs := make([]partials.InlineRegulationDisplay, len(regs))
-	for i, r := range regs {
+	for i, reg := range regs {
 		// Truncate title if too long
-		title := r.Title
+		title := reg.Title
 		if len(title) > 80 {
 			title = title[:77] + "..."
 		}
 		inlineRegs[i] = partials.InlineRegulationDisplay{
-			RegulationID:   r.ID.String(),
-			StandardNumber: r.StandardNumber,
+			RegulationID:   reg.ID.String(),
+			StandardNumber: reg.StandardNumber,
 			Title:          title,
 		}
 	}
@@ -330,69 +310,48 @@ func (h *RegulationHandler) GetDetailTempl(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	// Fetch regulation details
-	dbReg, err := h.repo.GetRegulationDetail(r.Context(), id)
+	// Fetch regulation details via service
+	reg, err := h.regulationService.GetByID(r.Context(), id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "Regulation not found", http.StatusNotFound)
-		} else {
-			h.logger.Error("failed to get regulation", "error", err, "regulation_id", id)
-			http.Error(w, "Failed to load regulation", http.StatusInternalServerError)
-		}
+		h.handleServiceError(w, err, "get regulation")
 		return
 	}
 
 	// Convert to display type
 	regulation := regulations.RegulationDetailDisplay{
-		ID:             dbReg.ID.String(),
-		StandardNumber: dbReg.StandardNumber,
-		Title:          dbReg.Title,
-		Category:       dbReg.Category,
-		FullText:       dbReg.FullText,
+		ID:              reg.ID.String(),
+		StandardNumber:  reg.StandardNumber,
+		Title:           reg.Title,
+		Category:        reg.Category,
+		Subcategory:     reg.Subcategory,
+		FullText:        reg.FullText,
+		Summary:         reg.Summary,
+		SeverityTypical: reg.SeverityTypical,
+		ParentStandard:  reg.ParentStandard,
 	}
-
-	// Handle nullable fields
-	if dbReg.Subcategory.Valid {
-		regulation.Subcategory = dbReg.Subcategory.String
+	if reg.EffectiveDate != nil {
+		regulation.EffectiveDate = reg.EffectiveDate.Format("2006-01-02")
 	}
-	if dbReg.Summary.Valid {
-		regulation.Summary = dbReg.Summary.String
-	}
-	if dbReg.SeverityTypical.Valid {
-		regulation.SeverityTypical = dbReg.SeverityTypical.String
-	}
-	if dbReg.ParentStandard.Valid {
-		regulation.ParentStandard = dbReg.ParentStandard.String
-	}
-	if dbReg.EffectiveDate.Valid {
-		regulation.EffectiveDate = dbReg.EffectiveDate.Time.Format("2006-01-02")
-	}
-	if dbReg.LastUpdated.Valid {
-		regulation.LastUpdated = dbReg.LastUpdated.Time.Format("2006-01-02")
+	if reg.LastUpdated != nil {
+		regulation.LastUpdated = reg.LastUpdated.Format("2006-01-02")
 	}
 
 	// Check if regulation is already linked to violation
 	alreadyLinked := false
 	if violationUUID != nil {
 		// Verify user owns the violation
-		violation, err := h.repo.GetViolationByID(r.Context(), *violationUUID)
-		if err == nil {
-			// Get inspection to verify ownership
-			inspection, err := h.repo.GetInspectionByID(r.Context(), violation.InspectionID)
-			if err == nil && inspection.UserID == user.ID {
-				// Check if regulation is already linked
-				_, err := h.repo.GetViolationRegulation(r.Context(), repository.GetViolationRegulationParams{
-					ViolationID:  *violationUUID,
-					RegulationID: id,
-				})
-				alreadyLinked = (err == nil)
-			} else {
-				// User doesn't own the violation, clear violation_id
-				violationID = ""
-			}
-		} else {
-			// Violation not found, clear violation_id
+		_, err := h.violationService.GetByID(r.Context(), *violationUUID, user.ID)
+		if err != nil {
+			// User doesn't own the violation or it doesn't exist, clear violation_id
 			violationID = ""
+		} else {
+			// Check if regulation is already linked
+			alreadyLinked, err = h.regulationService.IsLinkedToViolation(r.Context(), *violationUUID, id)
+			if err != nil {
+				h.logger.Error("failed to check regulation link", "error", err)
+				// Non-fatal, just show as not linked
+				alreadyLinked = false
+			}
 		}
 	}
 

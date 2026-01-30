@@ -1027,29 +1027,49 @@ var RegulationCategories = []string{
 - Migration file for each update batch
 - Version tracking for audit trail
 
-### Search Implementation
+### RegulationService
+
+The `RegulationService` provides a clean interface for regulation search/browse and violation-regulation linking with proper authorization:
 
 ```go
 // internal/service/regulation.go
-type RegulationService struct {
-    queries *repository.Queries
-}
+type RegulationService interface {
+    // Read operations (public reference data - no auth required)
+    GetByID(ctx context.Context, id uuid.UUID) (*domain.Regulation, error)
+    Search(ctx context.Context, query string, limit, offset int32) (*domain.RegulationSearchResult, error)
+    Browse(ctx context.Context, category string, limit, offset int32) (*domain.RegulationSearchResult, error)
+    ListCategories(ctx context.Context) ([]string, error)
 
-func (s *RegulationService) Search(ctx context.Context, query string, limit int) ([]Regulation, error) {
-    // Full-text search with ranking
-    return s.queries.SearchRegulations(ctx, repository.SearchRegulationsParams{
-        Query: query,
-        Limit: limit,
-    })
+    // Violation-regulation linking (requires user authorization)
+    LinkToViolation(ctx context.Context, params domain.LinkRegulationParams) error
+    UnlinkFromViolation(ctx context.Context, params domain.UnlinkRegulationParams) error
+    IsLinkedToViolation(ctx context.Context, violationID, regulationID uuid.UUID) (bool, error)
 }
+```
 
-func (s *RegulationService) GetByCategory(ctx context.Context, category string) ([]Regulation, error) {
-    return s.queries.GetRegulationsByCategory(ctx, category)
-}
+**Key Design Decisions:**
 
-func (s *RegulationService) GetByStandardNumber(ctx context.Context, number string) (*Regulation, error) {
-    return s.queries.GetRegulationByStandardNumber(ctx, number)
+1. **Idempotent link/unlink operations** - `LinkToViolation` succeeds silently if already linked; `UnlinkFromViolation` succeeds silently if not linked. This simplifies handler code and makes operations safe to retry.
+
+2. **Authorization via ViolationService** - Ownership checks verify the user owns the violation's parent inspection. The service uses `GetViolationByIDAndUserID` which joins to inspections table.
+
+3. **Separation from ViolationService** - While violations own the link, regulation search/browse is a distinct concern. The RegulationService handles both the reference data queries and the linking operations.
+
+4. **Domain types for search results** - `domain.RegulationSummary` and `domain.RegulationSearchResult` provide clean abstractions over repository types.
+
+**Handler Integration:**
+
+The `RegulationHandler` takes both `RegulationService` and `ViolationService` as dependencies:
+
+```go
+type RegulationHandler struct {
+    regulationService service.RegulationService
+    violationService  service.ViolationService  // For ownership checks in templ handlers
+    logger            *slog.Logger
 }
+```
+
+This allows the handler to verify violation ownership before displaying "add regulation" buttons or performing inline searches within violation context
 ```
 
 **sqlc Query:**
@@ -1216,6 +1236,7 @@ lukaut/
 │   │   ├── user.go
 │   │   ├── inspection.go        # TriggerAnalysis, HasPendingAnalysisJob, GetAnalysisStatus
 │   │   ├── violation.go         # LinkRegulations
+│   │   ├── regulation.go        # Search, Browse, LinkToViolation (idempotent)
 │   │   ├── client.go
 │   │   ├── image.go
 │   │   └── report.go            # PrepareReportData, GetByID, ListByInspection, TriggerGeneration
@@ -1564,6 +1585,7 @@ CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 | 2026-01 | JobEnqueuer interface for services | Decouple handlers from repository/worker; services own job orchestration with injected enqueuer |
 | 2026-01 | Simplified service.JobEnqueuer interface | Avoids circular imports by defining simpler interface in service package; adapter bridges in main.go |
 | 2026-01 | Service methods for job triggering | `TriggerAnalysis`, `HasPendingAnalysisJob`, `TriggerGeneration` keep business logic in service layer |
+| 2026-01 | RegulationService extraction | Move regulation search/browse and violation linking from handler to service layer; idempotent link/unlink operations |
 
 ---
 

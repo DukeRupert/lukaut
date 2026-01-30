@@ -98,6 +98,7 @@ func run() error {
 	violationService := service.NewViolationService(repo, logger)
 	clientService := service.NewClientService(repo, logger)
 	reportService := service.NewReportService(repo, storageService, jobEnqueuer, logger)
+	regulationService := service.NewRegulationService(repo, logger)
 
 	// Initialize thumbnail processor
 	thumbnailProcessor := service.NewImagingProcessor()
@@ -196,7 +197,7 @@ func run() error {
 	inspectionHandler := handler.NewInspectionHandler(inspectionService, imageService, violationService, clientService, reportService, logger)
 	imageHandler := handler.NewImageHandler(imageService, inspectionService, logger)
 	violationHandler := handler.NewViolationHandler(violationService, inspectionService, imageService, logger)
-	regulationHandler := handler.NewRegulationHandler(repo, logger)
+	regulationHandler := handler.NewRegulationHandler(regulationService, violationService, logger)
 	settingsHandler := handler.NewSettingsHandler(userService, logger)
 	clientHandler := handler.NewClientHandler(clientService, logger)
 	reportHandler := handler.NewReportHandler(reportService, storageService, logger)
