@@ -20,6 +20,20 @@ import (
 )
 
 // =============================================================================
+// JobEnqueuer Interface (defined here to avoid circular imports with worker)
+// =============================================================================
+
+// JobEnqueuer abstracts job enqueueing operations for use by services.
+// This interface is satisfied by worker.JobEnqueuer.
+type JobEnqueuer interface {
+	// EnqueueAnalyzeInspection enqueues a job to analyze an inspection's images.
+	EnqueueAnalyzeInspection(ctx context.Context, inspectionID, userID uuid.UUID) (repository.Job, error)
+
+	// EnqueueGenerateReport enqueues a job to generate a report for an inspection.
+	EnqueueGenerateReport(ctx context.Context, inspectionID, userID uuid.UUID, format, recipientEmail string) (repository.Job, error)
+}
+
+// =============================================================================
 // Interface Definition
 // =============================================================================
 
@@ -70,6 +84,13 @@ type InspectionService interface {
 	// CompleteAnalysis transitions an inspection from analyzing to review status.
 	// Returns domain.EINVALID if the current status does not allow this transition.
 	CompleteAnalysis(ctx context.Context, inspectionID, userID uuid.UUID) error
+
+	// TriggerAnalysis enqueues a job to analyze an inspection's images.
+	// Returns domain.EINVALID if the inspection cannot be analyzed.
+	TriggerAnalysis(ctx context.Context, inspectionID, userID uuid.UUID) error
+
+	// HasPendingAnalysisJob checks if there is a pending or running analysis job for the inspection.
+	HasPendingAnalysisJob(ctx context.Context, inspectionID uuid.UUID) (bool, error)
 }
 
 // =============================================================================
@@ -78,26 +99,30 @@ type InspectionService interface {
 
 // inspectionService implements the InspectionService interface.
 type inspectionService struct {
-	queries *repository.Queries
-	logger  *slog.Logger
+	queries     *repository.Queries
+	jobEnqueuer JobEnqueuer
+	logger      *slog.Logger
 }
 
 // NewInspectionService creates a new InspectionService.
 //
 // Parameters:
 // - queries: Repository queries for database access
+// - jobEnqueuer: Job enqueuer for background jobs (can be nil if job enqueueing not needed)
 // - logger: Structured logger for operation logging
 //
 // Example usage:
 //
-//	inspectionService := service.NewInspectionService(repo, logger)
+//	inspectionService := service.NewInspectionService(repo, jobEnqueuer, logger)
 func NewInspectionService(
 	queries *repository.Queries,
+	jobEnqueuer JobEnqueuer,
 	logger *slog.Logger,
 ) InspectionService {
 	return &inspectionService{
-		queries: queries,
-		logger:  logger,
+		queries:     queries,
+		jobEnqueuer: jobEnqueuer,
+		logger:      logger,
 	}
 }
 
@@ -673,4 +698,45 @@ func nullUUIDToPtr(nu uuid.NullUUID) *uuid.UUID {
 		return nil
 	}
 	return &nu.UUID
+}
+
+// =============================================================================
+// TriggerAnalysis
+// =============================================================================
+
+// TriggerAnalysis enqueues a job to analyze an inspection's images.
+func (s *inspectionService) TriggerAnalysis(ctx context.Context, inspectionID, userID uuid.UUID) error {
+	const op = "inspection.trigger_analysis"
+
+	if s.jobEnqueuer == nil {
+		return domain.Internal(nil, op, "job enqueuer not configured")
+	}
+
+	_, err := s.jobEnqueuer.EnqueueAnalyzeInspection(ctx, inspectionID, userID)
+	if err != nil {
+		return domain.Internal(err, op, "failed to enqueue analysis job")
+	}
+
+	s.logger.Info("Analysis job enqueued",
+		"inspection_id", inspectionID,
+		"user_id", userID,
+	)
+
+	return nil
+}
+
+// =============================================================================
+// HasPendingAnalysisJob
+// =============================================================================
+
+// HasPendingAnalysisJob checks if there is a pending or running analysis job.
+func (s *inspectionService) HasPendingAnalysisJob(ctx context.Context, inspectionID uuid.UUID) (bool, error) {
+	const op = "inspection.has_pending_analysis_job"
+
+	hasPending, err := s.queries.HasPendingAnalysisJob(ctx, inspectionID.String())
+	if err != nil {
+		return false, domain.Internal(err, op, "failed to check pending analysis job")
+	}
+
+	return hasPending, nil
 }

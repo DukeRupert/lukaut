@@ -10,6 +10,42 @@ import (
 	"github.com/google/uuid"
 )
 
+// =============================================================================
+// JobEnqueuer Interface
+// =============================================================================
+
+// JobEnqueuer abstracts job enqueueing operations for use by services.
+// This allows services to enqueue jobs without direct repository dependency.
+type JobEnqueuer interface {
+	// EnqueueAnalyzeInspection enqueues a job to analyze an inspection's images.
+	EnqueueAnalyzeInspection(ctx context.Context, inspectionID, userID uuid.UUID, opts ...EnqueueOption) (repository.Job, error)
+
+	// EnqueueGenerateReport enqueues a job to generate a report for an inspection.
+	EnqueueGenerateReport(ctx context.Context, inspectionID, userID uuid.UUID, format, recipientEmail string, opts ...EnqueueOption) (repository.Job, error)
+}
+
+// jobEnqueuer implements the JobEnqueuer interface.
+type jobEnqueuer struct {
+	queries *repository.Queries
+}
+
+// NewJobEnqueuer creates a new JobEnqueuer.
+func NewJobEnqueuer(queries *repository.Queries) JobEnqueuer {
+	return &jobEnqueuer{
+		queries: queries,
+	}
+}
+
+// EnqueueAnalyzeInspection enqueues an inspection analysis job.
+func (e *jobEnqueuer) EnqueueAnalyzeInspection(ctx context.Context, inspectionID, userID uuid.UUID, opts ...EnqueueOption) (repository.Job, error) {
+	return EnqueueAnalyzeInspection(ctx, e.queries, inspectionID, userID, opts...)
+}
+
+// EnqueueGenerateReport enqueues a report generation job.
+func (e *jobEnqueuer) EnqueueGenerateReport(ctx context.Context, inspectionID, userID uuid.UUID, format, recipientEmail string, opts ...EnqueueOption) (repository.Job, error) {
+	return EnqueueGenerateReport(ctx, e.queries, inspectionID, userID, format, recipientEmail, opts...)
+}
+
 // Job type constants - these must match the JobHandler.Type() values
 const (
 	JobTypeAnalyzeInspection = "analyze_inspection"

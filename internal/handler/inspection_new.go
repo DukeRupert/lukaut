@@ -12,12 +12,10 @@ import (
 
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
-	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/templ/components/pagination"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/inspections"
 	"github.com/DukeRupert/lukaut/internal/templ/partials"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
-	"github.com/DukeRupert/lukaut/internal/worker"
 	"github.com/google/uuid"
 )
 
@@ -292,33 +290,31 @@ func (h *InspectionHandler) ShowTempl(w http.ResponseWriter, r *http.Request) {
 		Rejected:  domainCounts.Rejected,
 	}
 
-	// Fetch reports for this inspection
-	repoReports, err := h.queries.ListReportsByInspectionID(r.Context(), id)
+	// Fetch reports for this inspection via service
+	reports, err := h.reportService.ListByInspection(r.Context(), id, user.ID)
 	if err != nil {
 		h.logger.Error("failed to list reports", "error", err, "inspection_id", id)
-		repoReports = []repository.Report{}
+		reports = []domain.Report{}
 	}
 
-	// Filter to user's reports and convert to display format
+	// Convert to display format
 	var reportDisplays []inspections.ReportDisplay
-	for _, report := range repoReports {
-		if report.UserID == user.ID {
-			reportDisplays = append(reportDisplays, inspections.ReportDisplay{
-				ID:             report.ID.String(),
-				GeneratedAt:    report.GeneratedAt.Time.Format("Jan 2, 2006 3:04 PM"),
-				ViolationCount: int(report.ViolationCount),
-				HasPDF:         report.PdfStorageKey.Valid,
-				HasDOCX:        report.DocxStorageKey.Valid,
-			})
-		}
+	for _, report := range reports {
+		reportDisplays = append(reportDisplays, inspections.ReportDisplay{
+			ID:             report.ID.String(),
+			GeneratedAt:    report.GeneratedAt.Format("Jan 2, 2006 3:04 PM"),
+			ViolationCount: report.ViolationCount,
+			HasPDF:         report.HasPDF(),
+			HasDOCX:        report.HasDOCX(),
+		})
 	}
 
 	// Fetch client email if inspection has a client
 	var clientEmail string
 	if inspection.ClientID != nil {
-		client, err := h.queries.GetClientByID(r.Context(), *inspection.ClientID)
-		if err == nil && client.Email.Valid {
-			clientEmail = client.Email.String
+		client, err := h.clientService.GetByID(r.Context(), *inspection.ClientID, user.ID)
+		if err == nil && client.Email != "" {
+			clientEmail = client.Email
 		}
 	}
 
@@ -631,8 +627,8 @@ func (h *InspectionHandler) GenerateReport(w http.ResponseWriter, r *http.Reques
 	// Get recipient email from form (optional)
 	recipientEmail := r.FormValue("recipient_email")
 
-	// Enqueue the report generation job
-	_, err = worker.EnqueueGenerateReport(r.Context(), h.queries, id, user.ID, format, recipientEmail)
+	// Enqueue the report generation job via service
+	err = h.reportService.TriggerGeneration(r.Context(), id, user.ID, format, recipientEmail)
 	if err != nil {
 		h.logger.Error("failed to enqueue report generation job", "error", err, "inspection_id", id)
 		http.Error(w, "Failed to start report generation", http.StatusInternalServerError)

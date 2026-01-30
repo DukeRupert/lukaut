@@ -27,6 +27,7 @@ import (
 	"github.com/DukeRupert/lukaut/internal/storage"
 	publicpages "github.com/DukeRupert/lukaut/internal/templ/pages/public"
 	"github.com/DukeRupert/lukaut/internal/worker"
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -88,11 +89,15 @@ func run() error {
 	}
 	logger.Info("Storage service initialized", "provider", cfg.StorageProvider)
 
+	// Initialize job enqueuer for services
+	jobEnqueuer := newServiceJobEnqueuer(worker.NewJobEnqueuer(repo))
+
 	// Initialize services
 	userService := service.NewUserService(repo, logger)
-	inspectionService := service.NewInspectionService(repo, logger)
+	inspectionService := service.NewInspectionService(repo, jobEnqueuer, logger)
 	violationService := service.NewViolationService(repo, logger)
 	clientService := service.NewClientService(repo, logger)
+	reportService := service.NewReportService(repo, storageService, jobEnqueuer, logger)
 
 	// Initialize thumbnail processor
 	thumbnailProcessor := service.NewImagingProcessor()
@@ -159,10 +164,7 @@ func run() error {
 			return fmt.Errorf("worker initialization failed: %w", err)
 		}
 
-		// Initialize report service for report generation jobs
-		reportService := service.NewReportService(repo, storageService, logger)
-
-		// Register job handlers
+		// Register job handlers (reportService already initialized above)
 		jobWorker.Register(jobs.NewAnalyzeInspectionHandler(repo, aiProvider, storageService, inspectionService, violationService, logger))
 		jobWorker.Register(jobs.NewGenerateReportHandler(repo, storageService, emailService, reportService, logger, cfg.BaseURL))
 
@@ -191,13 +193,13 @@ func run() error {
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userService, emailService, inviteValidator, logger, isSecure)
 	dashboardHandler := handler.NewDashboardHandler(repo, logger)
-	inspectionHandler := handler.NewInspectionHandler(inspectionService, imageService, violationService, clientService, repo, logger)
-	imageHandler := handler.NewImageHandler(imageService, inspectionService, repo, logger)
+	inspectionHandler := handler.NewInspectionHandler(inspectionService, imageService, violationService, clientService, reportService, logger)
+	imageHandler := handler.NewImageHandler(imageService, inspectionService, logger)
 	violationHandler := handler.NewViolationHandler(violationService, inspectionService, imageService, logger)
 	regulationHandler := handler.NewRegulationHandler(repo, logger)
 	settingsHandler := handler.NewSettingsHandler(userService, logger)
 	clientHandler := handler.NewClientHandler(clientService, logger)
-	reportHandler := handler.NewReportHandler(repo, storageService, logger)
+	reportHandler := handler.NewReportHandler(reportService, storageService, logger)
 	adminHandler := handler.NewAdminHandler(repo, logger)
 	// Initialize billing service (conditionally — nil when Stripe not configured)
 	var billingService billing.Service
@@ -377,4 +379,30 @@ func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// =============================================================================
+// JobEnqueuer Adapter
+// =============================================================================
+
+// serviceJobEnqueuer adapts worker.JobEnqueuer to service.JobEnqueuer.
+// This bridges the worker interface (with variadic options) to the service
+// interface (without options) to avoid circular import issues.
+type serviceJobEnqueuer struct {
+	enqueuer worker.JobEnqueuer
+}
+
+// newServiceJobEnqueuer creates a new adapter.
+func newServiceJobEnqueuer(enqueuer worker.JobEnqueuer) *serviceJobEnqueuer {
+	return &serviceJobEnqueuer{enqueuer: enqueuer}
+}
+
+// EnqueueAnalyzeInspection implements service.JobEnqueuer.
+func (a *serviceJobEnqueuer) EnqueueAnalyzeInspection(ctx context.Context, inspectionID, userID uuid.UUID) (repository.Job, error) {
+	return a.enqueuer.EnqueueAnalyzeInspection(ctx, inspectionID, userID)
+}
+
+// EnqueueGenerateReport implements service.JobEnqueuer.
+func (a *serviceJobEnqueuer) EnqueueGenerateReport(ctx context.Context, inspectionID, userID uuid.UUID, format, recipientEmail string) (repository.Job, error) {
+	return a.enqueuer.EnqueueGenerateReport(ctx, inspectionID, userID, format, recipientEmail)
 }

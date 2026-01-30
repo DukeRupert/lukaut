@@ -20,10 +20,21 @@ import (
 // Interface Definition
 // =============================================================================
 
-// ReportService defines operations for preparing report data.
+// ReportService defines operations for managing and generating reports.
 type ReportService interface {
 	// PrepareReportData aggregates all data needed for report generation.
 	PrepareReportData(ctx context.Context, inspectionID, userID uuid.UUID) (*domain.ReportData, error)
+
+	// GetByID retrieves a report by ID with user authorization.
+	// Returns domain.ENOTFOUND if report doesn't exist or doesn't belong to user.
+	GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.Report, error)
+
+	// ListByInspection returns all reports for an inspection owned by the user.
+	ListByInspection(ctx context.Context, inspectionID, userID uuid.UUID) ([]domain.Report, error)
+
+	// TriggerGeneration enqueues a job to generate a report.
+	// Returns domain.EINVALID if generation cannot proceed.
+	TriggerGeneration(ctx context.Context, inspectionID, userID uuid.UUID, format, recipientEmail string) error
 }
 
 // =============================================================================
@@ -31,21 +42,24 @@ type ReportService interface {
 // =============================================================================
 
 type reportService struct {
-	queries *repository.Queries
-	storage storage.Storage
-	logger  *slog.Logger
+	queries     *repository.Queries
+	storage     storage.Storage
+	jobEnqueuer JobEnqueuer
+	logger      *slog.Logger
 }
 
 // NewReportService creates a new ReportService.
 func NewReportService(
 	queries *repository.Queries,
 	storage storage.Storage,
+	jobEnqueuer JobEnqueuer,
 	logger *slog.Logger,
 ) ReportService {
 	return &reportService{
-		queries: queries,
-		storage: storage,
-		logger:  logger,
+		queries:     queries,
+		storage:     storage,
+		jobEnqueuer: jobEnqueuer,
+		logger:      logger,
 	}
 }
 
@@ -235,4 +249,103 @@ func formatAddress(line1, line2, city, state, postal string) string {
 		}
 	}
 	return addr
+}
+
+// =============================================================================
+// GetByID
+// =============================================================================
+
+// GetByID retrieves a report by ID with user authorization.
+func (s *reportService) GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.Report, error) {
+	const op = "report.get_by_id"
+
+	report, err := s.queries.GetReportByIDAndUserID(ctx, repository.GetReportByIDAndUserIDParams{
+		ID:     id,
+		UserID: userID,
+	})
+	if err != nil {
+		return nil, domain.NotFound(op, "report", id.String())
+	}
+
+	return s.repoReportToDomain(report), nil
+}
+
+// =============================================================================
+// ListByInspection
+// =============================================================================
+
+// ListByInspection returns all reports for an inspection owned by the user.
+func (s *reportService) ListByInspection(ctx context.Context, inspectionID, userID uuid.UUID) ([]domain.Report, error) {
+	const op = "report.list_by_inspection"
+
+	repoReports, err := s.queries.ListReportsByInspectionID(ctx, inspectionID)
+	if err != nil {
+		return nil, domain.Internal(err, op, "failed to list reports")
+	}
+
+	// Filter to only reports owned by this user
+	var reports []domain.Report
+	for _, r := range repoReports {
+		if r.UserID == userID {
+			reports = append(reports, *s.repoReportToDomain(r))
+		}
+	}
+
+	return reports, nil
+}
+
+// =============================================================================
+// TriggerGeneration
+// =============================================================================
+
+// TriggerGeneration enqueues a job to generate a report.
+func (s *reportService) TriggerGeneration(ctx context.Context, inspectionID, userID uuid.UUID, format, recipientEmail string) error {
+	const op = "report.trigger_generation"
+
+	if s.jobEnqueuer == nil {
+		return domain.Internal(nil, op, "job enqueuer not configured")
+	}
+
+	_, err := s.jobEnqueuer.EnqueueGenerateReport(ctx, inspectionID, userID, format, recipientEmail)
+	if err != nil {
+		return domain.Internal(err, op, "failed to enqueue report generation job")
+	}
+
+	s.logger.Info("Report generation job enqueued",
+		"inspection_id", inspectionID,
+		"user_id", userID,
+		"format", format,
+	)
+
+	return nil
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+// repoReportToDomain converts a repository Report to a domain Report.
+func (s *reportService) repoReportToDomain(r repository.Report) *domain.Report {
+	var pdfKey, docxKey string
+	if r.PdfStorageKey.Valid {
+		pdfKey = r.PdfStorageKey.String
+	}
+	if r.DocxStorageKey.Valid {
+		docxKey = r.DocxStorageKey.String
+	}
+
+	generatedAt := time.Time{}
+	if r.GeneratedAt.Valid {
+		generatedAt = r.GeneratedAt.Time
+	}
+
+	return &domain.Report{
+		ID:             r.ID,
+		InspectionID:   r.InspectionID,
+		UserID:         r.UserID,
+		PDFStorageKey:  pdfKey,
+		DOCXStorageKey: docxKey,
+		ViolationCount: int(r.ViolationCount),
+		GeneratedAt:    generatedAt,
+	}
 }

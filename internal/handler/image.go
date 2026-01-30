@@ -10,10 +10,8 @@ import (
 
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
-	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/service"
 	"github.com/DukeRupert/lukaut/internal/templ/partials"
-	"github.com/DukeRupert/lukaut/internal/worker"
 	"github.com/google/uuid"
 )
 
@@ -47,7 +45,6 @@ type ImageDisplay struct {
 type ImageHandler struct {
 	imageService      service.ImageService
 	inspectionService service.InspectionService
-	queries           *repository.Queries
 	logger            *slog.Logger
 }
 
@@ -55,13 +52,11 @@ type ImageHandler struct {
 func NewImageHandler(
 	imageService service.ImageService,
 	inspectionService service.InspectionService,
-	queries *repository.Queries,
 	logger *slog.Logger,
 ) *ImageHandler {
 	return &ImageHandler{
 		imageService:      imageService,
 		inspectionService: inspectionService,
-		queries:           queries,
 		logger:            logger,
 	}
 }
@@ -165,13 +160,13 @@ func (h *ImageHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	analysisEnqueued := false
 	if successCount > 0 {
 		// Check if there's already a pending or running analysis job
-		hasPending, err := h.queries.HasPendingAnalysisJob(r.Context(), inspectionID.String())
+		hasPending, err := h.inspectionService.HasPendingAnalysisJob(r.Context(), inspectionID)
 		if err != nil {
 			h.logger.Warn("failed to check pending analysis jobs", "error", err, "inspection_id", inspectionID)
 			// Continue anyway - don't fail the upload response
 		} else if !hasPending {
-			// Enqueue the analysis job
-			_, err = worker.EnqueueAnalyzeInspection(r.Context(), h.queries, inspectionID, user.ID)
+			// Enqueue the analysis job via service
+			err = h.inspectionService.TriggerAnalysis(r.Context(), inspectionID, user.ID)
 			if err != nil {
 				h.logger.Warn("failed to enqueue auto-analysis job", "error", err, "inspection_id", inspectionID)
 				// Continue anyway - don't fail the upload response
@@ -483,7 +478,7 @@ func (h *ImageHandler) ListImages(w http.ResponseWriter, r *http.Request) {
 	// Also check for pending/running analysis job in the queue
 	// This handles the case where job is queued but hasn't started yet
 	if !isAnalyzing {
-		hasPendingJob, err := h.queries.HasPendingAnalysisJob(r.Context(), inspectionID.String())
+		hasPendingJob, err := h.inspectionService.HasPendingAnalysisJob(r.Context(), inspectionID)
 		if err != nil {
 			h.logger.Warn("failed to check pending analysis job", "error", err)
 		} else if hasPendingJob {

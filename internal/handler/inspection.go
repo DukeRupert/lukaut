@@ -14,13 +14,11 @@ import (
 
 	"github.com/DukeRupert/lukaut/internal/auth"
 	"github.com/DukeRupert/lukaut/internal/domain"
-	"github.com/DukeRupert/lukaut/internal/repository"
 	"github.com/DukeRupert/lukaut/internal/service"
 	"github.com/DukeRupert/lukaut/internal/templ/components/pagination"
 	"github.com/DukeRupert/lukaut/internal/templ/pages/inspections"
 	"github.com/DukeRupert/lukaut/internal/templ/partials"
 	"github.com/DukeRupert/lukaut/internal/templ/shared"
-	"github.com/DukeRupert/lukaut/internal/worker"
 	"github.com/google/uuid"
 )
 
@@ -136,7 +134,7 @@ type InspectionHandler struct {
 	imageService      service.ImageService
 	violationService  service.ViolationService
 	clientService     service.ClientService
-	queries           *repository.Queries
+	reportService     service.ReportService
 	logger            *slog.Logger
 }
 
@@ -146,7 +144,7 @@ func NewInspectionHandler(
 	imageService service.ImageService,
 	violationService service.ViolationService,
 	clientService service.ClientService,
-	queries *repository.Queries,
+	reportService service.ReportService,
 	logger *slog.Logger,
 ) *InspectionHandler {
 	return &InspectionHandler{
@@ -154,7 +152,7 @@ func NewInspectionHandler(
 		imageService:      imageService,
 		violationService:  violationService,
 		clientService:     clientService,
-		queries:           queries,
+		reportService:     reportService,
 		logger:            logger,
 	}
 }
@@ -483,8 +481,8 @@ func (h *InspectionHandler) TriggerAnalysis(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Enqueue the analysis job
-	_, err = worker.EnqueueAnalyzeInspection(r.Context(), h.queries, id, user.ID)
+	// Enqueue the analysis job via service
+	err = h.inspectionService.TriggerAnalysis(r.Context(), id, user.ID)
 	if err != nil {
 		h.logger.Error("failed to enqueue analysis job", "error", err, "inspection_id", id)
 		http.Error(w, "Failed to start analysis", http.StatusInternalServerError)
